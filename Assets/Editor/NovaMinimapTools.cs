@@ -8,26 +8,38 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 
 // Editor menu: Tools > Nova > Minimap
-//   Add Minimap To Main Camera          one click setup, then press Play
+//   Add Minimap To Scene                one click setup, then press Play
 //   Create Demo Markers Around Player   the schema.sql seed places, moved to where the explorer stands
 //   Copy map_locations SQL              scene markers -> SQL for the database (fixes "placeholder coordinates")
 public static class NovaMinimapTools
 {
     const string Menu = "Tools/Nova/Minimap/";
 
-    [MenuItem(Menu + "Add Minimap To Main Camera")]
+    // The minimap lives on its own object, not on a camera: ExplorerRigs switches between the desktop
+    // and Quest rigs, and the minimap follows whichever camera is active (docking into the Helmet HUD on Quest).
+    [MenuItem(Menu + "Add Minimap To Scene")]
     static void AddMinimap()
     {
-        Camera cam = Camera.main != null ? Camera.main : UnityEngine.Object.FindAnyObjectByType<Camera>();
-        if (cam == null)
+        foreach (var old in UnityEngine.Object.FindObjectsByType<MarsMinimap>(FindObjectsInactive.Include, FindObjectsSortMode.None))
         {
-            EditorUtility.DisplayDialog("Nova Minimap", "No camera found in the open scene.", "OK");
-            return;
+            if (old.GetComponent<Camera>() == null)
+            {
+                Selection.activeGameObject = old.gameObject;
+                Debug.Log($"[Minimap] Already in the scene on '{old.name}'.");
+                return;
+            }
+            // Older setup put it on a camera; move it to its own object.
+            var link = old.GetComponent<MinimapApiLink>();
+            if (link != null) Undo.DestroyObjectImmediate(link);
+            Undo.DestroyObjectImmediate(old);
         }
-        if (cam.GetComponent<MarsMinimap>() == null) Undo.AddComponent<MarsMinimap>(cam.gameObject);
-        Selection.activeGameObject = cam.gameObject;
-        EditorSceneManager.MarkSceneDirty(cam.gameObject.scene);
-        Debug.Log($"[Minimap] MarsMinimap is on '{cam.name}'. Save the scene and press Play. Keys: M show/hide, [ ] zoom, N north-up.");
+
+        var go = new GameObject("Nova Minimap");
+        Undo.RegisterCreatedObjectUndo(go, "Add Nova Minimap");
+        Undo.AddComponent<MarsMinimap>(go);
+        Selection.activeGameObject = go;
+        EditorSceneManager.MarkSceneDirty(go.scene);
+        Debug.Log("[Minimap] Added 'Nova Minimap'. Save the scene and press Play. Keys: M show/hide, [ ] zoom, N north-up.");
     }
 
     // Same rows as the map_locations seed in schema.sql. Offsets are meters from the habitat.

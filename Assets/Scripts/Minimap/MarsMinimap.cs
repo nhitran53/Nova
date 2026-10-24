@@ -11,22 +11,31 @@ using Debug = UnityEngine.Debug;
 
 // NOVA helmet minimap (Stage 4).
 //
-// Add this to the Main Camera (Tools > Nova > Minimap > Add Minimap To Main Camera) and press Play.
-// It builds its own small round map, pinned to the side of the view like a helmet display:
+// Add it with Tools > Nova > Minimap > Add Minimap To Scene and press Play.
+// It builds its own small round map and follows whichever camera is active:
+//   - Quest rig: docks into the bottom-left of Cardin's Helmet HUD (same visor material, always on top)
+//   - desktop rig (no Helmet HUD): floats at the lower left of the view
 //   - the ground is a shaded-relief picture drawn from the real Jezero terrain heights
 //   - every MapMarker in the scene (and any pins from the API) is drawn as a colored dot
 //   - the white arrow in the middle is you; the map turns so "up" is where you are looking
 //   - markers that are too far away stick to the rim, so you can still see which way home is
 //
 // No prefabs or scene wiring needed, so it won't conflict with teammates editing the scene.
-// Works the same on desktop (Mars Explorer) and later on Quest (the XR camera is still Camera.main).
 public class MarsMinimap : MonoBehaviour
 {
     [Header("Astronaut")]
-    [Tooltip("The eye/head. Empty = this object if it is a camera, otherwise Camera.main.")]
+    [Tooltip("The eye/head. Leave empty: it follows whichever camera is active (desktop or Quest rig).")]
     public Transform head;
 
-    [Header("Placement in the helmet (measured from the eye)")]
+    [Header("Docking into the Helmet HUD (Quest rig)")]
+    [Tooltip("If the active camera has a Helmet HUD, put the minimap inside it.")]
+    public bool dockIntoHelmetHud = true;
+    [Tooltip("Center of the minimap in Helmet HUD canvas units (canvas is 1280 x 800, center = 0,0). Bottom-left is free.")]
+    public Vector2 hudSlot = new Vector2(-430f, -190f);
+    [Tooltip("Diameter of the minimap in Helmet HUD canvas units.")]
+    public float hudDiameter = 300f;
+
+    [Header("Floating placement when there is no Helmet HUD (measured from the eye)")]
     [Min(0.2f)] public float distance = 0.6f;
     [Tooltip("Negative = left of center.")]
     [Range(-60f, 60f)] public float yawDeg = -28f;
@@ -64,12 +73,15 @@ public class MarsMinimap : MonoBehaviour
     public float HeadingDeg { get; private set; }   // 0..360, 0 = north (+z), 90 = east (+x)
     public float ViewMeters => zoomLevelsMeters[Mathf.Clamp(zoomIndex, 0, zoomLevelsMeters.Length - 1)];
     public bool Visible => canvasGO != null && canvasGO.activeSelf;
+    public bool DockedInHelmetHud { get; private set; }
 
     const float PX = 512f;      // the map circle is 512 canvas units wide (then scaled down to sizeMeters)
     const float IconPx = 26f;
 
     // UI
     int uiLayer;
+    Material uiMaterial;   // null = Unity's default UI material; the visor material when docked
+    Transform attachedTo;
     Font font;
     Sprite discSprite, ringSprite, badgeSprite, arrowSprite;
     GameObject canvasGO;
@@ -155,9 +167,6 @@ public class MarsMinimap : MonoBehaviour
         if (zoomLevelsMeters == null || zoomLevelsMeters.Length == 0) zoomLevelsMeters = new[] { 1000f };
         SetZoomIndex(zoomIndex);
         textureSize = Mathf.Clamp(textureSize, 64, 2048);
-        if (head == null)
-            head = GetComponent<Camera>() != null ? transform : (Camera.main != null ? Camera.main.transform : null);
-
         BuildHud();
         ScanTerrains();
     }
@@ -181,13 +190,13 @@ public class MarsMinimap : MonoBehaviour
     void LateUpdate()   // after Mars Explorer has moved this frame
     {
         if (canvasGO == null) return;
-        if (head == null)
-        {
-            if (Camera.main == null) return;
-            head = Camera.main.transform;
-        }
-        if (canvasGO.transform.parent != head) canvasGO.transform.SetParent(head, false);
-        ApplyPlacement();
+
+        // Follow the active camera. ExplorerRigs turns on either the desktop rig or the Quest rig at startup.
+        if (head == null || !head.gameObject.activeInHierarchy)
+            head = Camera.main != null ? Camera.main.transform : null;
+        if (head == null) return;
+        if (attachedTo != head) Attach();
+        if (!DockedInHelmetHud) ApplyPlacement();
         HandleKeys();
 
         // Always track the astronaut, even while the map is hidden (the API link reads these).
@@ -213,6 +222,48 @@ public class MarsMinimap : MonoBehaviour
             nextInfo = Time.unscaledTime + 0.25f;
             UpdateInfoText();
         }
+    }
+
+    // Dock into the Helmet HUD if this camera has one, otherwise float in front of the eye.
+    void Attach()
+    {
+        attachedTo = head;
+        var root = (RectTransform)canvasGO.transform;
+        HelmetHUD hud = dockIntoHelmetHud ? head.GetComponentInChildren<HelmetHUD>(true) : null;
+        if (hud != null)
+        {
+            root.SetParent(hud.transform, false);       // HelmetHUD sits on the HUD's Canvas
+            root.anchoredPosition3D = new Vector3(hudSlot.x, hudSlot.y, 0f);
+            root.localRotation = Quaternion.identity;
+            root.localScale = Vector3.one * (hudDiameter / PX);
+            SetMaterial(FindVisorMaterial(hud));
+            DockedInHelmetHud = true;
+        }
+        else
+        {
+            root.SetParent(head, false);
+            SetMaterial(null);
+            DockedInHelmetHud = false;
+            ApplyPlacement();
+        }
+        Debug.Log(DockedInHelmetHud ? $"[Minimap] Docked into Helmet HUD on '{head.name}'." : $"[Minimap] Floating in front of '{head.name}'.");
+    }
+
+    // Reuse the HUD's "Nova/Visor UI" material: always drawn on top of terrain, and it supports the round mask.
+    static Material FindVisorMaterial(HelmetHUD hud)
+    {
+        foreach (var g in hud.GetComponentsInChildren<Graphic>(true))
+        {
+            var m = g.material;
+            if (m != null && m.shader != null && m.shader.name == "Nova/Visor UI") return m;
+        }
+        return null;
+    }
+
+    void SetMaterial(Material m)
+    {
+        uiMaterial = m;
+        foreach (var g in canvasGO.GetComponentsInChildren<Graphic>(true)) g.material = m;
     }
 
     void ApplyPlacement()
@@ -267,7 +318,7 @@ public class MarsMinimap : MonoBehaviour
         canvasGO.GetComponent<Canvas>().renderMode = RenderMode.WorldSpace;
         var root = (RectTransform)canvasGO.transform;
         root.sizeDelta = new Vector2(PX + 80f, PX + 120f);
-        if (head != null) root.SetParent(head, false);
+        canvasGO.SetActive(enabled);
 
         frame = NewImage("Rim", root, ringSprite, PX + 18f);
 
@@ -281,6 +332,7 @@ public class MarsMinimap : MonoBehaviour
         var terrainRt = NewRect("Terrain", rotator, new Vector2(PX, PX));
         terrainImage = terrainRt.gameObject.AddComponent<RawImage>();
         terrainImage.raycastTarget = false;
+        terrainImage.material = uiMaterial;
         terrainImage.enabled = false;
 
         zoneLayer = NewRect("Zones", rotator, new Vector2(PX, PX));
@@ -319,6 +371,7 @@ public class MarsMinimap : MonoBehaviour
         var img = NewRect(name, parent, new Vector2(size, size)).gameObject.AddComponent<Image>();
         img.sprite = sprite;
         img.raycastTarget = false;
+        img.material = uiMaterial;
         return img;
     }
 
@@ -332,6 +385,7 @@ public class MarsMinimap : MonoBehaviour
         t.verticalOverflow = VerticalWrapMode.Overflow;
         t.color = Color.white;
         t.raycastTarget = false;
+        t.material = uiMaterial;
         var outline = t.gameObject.AddComponent<Outline>();
         outline.effectColor = new Color(0f, 0f, 0f, 0.85f);
         outline.effectDistance = new Vector2(1.5f, -1.5f);
