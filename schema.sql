@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS planets (
 -- 2. Mission settings
 CREATE TABLE IF NOT EXISTS missions (
     id SERIAL PRIMARY KEY,
-    name TEXT NOT NULL DEFAULT 'EVA-1',
+    name TEXT NOT NULL DEFAULT 'NOVA-1',
     astronaut TEXT NOT NULL DEFAULT 'Commander',
     planet_id TEXT NOT NULL REFERENCES planets(id),
 
