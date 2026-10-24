@@ -1,0 +1,13 @@
+{
+  "_comment": "PLACEHOLDER label set. Replace with the real 10 classes (get_alerts/get_state stay unmerged). Order defines class indices: a fine-tuned model is only valid with the label order it was trained with.",
+  "labels": [
+    "call_safety",
+    "call_navigation",
+    "call_map",
+    "call_data",
+    "call_o2",
+    "call_llm",
+    "NO_TOOL",
+    "OOD"
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "_comment": "15 hand-written utterances for a quick eyeball check of a trained checkpoint. NOT produced by, derived from, or to be added to data/gen_synthetic.py; do not tune training data against them.",
+  "calls": [
+    {"text": "is it okay to walk out to the crater tonight", "label": "call_safety"},
+    {"text": "are there any dangers on the way to the lander", "label": "call_safety"},
+    {"text": "which way do I walk to get back to the habitat", "label": "call_navigation"},
+    {"text": "give me the heading for the landing pad", "label": "call_navigation"},
+    {"text": "bring the map up and zoom in", "label": "call_map"},
+    {"text": "put a waypoint right here", "label": "call_map"},
+    {"text": "read me my battery and heart rate", "label": "call_data"},
+    {"text": "what are my suit numbers right now", "label": "call_data"},
+    {"text": "how much oxygen is left in my tank", "label": "call_o2"},
+    {"text": "how quickly am I using up my oxygen", "label": "call_o2"},
+    {"text": "explain why mars has such thin air", "label": "call_llm"},
+    {"text": "nice to meet you", "label": "NO_TOOL"},
+    {"text": "thanks that was helpful", "label": "NO_TOOL"},
+    {"text": "what's the best way to bake sourdough bread", "label": "OOD"},
+    {"text": "asdf qwerty zxcv", "label": "OOD"}
+  ]
+}

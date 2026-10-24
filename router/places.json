@@ -1,0 +1,26 @@
+{
+  "_comment": "Gazetteer: canonical place id -> aliases. The id itself (underscores as spaces) is an implicit alias. Aliases must be unique across places and must not contain stopwords (see places.py). Fuzzy matching ignores spaces, so 'home base' == 'homebase'.",
+  "places": {
+    "homebase": ["home", "home base", "homebase", "base", "base camp", "basecamp", "camp"],
+    "habitat": ["habitat", "hab", "habitation module"],
+    "airlock": ["airlock", "air lock"],
+    "rover": ["rover", "buggy", "moon buggy"],
+    "lander": ["lander", "landing module"],
+    "landing_pad": ["landing pad", "pad"],
+    "landing_site": ["landing site"],
+    "crater": ["crater"],
+    "crater_rim": ["crater rim"],
+    "ridge": ["ridge", "ridgeline"],
+    "outpost": ["outpost"],
+    "greenhouse": ["greenhouse", "green house"],
+    "supply_depot": ["supply depot", "depot"],
+    "sample_depot": ["sample depot"],
+    "comms_tower": ["comms tower", "communications tower", "relay tower"],
+    "solar_farm": ["solar farm", "solar array"],
+    "ice_shelf": ["ice shelf"],
+    "lava_tube": ["lava tube"],
+    "dune_field": ["dune field"],
+    "quarry": ["quarry", "old quarry"],
+    "east_outcrop": ["east outcrop", "outcrop"]
+  }
+}

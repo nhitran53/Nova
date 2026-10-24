@@ -1,0 +1,37 @@
+[project]
+name = "nova-router"
+version = "0.1.0"
+description = "ModernBERT text classifier router scaffold"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "torch",
+    "transformers>=4.48",
+    "safetensors",
+    "huggingface_hub",
+    "numpy",
+    "elevenlabs>=2.74.1",
+    "python-dotenv>=1.2.4",
+]
+
+[dependency-groups]
+dev = ["pytest"]
+
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["router"]
+package-dir = {router = "."}
+
+[tool.setuptools.package-data]
+router = ["labels.json", "places.json", "pipeline_config.json", "turn_policy.json"]
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
