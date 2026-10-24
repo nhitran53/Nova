@@ -24,7 +24,7 @@ ROWS = [
     ("call_navigation", 0.89, "OOD"),              # below tau_hi: not accepted, not HCW
     ("call_safety", 0.99, "call_safety"),
     ("call_safety", 0.97, "call_llm"),             # HCW: false activation
-    ("call_data", 0.96, "call_o2"),                # read-only tool error: not in action total
+    ("call_data", 0.96, "call_o2"),                # wrong tool (data for o2): counts in the action total
     ("NO_TOOL", 0.99, "call_navigation"),          # missed tool: other error
     ("OOD", 0.95, "OOD"),
     ("call_map", 0.60, "call_map"),
@@ -39,12 +39,12 @@ def test_counts_split_false_activation_from_wrong_tool_and_other_errors():
     assert (nav["hcw_false_activation"], nav["hcw_wrong_tool"]) == (1, 1)
     assert nav["wrong_by_true_label"] == {"call_map": 1, "NO_TOOL": 1}
     assert (safety["accepted"], safety["hcw"], safety["hcw_false_activation"]) == (2, 1, 1)
-    assert data["hcw"] == 1 and not data["action"]
-    assert s["action_hcw"] == 3 and s["action_hcw_false_activation"] == 2 and s["action_hcw_wrong_tool"] == 1
-    assert s["action_hcw_rate"] == pytest.approx(3 / 10)
+    assert data["hcw"] == 1 and data["action"] and data["wrong_by_true_label"] == {"call_o2": 1}
+    assert s["action_hcw"] == 4 and s["action_hcw_false_activation"] == 2 and s["action_hcw_wrong_tool"] == 2
+    assert s["action_hcw_rate"] == pytest.approx(4 / 10)
     assert nav["hcw_rate_over_accepted"] == pytest.approx(2 / 3) and nav["hcw_rate_over_all"] == pytest.approx(2 / 10)
-    # argmax errors (rows 2,3,4,6,7,8) = 3 HCW + below-tau_hi nav error + call_data error + missed tool
-    assert s["total_errors_argmax"] == 6 and s["errors_not_counted_as_action_hcw"] == 3
+    # argmax errors (rows 2,3,4,6,7,8) = 4 HCW + below-tau_hi nav error + missed tool
+    assert s["total_errors_argmax"] == 6 and s["errors_not_counted_as_action_hcw"] == 2
 
 
 def test_tau_hi_boundary_is_inclusive_and_raising_it_drops_hcw():
@@ -55,8 +55,8 @@ def test_tau_hi_boundary_is_inclusive_and_raising_it_drops_hcw():
     assert rates == sorted(rates, reverse=True)
 
 
-def test_default_action_labels_are_safety_navigation_map_and_only_those_enter_the_total():
-    assert ACTION_LABELS == ("call_safety", "call_navigation", "call_map")
+def test_default_action_labels_are_all_five_tools_and_only_action_labels_enter_the_total():
+    assert ACTION_LABELS == ("call_safety", "call_navigation", "call_map", "call_data", "call_o2")
     probs, y = probs_for(ROWS)
     s = gate_stats(probs, y, LABELS, 0.90, TOOLS, action_labels=("call_data",))
     assert s["action_hcw"] == 1  # only call_data counted when overridden

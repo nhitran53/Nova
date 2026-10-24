@@ -44,9 +44,21 @@ def test_navigation_resolves_place():
                    "label": "call_navigation", "gate": "tau_hi"}
 
 
-def test_map_resolves_place_and_omits_it_when_absent():
+def test_map_resolves_place():
     assert run("call_map", "zoom in on the airlock")["args"] == {"place": "airlock"}
-    assert run("call_map", "zoom out")["args"] == {}
+
+
+@pytest.mark.parametrize("label, tool", [("call_navigation", "navigation"), ("call_map", "map")])
+@pytest.mark.parametrize("text", ["take me there", "zoom out", "show me the way"])
+def test_required_place_missing_is_a_clarify_route_never_a_tool_route(label, tool, text):
+    out = run(label, text)
+    assert out["route"] == "clarify" and out["reason"] == "missing_slot"
+    assert out["tool"] == tool and out["missing"] == ["place"] and out["question"] is None
+
+
+def test_missing_slot_also_blocks_the_arbiter_agree_path():
+    out = run("call_navigation", "take me there", confidence=0.7, arbiter_fn=FakeArbiter("call_navigation"))
+    assert out["route"] == "clarify" and out["reason"] == "missing_slot"
 
 
 @pytest.mark.parametrize("label, tool", [("call_safety", "safety"), ("call_data", "data"), ("call_o2", "o2")])
@@ -81,7 +93,7 @@ def test_shipped_thresholds_are_tau_hi_090_tau_lo_050():
 
 
 def gate(confidence, arbiter=None, label="call_o2", **kwargs):
-    return Pipeline(FakeRouter(label, confidence), arbiter_fn=arbiter, **kwargs).handle("check my oxygen")
+    return Pipeline(FakeRouter(label, confidence), arbiter_fn=arbiter, **kwargs).handle("check my oxygen at the airlock")
 
 
 @pytest.mark.parametrize("confidence", [0.9, 0.95, 1.0])

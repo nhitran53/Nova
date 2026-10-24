@@ -142,6 +142,9 @@ def test_origin_is_reported_as_excluded_with_its_role():
     ("go to the rover instead of the airlock", "rover", "airlock"),
     ("go to the rover rather than the airlock", "rover", "airlock"),
     ("take me to the airlock never the habitat", "airlock", "habitat"),
+    ("take me to the rover don't go to the airlock", "rover", "airlock"),
+    ("take me to the rover dont go home", "rover", "homebase"),
+    ("go to the airlock and avoid the crater", "airlock", "crater"),
 ])
 def test_negated_places_are_excluded(text, place_id, negated):
     result = resolve_destination(text)
@@ -199,3 +202,10 @@ def test_negation_scope_does_not_expire_after_three_tokens():
     assert result["status"] == "resolved"
     assert result["place"]["place_id"] == "rover"
     assert [(e["place_id"], e["role"]) for e in result["excluded"]] == [("homebase", "negated")]
+
+
+def test_avoid_and_dont_alone_leave_no_destination():
+    for text in ("avoid the crater", "don't take me to the crater"):
+        result = resolve_destination(text)
+        assert result["status"] == "none" and result["place"] is None
+        assert [(e["place_id"], e["role"]) for e in result["excluded"]] == [("crater", "negated")]

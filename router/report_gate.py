@@ -3,10 +3,11 @@
     python -m router.report_gate --checkpoint $NOVA_MODELS_DIR/v2 --data-dir data/v2 [--target 0.005] [--tau-hi 0.9]
 
 Definitions (choices documented here, review finding 5):
-  * Tool classes = pipeline_config.json tool_labels. ACTION tools = call_safety, call_navigation, call_map
-    (override with --action-labels): they drive the go/no-go, movement guidance and map state, so a false
-    activation changes what the astronaut does or sees. call_data / call_o2 are read-only queries; they are
-    reported per class but are not in the action total.
+  * Tool classes = pipeline_config.json tool_labels. ACTION tools = call_safety, call_navigation, call_map,
+    call_data, call_o2 (override with --action-labels): every tool call is spoken to the astronaut as fact (go/no-go,
+    movement guidance, map state, sensor and O2 readouts), so a false activation of ANY tool changes what they hear or
+    see. All five tools are in the action total. (Earlier reports counted only safety/navigation/map; the
+    read-only data/o2 tools were reported per class but excluded.)
   * An utterance is "accepted" for class C at tau_hi when the router's top class is C and calibrated confidence
     >= tau_hi (the pipeline executes C without asking the arbiter). Everything below tau_hi goes to the arbiter or
     to clarification, which this report cannot score (the arbiter is a stub), so it conservatively counts as
@@ -16,10 +17,14 @@ Definitions (choices documented here, review finding 5):
     is shown next to it, plus a Wilson 95% upper bound on the combined action rate because n is small.
   * HCW splits into FALSE ACTIVATION (true label is NO_TOOL / call_llm / OOD: an action fired when no tool was
     wanted) and WRONG TOOL (true label is a different tool class). Other errors (missed tool, non-tool
-    confusions, read-only tool errors) are counted separately and never mixed into the action rate.
+    confusions, below-tau_hi errors) are counted separately and never mixed into the action rate.
   * tau_hi is swept; the suggestion is chosen on DEV ONLY: the lowest grid value whose combined action HCW rate
     on dev is <= target (max coverage subject to the target). Test is then scored at that value and its own
     sweep is printed for information only; nothing is tuned on test.
+
+NOT MEASURED: the mid band (tau_lo <= c < tau_hi) goes to the arbiter, which is a stub here, so "arbiter agrees
+  with a WRONG router class" (arbiter-agree-wrong) is unscored. The 0.5% rate below is therefore a LOWER BOUND on
+  the real executed-wrong rate.
 
 HONESTY NOTE: synthetic data, a few hundred rows per split; 0.5% of 320 is 1.6 utterances, so one or two errors
 decide pass/fail. Treat the numbers as a smoke test of the gate, not as evidence for real speech.
@@ -38,7 +43,7 @@ from .evaluate import compute_logits, load_jsonl, softmax
 from .pipeline import load_config
 
 HERE = Path(__file__).parent
-ACTION_LABELS = ("call_safety", "call_navigation", "call_map")
+ACTION_LABELS = ("call_safety", "call_navigation", "call_map", "call_data", "call_o2")
 NON_TOOL_LABELS = ("call_llm", "NO_TOOL", "OOD")
 TAU_HI_GRID = (0.5, 0.6, 0.7, 0.8, 0.85, 0.9, 0.92, 0.94, 0.95, 0.96, 0.97, 0.98, 0.99)
 DEFAULT_TARGET = 0.005

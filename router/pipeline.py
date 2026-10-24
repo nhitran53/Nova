@@ -14,8 +14,11 @@ The arbiter can only CONFIRM the router's class; it never selects another tool, 
 `Pipeline.handle(text)` returns one of
     {"route": "tool", "tool": "navigation", "args": {"place": "homebase"}, "confidence": 0.97, "label": "call_navigation",
      "gate": "tau_hi"|"arbiter_agree"}
-    {"route": "clarify", "reason": "arbiter_disagree"|"no_arbiter"|"arbiter_error"|"ambiguous_place",
+    {"route": "clarify", "reason": "arbiter_disagree"|"no_arbiter"|"arbiter_error"|"ambiguous_place"|"missing_slot",
      "question": "...", "options": [...], "confidence": 0.7, "label": "..."}      # deterministic text, no LLM
+    ("missing_slot": a tool in `required_slots` (pipeline_config.json) got no value, e.g. navigation/map without a
+    resolved place. It is a clarify route, never a tool route; `question` is None and `missing` lists the slots -
+    turn.py supplies the wording from turn_policy.json.)
     {"route": "llm", "reason": "OOD"|"NO_TOOL"|"call_llm"|"low_confidence", "prompt_policy": "...",
      "response": <llm_fn output>, "confidence": 0.9, "label": "..."}
 Navigation/map resolve a place with places.resolve_destination; two or more candidate places -> clarify
@@ -115,6 +118,10 @@ class Pipeline:
                         "options": [c["place_id"] for c in resolution["candidates"]]}
             if resolution["status"] == "resolved":
                 args["place"] = resolution["place"]["place_id"]
+        missing = [slot for slot in tool_cfg.get("required_slots", []) if slot not in args]
+        if missing:  # a tool route with an unfilled required slot must never execute (the caller asks the question)
+            return {"route": "clarify", "reason": "missing_slot", "label": label, "confidence": confidence,
+                    "tool": tool_cfg["tool"], "missing": missing, "question": None, "options": []}
         return {"route": "tool", "tool": tool_cfg["tool"], "args": args, "confidence": confidence, "label": label,
                 "gate": gate}
 

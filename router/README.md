@@ -149,6 +149,59 @@ Several distinct remaining destinations produce `route:"clarify"`, `reason:"ambi
 fixed slot question, never a positional guess. This is a small deterministic grammar, not a general parser;
 unknown/unmatched places still leave args empty, as do map zoom requests without a place.
 
+## Turn wrapper (`turn.py`, `tools.py`, `verifier.py`, `turn_policy.json`, `demo_turn.py`)
+
+```sh
+uv run python -m router.demo_turn            # 16 scripted turns through the real v1 router (CPU, ~8 s)
+uv run python -m router.demo_turn --fake     # same turns with a scripted fake router
+```
+
+`TurnHandler(router, alert_source, registry, llm_fn=..., arbiter_fn=...).handle(text)` order: (1) poll
+`alert_source()` (sim snapshot) - a **critical** alert speaks a fixed template and returns before the router, arbiter
+or LLM run, for every class; (2) `Pipeline.handle`; (3) required-slot check: navigation/map without a resolved place
+-> deterministic slot question, ambiguous place -> "which place" question, never a tool call (`pipeline.py` now returns
+`clarify/missing_slot` for a tool whose `required_slots` are unfilled; note map now requires a place, so "zoom out"
+alone asks where); (4) at most one call through `ToolRegistry` (max 8 tools, 1 call per turn, fixed schemas; six fake
+tools over a fabricated `SimState`, the sixth being `send_message`, which the router can never select); (5) template from the tool_result; low confidence and OOD get template replies, only
+call_llm/NO_TOOL use the injectable `llm_fn` (default stub); (6) `verifier.verify_numbers` on every spoken line - a
+number not in the source (tool_result; the sim snapshot for alerts; nothing for LLM output) replaces the line with a
+safe fallback. All wording, alert tiers, sim thresholds and alert lines live in `turn_policy.json`, **every value a
+PLACEHOLDER pending user sign-off** (the loader refuses unlabelled sections). Mid-band clarification wording still comes
+from `pipeline_config.json`. Demo note: on `Get me the coolant level.` v1 gives navigation/.896 (clarify) while v2 gave call_data/.751.
+
+### Turn follow-up: return-to-home feasibility, refill-call offer, LLM scope (2026-10-24)
+
+**Every new value below is a PLACEHOLDER in `turn_policy.json` pending user sign-off** (sections `feasibility`,
+`confirmation`, `send_message`, `llm_scope`); nothing is validated against a real suit, EVA rule or document.
+
+- **Feasibility** (`turn.assess_feasibility`, navigation only): outbound = ceil(distance_m / 60 m/min); return = the same
+  distance back (0 when the destination is in `home_places`, i.e. `homebase`); required = outbound + return + 10 min
+  reserve; O2 minutes remaining = the sim's `minutes_remaining` (floored; fallback `o2_pct` x 2.4 min/% if absent; neither
+  present -> no claim at all). Outcome: `cannot_reach` (remaining < outbound) | `cannot_return` (remaining < outbound +
+  return) | `tight` (remaining < required) | `comfortable`. All numbers are whole minutes written into
+  `tool_result["data"]["feasibility"]`, so the verifier checks the spoken line against them. The route line is always
+  spoken and the tool always runs: turn.py reports and offers, the safety loop owns go/no-go. Wart: the fabricated
+  `eta_min` in the fake navigation table can differ by 1 min from the computed outbound leg (airlock, landing_pad,
+  ice_shelf, dune_field); a real navigation tool should supply one number.
+- **Refill-call offer** (stateful): `tight`/`cannot_return`/`cannot_reach` append "Do you want me to call <place> and
+  check if they have oxygen refills?" and store `TurnHandler.pending_confirmation` (only if that line was actually
+  spoken). Next turn, after the alert poll and before the router, a deterministic matcher (word lists in policy; every
+  word must be a yes/no/filler word, both at once = neither) answers it: yes -> exactly one `send_message(recipient=
+  destination, urgency, message)` with urgency from `send_message.urgency_by_outcome` and a template message (numbers
+  verified against the feasibility data first; an unverifiable message is not sent), no -> ack, anything else ->
+  pending cleared and normal routing. Every turn consumes the pending offer; it also expires after
+  `confirmation.expiry_turns` (2) turns. A critical alert clears it. Not built: a reply channel (`send_message` is a
+  fake that returns "queued"; nobody answers).
+- **LLM scope** (placeholder policy, no documents exist): scope is decided by **router class + retrieval score + risk
+  terms, never by the LLM judging itself.** `NO_TOOL` text containing a risk term (prefix match: oxygen, pressure, suit,
+  medical, radiation, dose, emergency, battery, repair, ...) gets the "I can't answer that from memory" template and no
+  LLM call; other chitchat reaches the stub ungrounded, output number-verified. `call_llm` is grounded only: the
+  injectable `retriever(text) -> [{"text","score"}]` (none supplied, an error, or nothing >= `retrieval_min_score` 0.5
+  -> "I don't have a document for that yet.", no LLM call); otherwise the top 3 passages go to `llm_fn(text, policy,
+  passages=[...])` and the verifier also accepts numbers written in those passages (digits only; a spelled-out number
+  in a passage does not count). Risk terms are not applied to `call_llm` (retrieval gates it). Breaking change: the
+  old "call_llm goes straight to the stub" behavior is gone.
+
 ## v2 family split and verification (2026-10-24, Linux CPU)
 
 `data/gen_synthetic.py` now partitions frame-defining slot fills and destination forms by split and
@@ -176,12 +229,13 @@ these synthetic counts nor the development-adjacent paraphrase/demo sets establi
 
 ```sh
 uv run python -m router.eval_sets --checkpoint "$NOVA_MODELS_DIR/v2" --data-dir data/v2 --device cpu
-uv run python -m router.report_gate --checkpoint "$NOVA_MODELS_DIR/v2" --device cpu --report-dir /tmp/router-gate
+uv run python -m router.report_gate --checkpoint "$NOVA_MODELS_DIR/v2" --device cpu --report-dir reports
 # Repeat both with v1 for the same v2 splits. No training or real LLM calls.
 ```
 
-Action tools are **call_safety, call_navigation, call_map**: false activation changes go/no-go guidance,
-movement guidance or displayed map state. call_data/call_o2 are read-only and reported separately.
+Action tools are **all five tools: call_safety, call_navigation, call_map, call_data, call_o2** (changed
+2026-10-24; earlier numbers counted only the first three): every tool call is spoken as fact, so a false
+activation of any of them misleads the astronaut. Reports go to `router/reports/` (gitignored).
 High-confidence-wrong (HCW) means predicted tool != true class and calibrated confidence >= tau_hi.
 Rate denominator is **all utterances in the split**, not accepted predictions. The report also gives
 HCW/accepted, false activations vs wrong-tool mistakes, other argmax errors, coverage and Wilson bounds.
@@ -191,22 +245,31 @@ Sweep values: .50, .60, .70, .80, .85, .90, .92, .94, .95, .96, .97, .98, .99.
 Select the lowest grid value meeting the 0.5% combined-action HCW target on **DEV ONLY**; test sweep is
 informational, never a tuning input. Results on `data/v2` (320 dev / 320 test):
 
-| model | DEV-only suggested tau_hi | safety HCW dev/test | navigation HCW dev/test | map HCW dev/test | combined dev/test |
-|---|---:|---:|---:|---:|---:|
-| v1 | .92 | 0 / 0 | 1 / 0 | 0 / 0 | 1/320 (0.3125%) / 0/320 |
-| v2 | .98 | 1 / 0 | 0 / 0 | 0 / 0 | 1/320 (0.3125%) / 0/320 |
+Per-tool HCW (hcw/accepted) with the five-tool action set, rerun 2026-10-24 on `data/v2` (v1 T=1.501, v2 T=1.359):
 
-v1's dev HCW was a NO_TOOL false activation into navigation; v2's was navigation mistaken for safety.
-At these values, action acceptance is 98/97 (v1 dev/test), 71/71 (v2); correct-action recall at gate
-is 80.8%/80.8% and 58.3%/59.2%, respectively. v1 also has two read-only call_data HCWs on dev;
-v2 has none at .98. Other argmax errors (not action HCW) are v1 22/12 and v2 30/14 (dev/test).
-For paraphrase_test and demo_calls_47, each action tool has **zero HCW** for both models at its own
-dev-chosen threshold; v2 accepts only 11/18 true actions on demo_calls_47, so zero HCW is not high recall.
+| model, tau_hi | split | safety | navigation | map | data | o2 | combined (rate; Wilson95+) |
+|---|---|---:|---:|---:|---:|---:|---:|
+| v1 @ .97 (dev-chosen) | dev | 0/24 | 1/25 | 0/31 | 0/23 | 0/17 | 1/320 (0.312%; 1.75%) |
+| v1 @ .97 | test | 0/27 | 0/23 | 0/29 | 0/12 | 0/28 | 0/320 (0%; 1.19%) |
+| v2 @ .98 (dev-chosen) | dev | 1/18 | 0/21 | 0/32 | 0/27 | 0/17 | 1/320 (0.312%; 1.75%) |
+| v2 @ .98 | test | 0/29 | 0/17 | 0/25 | 0/20 | 0/25 | 0/320 (0%; 1.19%) |
+| v1 @ .90 (shipped) | dev | 0/28 | 2/37 | 0/36 | 2/30 | 0/27 | 4/320 (1.25%; 3.17%) |
+| v1 @ .90 | test | 1/35 | 0/31 | 0/33 | 0/26 | 0/31 | 1/320 (0.312%; 1.75%) |
+| v2 @ .90 (shipped) | dev | 1/25 | 1/34 | 0/37 | 2/35 | 0/32 | 4/320 (1.25%; 3.17%) |
+| v2 @ .90 | test | 0/35 | 0/26 | 0/33 | 0/34 | 0/35 | 0/320 (0%; 1.19%) |
 
-The config remains the requested **.90** example, not silently replaced by a fitted deployment value.
-At .90, both models have 2/320 = **0.625% dev action HCW (over target)**; test has 1/320 for v1 and
-0/320 for v2. The .98 suggestion is empirical, not a safety certificate: with 0/320 test errors,
-the Wilson 95% upper bound is still **1.186%**, above 0.5%. Untouched push-to-talk data is required.
+Adding call_data/call_o2 moved the DEV-only suggestion for v1 from .92 to .97 (two dev call_data HCWs at .90/.92);
+v2's suggestion stays .98. Correct-action recall at gate: v1 59.5%/59.5% at .97, v2 57%/58% at .98 (dev/test);
+at .90 77%/77.5% (v1) and 79.5%/81.5% (v2). **tau_hi stays at the requested .90**; the .97/.98 values are
+empirical suggestions, not a safety certificate. At .90 both models are over the 0.5% target on dev (4/320).
+**Mid-band arbiter-agree-wrong is unmeasured** (no real arbiter), so every rate here is a LOWER BOUND on the real
+executed-wrong rate. With 0/320 test errors the Wilson 95% upper bound is still **1.186%**, above 0.5%.
+Untouched push-to-talk data is required. (The older paraphrase_test / demo_calls_47 zero-HCW statements were computed
+for the three-tool action set and have not been recomputed for five tools.)
+
+**Dev data is used three times** (epoch selection, temperature fit, tau_hi choice), so dev-based confidence and gate
+numbers are optimistic. When real data arrives, carve out a separate **calibration split** (temperature + tau_hi)
+distinct from the epoch-selection split and from the final untouched test.
 
 Resume verification: `uv run pytest -q`: **179 passed, no skips**, including the six base-model smoke tests.
 No tracked pycache/egg-info artifacts. All model loads and inference were Linux CPU. Pipeline examples at
@@ -217,8 +280,10 @@ config .90/.50 with no arbiter: v2 `okay im home please` -> NO_TOOL/.819/LLM stu
 ## Stubbed (not implemented)
 
 - `export_onnx_stub.py` - ONNX INT8 export interface; prints "not implemented".
-- Tool execution, real LLM/arbiter calls, deterministic arg extraction beyond place, voice input: out of scope.
-- Critical-alert preemption, number verifier, and validation of LLM-stub output remain unbuilt.
+- Real tool integration (tools are fakes over a fabricated sim), real LLM and arbiter calls, deterministic arg extraction
+  beyond place, voice input: out of scope.
+- Number verifier is a simple digit/number-word check (`verifier.py`); a real verifier (units, ordinals, fractions,
+  times, semantics) and real LLM-output validation remain unbuilt. Real arbiter, 10-class labels and a v3 model unbuilt.
 - Actual MPS execution and ONNX INT8 on the target Mac remain unvalidated; real push-to-talk data remains uncollected.
 
 ## Notes

@@ -1,0 +1,173 @@
+{
+  "_comment": "Turn-level policy for router/turn.py. EVERY value below is a PLACEHOLDER pending user sign-off: severity tiers, critical sim fields and thresholds, alert wording, slot-question wording and all templates. The human owns these; they are not validated against any real suit, mission rule or safety document. Each section carries a 'status' string and the loader refuses a section without one starting with PLACEHOLDER. Follow-up (feasibility, refill-call confirmation, send_message, LLM scope): the new sections 'feasibility', 'confirmation', 'send_message' and 'llm_scope' are equally PLACEHOLDER (walking speed, reserve margin, O2 fallback rate, home places, expiry, yes/no vocabulary, urgency mapping, risk terms, retrieval threshold and every sentence); no mission document or real suit/EVA rule backs any of them.",
+  "severity_tiers": {
+    "status": "PLACEHOLDER - pending user sign-off",
+    "critical": {
+      "preempts_router": true,
+      "uses_llm": false,
+      "spoken": true
+    },
+    "warning": {
+      "preempts_router": false,
+      "uses_llm": false,
+      "spoken": false
+    }
+  },
+  "sim_fields": {
+    "status": "PLACEHOLDER - pending user sign-off (field list, thresholds, units, priority order = listed order)",
+    "o2_pct": {
+      "critical_below": 16.0,
+      "warning_below": 30.0
+    },
+    "suit_pressure_kpa": {
+      "critical_below": 20.0,
+      "critical_above": 40.0
+    },
+    "temp_c": {
+      "critical_below": -10.0,
+      "critical_above": 40.0,
+      "warning_above": 32.0
+    },
+    "radiation_usv_h": {
+      "critical_above": 50.0,
+      "warning_above": 10.0
+    },
+    "bpm": {
+      "critical_below": 35,
+      "critical_above": 180,
+      "warning_above": 150
+    }
+  },
+  "alert_lines": {
+    "status": "PLACEHOLDER - pending user sign-off (spoken verbatim, no LLM; numbers are the sim value)",
+    "o2_pct": "Critical alert. Oxygen at {value:.1f} percent. Return to the airlock now.",
+    "suit_pressure_kpa": "Critical alert. Suit pressure {value:.1f} kilopascals. Seal check and return to the airlock now.",
+    "temp_c": "Critical alert. Suit temperature {value:.1f} degrees Celsius. Return to the airlock now.",
+    "radiation_usv_h": "Critical alert. Radiation {value:.1f} microsieverts per hour. Take shelter now.",
+    "bpm": "Critical alert. Heart rate {value:.0f} beats per minute. Stop and rest now."
+  },
+  "slot_questions": {
+    "status": "PLACEHOLDER - pending user sign-off",
+    "navigation": {
+      "place": "Where would you like to go?"
+    },
+    "map": {
+      "place": "Which place should I show on the map?"
+    },
+    "ambiguous_place": "Which place do you mean: {options}?"
+  },
+  "templates": {
+    "status": "PLACEHOLDER - pending user sign-off (every number must come from the tool_result; the verifier blocks the rest)",
+    "safety": "Safety check: {status_word}.",
+    "navigation": "Heading to {place_name}. About {distance_m:.0f} meters. Estimated time in minutes: {eta_min:.0f}.",
+    "map": "Map centered on {place_name}.",
+    "data": "Heart rate {bpm:.0f} beats per minute. Radiation {radiation_usv_h:.2f} microsieverts per hour. Temperature {temp_c:.1f} degrees Celsius.",
+    "o2": "Oxygen at {o2_pct:.1f} percent, about {minutes_remaining:.0f} minutes remaining.",
+    "tool_error": "I could not complete that request.",
+    "low_confidence": "Sorry, I didn't catch that. Could you say it again?",
+    "ood": "That is outside what I can help with. I can help with oxygen, vitals, navigation, the map and safety.",
+    "verifier_blocked": "I can't read that out reliably right now."
+  },
+  "feasibility": {
+    "status": "PLACEHOLDER - pending user sign-off (every value; no EVA rule, suit model or terrain model backs any of it)",
+    "walking_speed_m_per_min": 60,
+    "reserve_margin_min": 10,
+    "o2_minutes_per_pct_fallback": 2.4,
+    "home_places": [
+      "homebase"
+    ],
+    "lines": {
+      "comfortable": "Oxygen check: the round trip needs about {required_min} minutes including a {reserve_min} minute reserve, and you have {o2_minutes_remaining}.",
+      "comfortable_home": "Oxygen check: the way home needs about {required_min} minutes including a {reserve_min} minute reserve, and you have {o2_minutes_remaining}.",
+      "tight": "Warning, oxygen margin is tight: {outbound_min} minutes out, {return_min} minutes back and a {reserve_min} minute reserve need {required_min} minutes, and you have {o2_minutes_remaining}.",
+      "tight_home": "Warning, oxygen margin is tight: the way home takes {outbound_min} minutes plus a {reserve_min} minute reserve, {required_min} in all, and you have {o2_minutes_remaining}.",
+      "cannot_return": "Warning, on your current oxygen you cannot get back home without a refill: {outbound_min} minutes out plus {return_min} minutes back is {trip_min}, and you have {o2_minutes_remaining}.",
+      "cannot_reach": "Warning, you cannot reach it on your current oxygen: the trip out takes {outbound_min} minutes and you have {o2_minutes_remaining}.",
+      "cannot_reach_home": "Warning, you cannot reach home on your current oxygen: the way home takes {outbound_min} minutes and you have {o2_minutes_remaining}."
+    }
+  },
+  "confirmation": {
+    "status": "PLACEHOLDER - pending user sign-off (expiry, vocabulary, offer and reply wording)",
+    "expiry_turns": 2,
+    "offer": "Do you want me to call {place_name} and check if they have oxygen refills?",
+    "yes_phrases": [
+      "yes",
+      "yeah",
+      "yep",
+      "yup",
+      "sure",
+      "okay",
+      "ok",
+      "affirmative",
+      "do it",
+      "go ahead",
+      "call them"
+    ],
+    "no_phrases": [
+      "no",
+      "nope",
+      "nah",
+      "negative",
+      "dont",
+      "don't",
+      "cancel",
+      "never mind",
+      "not now"
+    ],
+    "filler_words": [
+      "please",
+      "thanks",
+      "thank",
+      "you",
+      "i",
+      "do",
+      "it",
+      "the",
+      "now",
+      "that",
+      "would",
+      "like",
+      "want",
+      "so",
+      "right",
+      "then"
+    ],
+    "yes_spoken": "Okay, I sent the refill request to {recipient_name}, marked {urgency}.",
+    "no_spoken": "Okay, I won't call. Say so if you change your mind."
+  },
+  "send_message": {
+    "status": "PLACEHOLDER - pending user sign-off (urgency is decided here, by feasibility outcome, never by the LLM)",
+    "urgency_by_outcome": {
+      "tight": "normal",
+      "cannot_return": "urgent",
+      "cannot_reach": "urgent"
+    },
+    "message": "Nova relay: an astronaut heading to {place_name} has {o2_minutes_remaining} minutes of oxygen and the trip needs {required_min}. Please confirm whether oxygen refills are available."
+  },
+  "llm_scope": {
+    "status": "PLACEHOLDER - pending user sign-off (no knowledge-base documents exist yet; scope is router class + retrieval score + risk terms, never the LLM judging itself)",
+    "risk_terms": [
+      "oxygen",
+      "o2",
+      "co2",
+      "carbon dioxide",
+      "pressure",
+      "suit",
+      "medical",
+      "medicine",
+      "radiation",
+      "dose",
+      "emergency",
+      "battery",
+      "batteries",
+      "repair",
+      "injury",
+      "injured",
+      "leak"
+    ],
+    "risk_diverted": "I can't answer that from memory. Ask me for your live readings, or check the procedure documents.",
+    "retrieval_min_score": 0.5,
+    "retrieval_top_k": 3,
+    "no_document": "I don't have a document for that yet."
+  }
+}

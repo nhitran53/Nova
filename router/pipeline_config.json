@@ -1,5 +1,5 @@
 {
-  "_comment": "Pipeline routing config. tool_labels: label -> {tool name, spoken name for clarification questions, whether to resolve a place from the utterance}. Every other label in labels.json needs a prompt policy in llm_labels. Confidence gate for a TOOL top class (calibrated confidence c): c >= tau_hi -> execute; tau_lo <= c < tau_hi -> ask the injectable arbiter (top-3 classes + 'none'): same class as the router -> execute, anything else (or no arbiter, or an arbiter error) -> deterministic clarification, never a tool; c < tau_lo -> LLM clarify policy. The arbiter can only confirm the router's class, never choose another. Non-tool top classes route to the LLM with their prompt policy when c >= tau_lo.",
+  "_comment": "Pipeline routing config. tool_labels: label -> {tool name, spoken name for clarification questions, whether to resolve a place from the utterance, optional required_slots: a tool whose required slot is unfilled becomes a missing_slot clarify and never executes}. Every other label in labels.json needs a prompt policy in llm_labels. Confidence gate for a TOOL top class (calibrated confidence c): c >= tau_hi -> execute; tau_lo <= c < tau_hi -> ask the injectable arbiter (top-3 classes + 'none'): same class as the router -> execute, anything else (or no arbiter, or an arbiter error) -> deterministic clarification, never a tool; c < tau_lo -> LLM clarify policy. The arbiter can only confirm the router's class, never choose another. Non-tool top classes route to the LLM with their prompt policy when c >= tau_lo.",
   "tau_hi": 0.9,
   "tau_lo": 0.5,
   "tool_labels": {
@@ -11,12 +11,18 @@
     "call_navigation": {
       "tool": "navigation",
       "spoken": "navigation",
-      "resolve_place": true
+      "resolve_place": true,
+      "required_slots": [
+        "place"
+      ]
     },
     "call_map": {
       "tool": "map",
       "spoken": "the map",
-      "resolve_place": true
+      "resolve_place": true,
+      "required_slots": [
+        "place"
+      ]
     },
     "call_data": {
       "tool": "data",
