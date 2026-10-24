@@ -1,0 +1,58 @@
+Metadata-Version: 2.4
+Name: nova-router
+Version: 0.1.0
+Summary: ModernBERT text classifier router scaffold
+Requires-Python: >=3.12
+Description-Content-Type: text/markdown
+Requires-Dist: torch
+Requires-Dist: transformers>=4.48
+Requires-Dist: safetensors
+Requires-Dist: huggingface_hub
+Requires-Dist: numpy
+
+# Nova router (ModernBERT-base text classifier)
+
+Scaffold only. **No training has been done**: the classification head is random, so every
+prediction is flagged `untrained: true` with a warning, and labels/confidences are meaningless.
+Text input only (voice later).
+
+Output of `Router.predict(text)`:
+`{label, confidence, topk:[{label,p}], latency_ms, untrained, warning?}` - softmax probs
+(optionally divided by `temperature`). Runs on CPU; `device='auto'` picks MPS (Mac), then CUDA, then CPU.
+
+## Setup (from /home/isaach/Nova)
+```
+cd router && uv venv .venv                      # venv is local; do not install system-wide
+uv pip install --python .venv/bin/python --index-url https://download.pytorch.org/whl/cpu torch==2.14.1   # Linux CPU
+uv pip install --python .venv/bin/python -r requirements.txt
+.venv/bin/python -I download_base.py            # ModernBERT-base safetensors -> router/models/ModernBERT-base (new empty dir)
+```
+The downloaded model dir is untrusted data: keep scripts out of it, load with `trust_remote_code` off (default).
+`.gitignore` covers `.venv/`, `models/`, caches.
+
+## Run (from /home/isaach/Nova)
+```
+router/.venv/bin/python -m router.cli --text "check my oxygen level"        # pretty; add --json for JSON
+router/.venv/bin/python -m router.cli                                       # REPL, empty line quits
+router/.venv/bin/python -m router.bench_latency --runs 50 --device cpu
+router/.venv/bin/python -m pytest router/tests -q                           # offline after download
+```
+Use `--model <dir|HF id>` or `ROUTER_MODEL_DIR` to point at another checkpoint, `--temperature T`, `--device`.
+
+## Swapping labels
+Edit `labels.json` (`{"labels": [...]}`). Order = class index; the head size is `len(labels)`, so a fine-tuned
+checkpoint is only valid with the label order it was trained on. Current labels are **placeholders**
+(`call_safety ... call_x`, `NO_TOOL`, `OOD`) to be replaced by the real 10 classes (get_alerts/get_state unmerged).
+
+## Trained vs untrained marker
+`Router.load` looks for `<model_dir>/router_meta.json`. `{"trained": true, ...}` clears the warning; missing or
+`false` => untrained (the default for the base model). The future training script must write it.
+
+## Stubbed (not implemented)
+- `train_stub.py` - argparse + JSONL `{text,label}` interface; prints "not implemented".
+- `export_onnx_stub.py` - ONNX INT8 export interface; prints "not implemented".
+- Deterministic arg extraction, fallback chain, voice input: out of scope.
+
+## Notes
+- `predict_batch` per-item `latency_ms` = batch wall time / batch size. Single `predict` latency = tokenize + forward.
+- Latency numbers from the Linux CPU dev box say nothing about the M5 Pro; re-measure there (MPS and ONNX INT8).
