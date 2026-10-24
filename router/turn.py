@@ -32,6 +32,18 @@ Follow-up additions (all values PLACEHOLDER in turn_policy.json):
    grounded only: `retriever(text) -> [{"text","score"}]`; none above `retrieval_min_score` -> "no document" template,
    no LLM call; else the LLM gets the passages and the verifier also accepts numbers found in them.
 
+Post-tool-call generation (router/generation.py; wording in turn_policy.json "generation", all PLACEHOLDER): the LLM
+paths (NO_TOOL chitchat, call_llm) go build_request -> Generator -> postprocess (parse, slot check, prose-number scan,
+length, deny-lists, slot fill, verify_numbers backstop) -> `_speak`. `TurnHandler(generator=...)` injects a Generator
+(default FillerGenerator); the old `llm_fn` is wrapped by LegacyLLMAdapter. Tool and confirmation turns still speak their
+template (llm_called stays False) but also expose the request and rendered prompt as result["generation"] with mode
+"template_only". Alerts build no request and never reach a generator. result["generation"] (additive) = {"mode":
+"template_only"|"generated", "request" (summary), "prompt" (chat messages), and for generated turns
+"status", "attempts", "violations", "attempt_log", "raw", "text" (final spoken text, attribution included), "refusal",
+"passage_numbers" (EFFECTIVE mode), "configured_passage_numbers", "passage_override_reason" (a risk term in the question or a
+passage forces "off" for a grounded turn), "attribution_prefixed"}. The whole dict is JSON-serializable; the live
+GenerationRequest object of the latest request is `TurnHandler.last_generation_request` (None when a turn built none).
+
 Result keys: text, route ("alert"|"tool"|"slot_question"|"clarify"|"llm"|"ood"|"low_confidence"|"risk_diverted"|
 "no_document"|"confirmed_yes"|"confirmed_no"|"refill_not_needed"), pipeline (the Pipeline.handle dict or None), alerts, tool_call
 ({"name","args"} or None), tool_result, tool_calls (0 or 1), llm_called, spoken, verifier, blocked_text,
@@ -43,8 +55,11 @@ All wording lives in turn_policy.json and is PLACEHOLDER pending user sign-off.
 import json
 import math
 import re
+from dataclasses import replace
 from pathlib import Path
 
+from .generation import (NUMBER_VIOLATIONS, FillerGenerator, LegacyLLMAdapter, attribute_passage_numbers, build_request,
+                         render_prompt, risk_terms_in, run_generation, validate_generation_policy)
 from .pipeline import Pipeline, load_config
 from .tools import default_registry
 from .verifier import verify_numbers
@@ -65,6 +80,7 @@ def load_policy(path=POLICY_PATH):
     for tier, flags in policy["severity_tiers"].items():
         if isinstance(flags, dict) and flags.get("preempts_router") and flags.get("uses_llm"):
             raise ValueError(f"{path}: severity tier {tier!r} preempts the router, so it cannot use the LLM")
+    validate_generation_policy(policy.get("generation"), path)
     return policy
 
 
@@ -145,8 +161,10 @@ def match_confirmation(text, policy):
 
 class TurnHandler:
     def __init__(self, router, alert_source, registry=None, llm_fn=stub_llm, arbiter_fn=None, policy=None,
-                 pipeline_config=None, verifier=verify_numbers, retriever=None, tts_fn=None):
+                 pipeline_config=None, verifier=verify_numbers, retriever=None, tts_fn=None, generator=None):
         self.retriever = retriever
+        self.last_generation_request = None  # the GenerationRequest object of the latest request (not part of the result dict)
+        self.history = []  # (user_text, spoken) of spoken LLM turns; only used when generation.history_turns > 0
         self.tts_fn = tts_fn  # tts_fn(text, route) speaks the final line aloud; None = no speech
         self.turn_index = 0
         self.pending_confirmation = None  # per-session state: {"kind","turn","place","place_name","distance_m","outcome","feasibility"}
@@ -154,6 +172,12 @@ class TurnHandler:
         self.registry = default_registry() if registry is None else registry
         self.llm_fn = llm_fn
         self.policy = load_policy() if policy is None else policy
+        if generator is not None:
+            self.generator = generator
+        elif llm_fn is stub_llm:
+            self.generator = FillerGenerator()
+        else:
+            self.generator = LegacyLLMAdapter(llm_fn)  # old llm_fn(text, prompt_policy, passages=None) -> str
         self.verifier = verifier
         self.pipeline = Pipeline(router, config=load_config() if pipeline_config is None else pipeline_config,
                                  llm_fn=lambda text, prompt_policy: None, arbiter_fn=arbiter_fn)
@@ -161,6 +185,7 @@ class TurnHandler:
     def handle(self, text):
         """Run one turn (`_run_turn`), then speak `result["spoken"]` once through `tts_fn` on every route.
         A TTS failure never changes the turn: it is recorded as result["tts_error"] ("ExcType: message")."""
+        self.last_generation_request = None
         result = self._run_turn(text)
         if self.tts_fn is not None:
             try:
@@ -203,26 +228,70 @@ class TurnHandler:
         """Scope is decided here by router class (reason), risk terms and retrieval score; never by the LLM."""
         scope = self.policy["llm_scope"]
         if out["reason"] == "NO_TOOL":
-            lowered = " ".join(re.findall(r"[a-z0-9']+", text.lower()))
-            if any(re.search(rf"\b{re.escape(term)}", lowered) for term in scope["risk_terms"]):
+            if risk_terms_in(text, scope["risk_terms"]):
                 return self._speak(result, "risk_diverted", scope["risk_diverted"], {})
-            return self._llm_reply(result, {}, text, out["prompt_policy"])
+            return self._llm_reply(result, "chitchat", text, out["prompt_policy"])
         passages = self._retrieve(text, scope)  # call_llm: grounded only
         if not passages:
             return self._speak(result, "no_document", scope["no_document"], {})
         result["passages"] = passages
-        texts = [p["text"] for p in passages]
-        return self._llm_reply(result, texts, text, out["prompt_policy"], passages=texts)
+        return self._llm_reply(result, "grounded_answer", text, out["prompt_policy"], passages=passages)
 
-    def _llm_reply(self, result, source, text, prompt_policy, **kwargs):
-        """The one LLM call. A raising llm_fn is recorded as result["llm_error"] and the fixed tool_error line is spoken."""
+    def _llm_reply(self, result, kind, text, prompt_policy, passages=()):
+        """The one generation: build_request -> generator (retry/fallback in run_generation) -> _speak.
+        A raising generator is recorded as result["llm_error"] and the fixed tool_error line is spoken, never retried.
+        Failed generations keep the model's text in blocked_text and speak (through _speak, so the replacement is verified too) templates.verifier_blocked (grounded answers, and
+        any chitchat rejected for a number) or generation.neutral_chitchat (other chitchat rejections). The final verifier source is the same as before: the retrieved passages
+        under passage_numbers="digits", nothing otherwise."""
+        gen, templates = self.policy["generation"], self.policy["templates"]
         result["llm_called"] = True
-        try:
-            reply = self.llm_fn(text, prompt_policy, **kwargs)
-        except Exception as exc:
-            result["llm_error"] = f"{type(exc).__name__}: {exc}"[:300]
-            return self._speak(result, "llm", self.policy["templates"]["tool_error"], {})
-        return self._speak(result, "llm", reply, source)
+        keep = gen["history_turns"]
+        req = build_request(turn_id=self.turn_index, kind=kind, route="llm", user_text=text, policy=self.policy,
+                            passages=passages, history=self.history[-keep:] if keep else (), prompt_policy=prompt_policy)
+        source = [p.text for p in req.passages] if req.passage_numbers == "digits" else {}
+        self.last_generation_request = req
+        outcome = run_generation(req, self.generator, self.policy, gen["neutral_chitchat"], error_text=templates["tool_error"],
+                                 verifier=self.verifier)
+        if outcome.status == "fallback" and (kind == "grounded_answer" or NUMBER_VIOLATIONS & set(outcome.violations)):
+            outcome = replace(outcome, text=templates["verifier_blocked"])  # number problems keep the old blocked line
+        prefixed = False
+        if outcome.status == "ok":
+            attributed, prefixed = attribute_passage_numbers(req, outcome.text, gen)
+            outcome = replace(outcome, text=attributed)
+        result["generation"] = {"mode": "generated", "request": req.summary(), "prompt": render_prompt(req),
+                                "status": outcome.status, "attempts": outcome.attempts, "violations": list(outcome.violations),
+                                "attempt_log": list(outcome.attempt_log), "raw": outcome.raw, "text": outcome.text,
+                                "refusal": outcome.refusal, "passage_numbers": req.passage_numbers,
+                                "configured_passage_numbers": req.configured_passage_numbers,
+                                "passage_override_reason": req.passage_override_reason, "attribution_prefixed": prefixed}
+        if outcome.status == "error":
+            result["llm_error"] = outcome.error
+            return self._speak(result, "llm", outcome.text, {})
+        if outcome.status == "fallback":
+            failed = outcome.blocked_text
+            verdict = outcome.verdict
+            if verdict is None:
+                try:
+                    verdict = self.verifier(failed, source)
+                except Exception:
+                    verdict = None
+            if verdict is None or verdict["ok"]:  # rejected for a non-number reason: still a blocked line
+                verdict = {"ok": False, "spoken": (verdict or {}).get("spoken", []), "unsupported": []}
+            rejected = verdict
+            result = self._speak(result, "llm", outcome.text, source)  # the replacement is a spoken line: final gate too
+            replacement_verdict = result["verifier"]
+            if result["blocked_text"] is not None:  # even the fixed replacement was refused by the verifier
+                result["generation"]["replacement_blocked_text"] = result["blocked_text"]
+            else:
+                result["verifier"] = rejected  # as before: the verdict that rejected the model text
+            result["generation"]["replacement_verifier"] = replacement_verdict
+            result["blocked_text"] = failed
+            return result
+        result = self._speak(result, "llm", outcome.text, source)
+        if keep and result["blocked_text"] is None:
+            self.history.append((text, result["spoken"]))
+            del self.history[:-keep]  # only the last `keep` turns can ever be sent; do not retain older utterances
+        return result
 
     def _retrieve(self, text, scope):
         """Passages scoring >= retrieval_min_score, best first, at most retrieval_top_k. No retriever, None, an error or
@@ -261,7 +330,19 @@ class TurnHandler:
         tool_result = self._call_tool(result, "send_message", args)
         if tool_result is None or not tool_result["ok"]:
             return self._speak(result, "confirmed_yes", self.policy["templates"]["tool_error"], {})
+        self._expose_request(result, "confirmation", "confirmed_yes", "", "send_message", tool_result)
         return self._speak(result, "confirmed_yes", confirmation["yes_spoken"].format(**tool_result["data"]), tool_result)
+
+    def _expose_request(self, result, kind, route, prompt_policy, tool, tool_result):
+        """Tool and confirmation turns speak their template (the LLM is not called, llm_called stays False), but the
+        structured request and rendered prompt are still built so the "model space" can see them."""
+        try:
+            req = build_request(turn_id=self.turn_index, kind=kind, route=route, user_text=result["text"], policy=self.policy,
+                                tool=tool, tool_result=tool_result, prompt_policy=prompt_policy)
+            self.last_generation_request = req
+            result["generation"] = {"mode": "template_only", "request": req.summary(), "prompt": render_prompt(req)}
+        except Exception as exc:  # exposing the request must never change what is spoken
+            result["generation"] = {"mode": "template_only", "error": f"{type(exc).__name__}: {exc}"[:300]}
 
     def _call_tool(self, result, name, args):
         """The one registry call of the turn. A raising tool is recorded as result["tool_error"] and returns None
@@ -307,6 +388,7 @@ class TurnHandler:
                 spoken += suffix
         except (KeyError, IndexError, ValueError):  # a template that does not fit the tool_result is never spoken
             return self._block(result, "tool", f"[template {tool!r} does not fit tool_result]")
+        self._expose_request(result, "tool_result", "tool", "", tool, tool_result)
         result = self._speak(result, "tool", spoken, tool_result)
         if offer is not None and result["blocked_text"] is None:  # an offer that was not spoken is not pending
             self.pending_confirmation = offer

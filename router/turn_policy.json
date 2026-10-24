@@ -4,13 +4,11 @@
     "status": "PLACEHOLDER - pending user sign-off",
     "critical": {
       "preempts_router": true,
-      "uses_llm": false,
-      "spoken": true
+      "uses_llm": false
     },
     "warning": {
       "preempts_router": false,
-      "uses_llm": false,
-      "spoken": false
+      "uses_llm": false
     }
   },
   "sim_fields": {
@@ -170,5 +168,203 @@
     "retrieval_min_score": 0.5,
     "retrieval_top_k": 3,
     "no_document": "I don't have a document for that yet."
+  },
+  "_comment_generation": "Post-tool-call generation (router/generation.py). The whole 'generation' section is PLACEHOLDER pending user sign-off: persona, style limits, attempt/deadline budget, passage-number provenance (default 'digits'; 'off' available; 'quote_span' documented but unbuilt and refused by the loader; risk_term_passage_override forces 'off' for a grounded turn whose question or passage hits llm_scope.risk_terms; attribution_prefix is prepended by code to a grounded answer that speaks a passage number), history length, refusal and fallback wording, retry wording, deny-lists, slot formats/units and the raw-output size cap (max_raw_chars). Qualitative tier labels (critical/warning/normal) are NOT configured here: they are derived from the human-owned sim_fields thresholds. No real model, mission document or suit rule backs any value.",
+  "generation": {
+    "status": "PLACEHOLDER - pending user sign-off (every value; passage_numbers 'digits' is the default, 'off' bans model-written numbers from documents, 'quote_span' is unbuilt; risk_term_passage_override and attribution_prefix are new)",
+    "persona": "You are Nova, a calm voice assistant in an astronaut's helmet.",
+    "max_sentences": 2,
+    "max_words": 40,
+    "max_tokens": 80,
+    "max_attempts": 2,
+    "deadline_ms": 1500,
+    "passage_numbers": "digits",
+    "history_turns": 0,
+    "max_raw_chars": 2000,
+    "risk_term_passage_override": true,
+    "attribution_prefix": "According to the document,",
+    "refusal_codes": [
+      "no_info",
+      "out_of_scope"
+    ],
+    "refusal_lines": {
+      "no_info": "I don't have that information.",
+      "out_of_scope": "That is outside what I can help with."
+    },
+    "allowed_extra_chars": "\u2019\u2018\u201c\u201d\u2013\u2014",
+    "neutral_chitchat": "I'm here. Ask me about your oxygen, vitals, the route or the map.",
+    "corrective_retry": {
+      "template": "Your previous reply was rejected: {violations}. Answer again in the same JSON shape.",
+      "hints": {
+        "parse_error": "Output only the JSON object.",
+        "bad_shape": "Use exactly the keys refusal and text.",
+        "digit_in_prose": "Write no digits; refer to values only by their slot names in braces.",
+        "placeholder_in_prose": "Do not write [number] or any text in square brackets; numbers in the passages are hidden, so answer without a number or output a refusal code.",
+        "number_word_in_prose": "Write no spelled-out numbers; refer to values only by their slot names in braces.",
+        "vague_quantity_in_prose": "Do not use words like half, quarter, couple, twice, several or an ordinal like fifth.",
+        "split_token_in_prose": "Write every word whole; do not split a word with spaces, hyphens or dots, and write no numbers.",
+        "non_ascii_in_prose": "Use plain ASCII letters and punctuation only (curly quotes and en/em dashes are fine); no accents, lookalike letters or invisible characters.",
+        "unknown_slot": "Use only the slots listed under SLOTS.",
+        "malformed_slot": "Write slots as {name} with matching braces.",
+        "missing_required_slot": "Mention every required slot.",
+        "too_many_sentences": "Use fewer sentences.",
+        "too_many_words": "Use fewer words.",
+        "action_claim": "Do not say you did something.",
+        "directive_verb": "Do not give instructions or advice.",
+        "live_reading_claim": "Do not state live readings.",
+        "unsupported_number": "Use only numbers that appear in the context."
+      }
+    },
+    "directive_verbs": [
+      "return",
+      "abort",
+      "evacuate",
+      "seal",
+      "stop",
+      "take shelter",
+      "you should",
+      "you must",
+      "you need to",
+      "head back",
+      "go back"
+    ],
+    "action_claim_phrases": {
+      "i sent": "send_message",
+      "i've sent": "send_message",
+      "i have sent": "send_message",
+      "i called": "send_message",
+      "i've called": "send_message",
+      "i have called": "send_message",
+      "i started": null,
+      "i've started": null,
+      "i have started": null,
+      "i turned": null,
+      "i've turned": null,
+      "i set": null,
+      "i've set": null
+    },
+    "live_reading_phrases": [
+      "your oxygen",
+      "your o2",
+      "your heart rate",
+      "your pulse",
+      "your suit pressure",
+      "your pressure",
+      "your temperature",
+      "your radiation",
+      "you have enough",
+      "you are safe",
+      "you're safe"
+    ],
+    "slot_kinds": {
+      "o2_pct": {
+        "kind": "percent",
+        "fmt": "{:.1f}",
+        "unit_phrase": "percent",
+        "required": true
+      },
+      "minutes_remaining": {
+        "kind": "minutes",
+        "fmt": "{:.0f}",
+        "unit_phrase": "minutes",
+        "required": true
+      },
+      "bpm": {
+        "kind": "bpm",
+        "fmt": "{:.0f}",
+        "unit_phrase": "beats per minute",
+        "required": true
+      },
+      "radiation_usv_h": {
+        "kind": "microsieverts_per_hour",
+        "fmt": "{:.2f}",
+        "unit_phrase": "microsieverts per hour",
+        "required": true
+      },
+      "temp_c": {
+        "kind": "celsius",
+        "fmt": "{:.1f}",
+        "unit_phrase": "degrees Celsius",
+        "required": true
+      },
+      "distance_m": {
+        "kind": "meters",
+        "fmt": "{:.0f}",
+        "unit_phrase": "meters",
+        "required": true
+      },
+      "eta_min": {
+        "kind": "minutes",
+        "fmt": "{:.0f}",
+        "unit_phrase": "minutes",
+        "required": true
+      },
+      "outbound_min": {
+        "kind": "minutes",
+        "fmt": "{:.0f}",
+        "unit_phrase": "minutes",
+        "required": false
+      },
+      "return_min": {
+        "kind": "minutes",
+        "fmt": "{:.0f}",
+        "unit_phrase": "minutes",
+        "required": false
+      },
+      "trip_min": {
+        "kind": "minutes",
+        "fmt": "{:.0f}",
+        "unit_phrase": "minutes",
+        "required": false
+      },
+      "reserve_min": {
+        "kind": "minutes",
+        "fmt": "{:.0f}",
+        "unit_phrase": "minutes",
+        "required": false
+      },
+      "required_min": {
+        "kind": "minutes",
+        "fmt": "{:.0f}",
+        "unit_phrase": "minutes",
+        "required": false
+      },
+      "o2_minutes_remaining": {
+        "kind": "minutes",
+        "fmt": "{:.0f}",
+        "unit_phrase": "minutes",
+        "required": false
+      },
+      "place_name": {
+        "kind": "text",
+        "fmt": "{}",
+        "unit_phrase": null,
+        "required": true
+      },
+      "status_word": {
+        "kind": "text",
+        "fmt": "{}",
+        "unit_phrase": null,
+        "required": true
+      },
+      "recipient_name": {
+        "kind": "text",
+        "fmt": "{}",
+        "unit_phrase": null,
+        "required": true
+      },
+      "urgency": {
+        "kind": "text",
+        "fmt": "{}",
+        "unit_phrase": null,
+        "required": true
+      },
+      "status": {
+        "kind": "text",
+        "fmt": "{}",
+        "unit_phrase": null,
+        "required": false
+      }
+    }
   }
 }

@@ -777,7 +777,7 @@ def test_call_llm_with_passages_calls_the_llm_with_them_best_first_and_top_k_onl
 def test_call_llm_output_may_use_numbers_that_are_in_the_retrieved_passages():
     rig = Rig("call_llm", 0.97, llm=FakeLLM("The Moon is about 384400 kilometers away."), retriever=lambda t: [PASSAGE])
     out = rig.say("how far away is the moon")
-    assert out["spoken"] == "The Moon is about 384400 kilometers away." and out["verifier"]["ok"]
+    assert out["spoken"] == "According to the document, the Moon is about 384400 kilometers away." and out["verifier"]["ok"]
 
 
 def test_call_llm_output_with_a_number_missing_from_the_passages_is_blocked():
