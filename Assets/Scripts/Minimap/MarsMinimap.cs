@@ -14,7 +14,7 @@ using Debug = UnityEngine.Debug;
 // Add it with Tools > Nova > Minimap > Add Minimap To Scene and press Play.
 // It builds its own small round map and follows whichever camera is active:
 //   - Quest rig: docks into the bottom-left of Cardin's Helmet HUD (same visor material, always on top)
-//   - desktop rig (no Helmet HUD): floats at the lower left of the view
+//   - desktop rig (no Helmet HUD): drawn flat in the bottom-left corner of the screen
 //   - the ground is a shaded-relief picture drawn from the real Jezero terrain heights
 //   - every MapMarker in the scene (and any pins from the API) is drawn as a colored dot
 //   - the white arrow in the middle is you; the map turns so "up" is where you are looking
@@ -35,14 +35,11 @@ public class MarsMinimap : MonoBehaviour
     [Tooltip("Diameter of the minimap in Helmet HUD canvas units.")]
     public float hudDiameter = 300f;
 
-    [Header("Floating placement when there is no Helmet HUD (measured from the eye)")]
-    [Min(0.2f)] public float distance = 0.6f;
-    [Tooltip("Negative = left of center.")]
-    [Range(-60f, 60f)] public float yawDeg = -28f;
-    [Tooltip("Negative = below center.")]
-    [Range(-60f, 60f)] public float pitchDeg = -18f;
-    [Tooltip("Physical width of the round map in meters.")]
-    [Min(0.03f)] public float sizeMeters = 0.18f;
+    [Header("Desktop rig (no Helmet HUD): drawn flat on the screen")]
+    [Tooltip("Map diameter in pixels for a 1080p-tall window (scales with the window).")]
+    [Min(50f)] public float screenDiameter = 300f;
+    [Tooltip("Gap from the bottom-left corner of the screen, in pixels for a 1080p-tall window.")]
+    public Vector2 screenMargin = new Vector2(40f, 60f);
 
     [Header("Map")]
     [Tooltip("How many meters the map shows edge to edge at each zoom step.")]
@@ -75,7 +72,7 @@ public class MarsMinimap : MonoBehaviour
     public bool Visible => canvasGO != null && canvasGO.activeSelf;
     public bool DockedInHelmetHud { get; private set; }
 
-    const float PX = 512f;      // the map circle is 512 canvas units wide (then scaled down to sizeMeters)
+    const float PX = 512f;      // the map circle is 512 units wide inside `content`, then scaled to fit
     const float IconPx = 26f;
 
     // UI
@@ -85,6 +82,7 @@ public class MarsMinimap : MonoBehaviour
     Font font;
     Sprite discSprite, ringSprite, badgeSprite, arrowSprite;
     GameObject canvasGO;
+    RectTransform content;   // holds everything; this is what gets placed and scaled
     RectTransform rotator, zoneLayer, markerLayer, arrow, north;
     RawImage terrainImage;
     Image frame;
@@ -196,7 +194,7 @@ public class MarsMinimap : MonoBehaviour
             head = Camera.main != null ? Camera.main.transform : null;
         if (head == null) return;
         if (attachedTo != head) Attach();
-        if (!DockedInHelmetHud) ApplyPlacement();
+        if (!DockedInHelmetHud) ApplyScreenLayout();
         HandleKeys();
 
         // Always track the astronaut, even while the map is hidden (the API link reads these).
@@ -232,21 +230,31 @@ public class MarsMinimap : MonoBehaviour
         HelmetHUD hud = dockIntoHelmetHud ? head.GetComponentInChildren<HelmetHUD>(true) : null;
         if (hud != null)
         {
+            // Inside another canvas our Canvas becomes a nested one and follows the HUD's world-space canvas.
             root.SetParent(hud.transform, false);       // HelmetHUD sits on the HUD's Canvas
-            root.anchoredPosition3D = new Vector3(hudSlot.x, hudSlot.y, 0f);
+            root.anchorMin = Vector2.zero;
+            root.anchorMax = Vector2.one;
+            root.offsetMin = root.offsetMax = Vector2.zero;
+            root.anchoredPosition3D = Vector3.zero;
             root.localRotation = Quaternion.identity;
-            root.localScale = Vector3.one * (hudDiameter / PX);
+            root.localScale = Vector3.one;
+            content.anchorMin = content.anchorMax = new Vector2(0.5f, 0.5f);
+            content.anchoredPosition = hudSlot;
+            content.localScale = Vector3.one * (hudDiameter / PX);
             SetMaterial(FindVisorMaterial(hud));
             DockedInHelmetHud = true;
         }
         else
         {
-            root.SetParent(head, false);
+            // Desktop: a flat screen overlay. A panel floating in 3D at the edge of a wide desktop
+            // camera gets stretched into a tilted oval, so draw it on the screen instead.
+            root.SetParent(transform, false);
+            canvasGO.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
             SetMaterial(null);
             DockedInHelmetHud = false;
-            ApplyPlacement();
+            ApplyScreenLayout();
         }
-        Debug.Log(DockedInHelmetHud ? $"[Minimap] Docked into Helmet HUD on '{head.name}'." : $"[Minimap] Floating in front of '{head.name}'.");
+        Debug.Log(DockedInHelmetHud ? $"[Minimap] Docked into Helmet HUD on '{head.name}'." : $"[Minimap] Drawn on screen (desktop rig, camera '{head.name}').");
     }
 
     // Reuse the HUD's "Nova/Visor UI" material: always drawn on top of terrain, and it supports the round mask.
@@ -266,13 +274,14 @@ public class MarsMinimap : MonoBehaviour
         foreach (var g in canvasGO.GetComponentsInChildren<Graphic>(true)) g.material = m;
     }
 
-    void ApplyPlacement()
+    // Bottom-left corner of the screen. Runs every frame so Inspector tweaks show up live.
+    void ApplyScreenLayout()
     {
-        Transform t = canvasGO.transform;
-        Quaternion dir = Quaternion.Euler(-pitchDeg, yawDeg, 0f);
-        t.localPosition = dir * Vector3.forward * distance;
-        t.localRotation = dir;   // faces the eye
-        t.localScale = Vector3.one * (sizeMeters / PX);
+        float scale = screenDiameter / PX;
+        Vector2 size = content.sizeDelta;
+        content.anchorMin = content.anchorMax = Vector2.zero;
+        content.localScale = Vector3.one * scale;
+        content.anchoredPosition = screenMargin + size * (0.5f * scale);
     }
 
     // Compass heading of where the astronaut is looking, flattened onto the ground.
@@ -313,12 +322,21 @@ public class MarsMinimap : MonoBehaviour
         badgeSprite = MinimapSprites.Badge(64);
         arrowSprite = MinimapSprites.Arrow(64);
 
-        canvasGO = new GameObject("Nova Minimap", typeof(RectTransform), typeof(Canvas));
+        canvasGO = new GameObject("Minimap Canvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler));
         canvasGO.layer = uiLayer;
-        canvasGO.GetComponent<Canvas>().renderMode = RenderMode.WorldSpace;
-        var root = (RectTransform)canvasGO.transform;
-        root.sizeDelta = new Vector2(PX + 80f, PX + 120f);
+        var canvas = canvasGO.GetComponent<Canvas>();
+        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        canvas.sortingOrder = 10;
+        // Keeps the map the same share of the window at any resolution (ignored when nested in the HUD).
+        var scaler = canvasGO.GetComponent<CanvasScaler>();
+        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        scaler.referenceResolution = new Vector2(1920f, 1080f);
+        scaler.matchWidthOrHeight = 1f;
+        canvasGO.transform.SetParent(transform, false);
         canvasGO.SetActive(enabled);
+
+        var root = NewRect("Content", canvasGO.transform, new Vector2(PX + 80f, PX + 120f));
+        content = root;
 
         frame = NewImage("Rim", root, ringSprite, PX + 18f);
 
@@ -350,7 +368,7 @@ public class MarsMinimap : MonoBehaviour
         northText.color = new Color(1f, 0.45f, 0.35f);
         north = northText.rectTransform;
 
-        infoText = NewText("Info", root, 22, new Vector2(PX + 80f, 36f));
+        infoText = NewText("Info", root, 26, new Vector2(PX + 80f, 36f));
         infoText.rectTransform.anchoredPosition = new Vector2(0f, -(PX * 0.5f + 46f));
     }
 
@@ -508,8 +526,8 @@ public class MarsMinimap : MonoBehaviour
         v.zone.enabled = false;
         v.icon = NewImage("Marker " + code, markerLayer, badgeSprite, IconPx);
         v.root = v.icon.rectTransform;
-        v.label = NewText("Label", v.root, 20, new Vector2(200f, 26f));
-        v.label.rectTransform.anchoredPosition = new Vector2(0f, IconPx * 0.5f + 13f);
+        v.label = NewText("Label", v.root, 24, new Vector2(220f, 30f));
+        v.label.rectTransform.anchoredPosition = new Vector2(0f, IconPx * 0.5f + 15f);
         views[code] = v;
         return v;
     }
