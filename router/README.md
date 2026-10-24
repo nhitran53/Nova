@@ -202,6 +202,21 @@ from `pipeline_config.json`. Demo note: on `Get me the coolant level.` v1 gives 
   in a passage does not count). Risk terms are not applied to `call_llm` (retrieval gates it). Breaking change: the
   old "call_llm goes straight to the stub" behavior is gone.
 
+## Speech (`speech.py`, 2026-10-24)
+
+The final spoken line (`result["spoken"]`: after the number verifier and blocked-line substitution, every route incl.
+alerts) can also be spoken aloud. Text output is unchanged. Off by default (tests make no API call).
+
+- Setup: `uv sync` (adds `elevenlabs`, `python-dotenv`); put `ELEVENLABS_API_KEY=...` in `router/.env` (gitignored; the
+  path is resolved from the file, not the cwd). Optional overrides: `ELEVENLABS_VOICE_ID` (default `VmPkIaPdP997cjIfBWRB`),
+  `ELEVENLABS_MODEL_ID` (default `eleven_v4`, accepted by the API; the key lacks `models_read`, so the list endpoint is not usable).
+- One client per process (`speech.init()` at startup, else lazy on first `speak`); PCM 24 kHz piped to `paplay` (else `aplay`);
+  20 s network and 60 s playback timeouts; empty text is a no-op; errors are `SpeechError` without the key.
+- `TurnHandler(..., tts_fn=speech.speak)` calls `tts_fn(spoken, route)` once per turn; an exception is caught and stored as
+  `result["tts_error"]`, the turn is otherwise unchanged.
+- Live checks: `uv run python -m router.speech "Nova speech test."`; `uv run python -m router.demo_turn --speak --max-turns 3`.
+- Not built: streaming synthesis, interrupting speech for a critical alert, Unity/Quest audio path, voice-activity handling.
+
 ## v2 family split and verification (2026-10-24, Linux CPU)
 
 `data/gen_synthetic.py` now partitions frame-defining slot fills and destination forms by split and

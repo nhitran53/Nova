@@ -2,6 +2,7 @@
 
     python -m router.demo_turn [--model $NOVA_MODELS_DIR/v1]      # real ModernBERT router (CPU)
     python -m router.demo_turn --fake                              # scripted fake router, no model needed
+    python -m router.demo_turn --fake --speak --max-turns 3        # also speak each line (real ElevenLabs call)
 
 Fake sim values, fake tools, stub LLM, a keyword fake retriever (only "moon" has a document), no arbiter: nothing here
 calls a real LLM or a real tool. Confirmation replies ("yes"/"no") are answered by the deterministic matcher before the
@@ -13,6 +14,7 @@ import warnings
 from pathlib import Path
 
 from .core import Router, models_dir
+from . import speech
 from .tools import SimState, default_registry
 from .turn import TurnHandler
 
@@ -67,6 +69,8 @@ def main(argv=None):
     ap.add_argument("--model", default=str(models_dir() / "v1"), help="default: %(default)s")
     ap.add_argument("--fake", action="store_true", help="use a scripted fake router instead of loading a checkpoint")
     ap.add_argument("--device", default="cpu")
+    ap.add_argument("--speak", action="store_true", help="also speak each line through ElevenLabs (real API call + speakers)")
+    ap.add_argument("--max-turns", type=int, default=None, help="run only the first N scripted turns")
     args = ap.parse_args(argv)
 
     if args.fake:
@@ -77,9 +81,12 @@ def main(argv=None):
             warnings.simplefilter("ignore")
             router = Router.load(args.model, HERE / "labels.json", device=args.device)
     sim = SimState()
-    handler = TurnHandler(router, sim.snapshot, default_registry(sim), llm_fn=demo_llm, retriever=demo_retriever)
+    handler = TurnHandler(router, sim.snapshot, default_registry(sim), llm_fn=demo_llm, retriever=demo_retriever,
+                          tts_fn=speech.speak if args.speak else None)
     print(f"router: {'FAKE (scripted)' if args.fake else args.model}; sim/tools/LLM are fakes; arbiter: none")
-    for title, text, override, fake_route in TURNS:
+    if args.speak:
+        speech.init()
+    for title, text, override, fake_route in TURNS[:args.max_turns]:
         if scripted:
             scripted.next = fake_route
         base = dict(sim.values)
@@ -98,6 +105,8 @@ def main(argv=None):
         print(f"  spoken : {out['spoken']}")
         print(f"  verify : ok={out['verifier']['ok']} spoken_numbers={out['verifier']['spoken']} "
               f"unsupported={out['verifier']['unsupported']}" + (f"  blocked_text={out['blocked_text']!r}" if out["blocked_text"] else ""))
+        if args.speak:
+            print(f"  speech : " + (f"FAILED {out['tts_error']}" if "tts_error" in out else "spoken"))
     return 0
 
 

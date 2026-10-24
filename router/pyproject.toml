@@ -10,6 +10,8 @@ dependencies = [
     "safetensors",
     "huggingface_hub",
     "numpy",
+    "elevenlabs>=2.74.1",
+    "python-dotenv>=1.2.4",
 ]
 
 [dependency-groups]

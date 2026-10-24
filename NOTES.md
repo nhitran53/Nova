@@ -13,3 +13,6 @@
 
 - 2026-10-24 (turn follow-up, UNCOMMITTED): turn.py now adds return-to-home feasibility on navigation (numbers in the tool_result), a stateful refill-call offer -> yes/no matcher -> fake `send_message` (6 tools), and an LLM scope policy (risk terms for NO_TOOL, retriever + score threshold for call_llm); 344 tests pass, no skips; every new value is a PLACEHOLDER in `turn_policy.json` (feasibility/confirmation/send_message/llm_scope) awaiting sign-off. Unbuilt: real retriever/documents, real position/home model, real send_message channel, real LLM.
 - 2026-10-24: refill-call offer is suppressed when the destination is a home place (home_places in turn_policy.json).
+
+- 2026-10-24 (speech, UNCOMMITTED): `router/speech.py` (ElevenLabs singleton client, voice VmPkIaPdP997cjIfBWRB, model eleven_v4 verified valid by a real TTS call; bogus id -> 400; pcm_24000 -> paplay) + `TurnHandler(tts_fn=...)` (called once per turn with the final verified line, errors -> `result["tts_error"]`) + `demo_turn --speak`; elevenlabs/python-dotenv added to pyproject. 369 tests pass, no skips (models now under `/home/isaach/models/Nova/router`; set `NOVA_MODELS_DIR`, the default dir `Luna` no longer exists).
+  Live test: API call OK, 222720 bytes PCM, paplay exit 0, but audible output not verified. Unbuilt: streaming, alert barge-in, Unity/Quest audio, VAD.

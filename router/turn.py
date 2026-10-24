@@ -34,7 +34,8 @@ Follow-up additions (all values PLACEHOLDER in turn_policy.json):
 Result keys: text, route ("alert"|"tool"|"slot_question"|"clarify"|"llm"|"ood"|"low_confidence"|"risk_diverted"|
 "no_document"|"confirmed_yes"|"confirmed_no"), pipeline (the Pipeline.handle dict or None), alerts, tool_call
 ({"name","args"} or None), tool_result, tool_calls (0 or 1), llm_called, spoken, verifier, blocked_text,
-pending_confirmation (the offer stored by THIS turn, or None), passages (grounded call_llm only).
+pending_confirmation (the offer stored by THIS turn, or None), passages (grounded call_llm only), tts_error (only when
+`tts_fn` raised; `tts_fn(spoken, route)` is called once per turn with the verified/substituted line, after everything else).
 All wording lives in turn_policy.json and is PLACEHOLDER pending user sign-off.
 """
 import json
@@ -139,8 +140,9 @@ def match_confirmation(text, policy):
 
 class TurnHandler:
     def __init__(self, router, alert_source, registry=None, llm_fn=stub_llm, arbiter_fn=None, policy=None,
-                 pipeline_config=None, verifier=verify_numbers, retriever=None):
+                 pipeline_config=None, verifier=verify_numbers, retriever=None, tts_fn=None):
         self.retriever = retriever
+        self.tts_fn = tts_fn  # tts_fn(text, route) speaks the final line aloud; None = no speech
         self.turn_index = 0
         self.pending_confirmation = None  # per-session state: {"kind","turn","place","place_name","outcome","feasibility"}
         self.alert_source = alert_source
@@ -152,6 +154,17 @@ class TurnHandler:
                                  llm_fn=lambda text, prompt_policy: None, arbiter_fn=arbiter_fn)
 
     def handle(self, text):
+        """Run one turn (`_run_turn`), then speak `result["spoken"]` once through `tts_fn` on every route.
+        A TTS failure never changes the turn: it is recorded as result["tts_error"] ("ExcType: message")."""
+        result = self._run_turn(text)
+        if self.tts_fn is not None:
+            try:
+                self.tts_fn(result["spoken"], result["route"])
+            except Exception as exc:
+                result["tts_error"] = f"{type(exc).__name__}: {exc}"[:300]
+        return result
+
+    def _run_turn(self, text):
         self.registry.begin_turn()
         self.turn_index += 1
         snapshot = self.alert_source()
