@@ -2,7 +2,12 @@
 
     python -m router.eval_sets --checkpoint $NOVA_MODELS_DIR/v1 [--show-errors]
 
-Evaluation only: none of these files may be used for training or template writing.
+    python -m router.eval_sets --checkpoint $NOVA_MODELS_DIR/v2 --data-dir data/v2   # "test" from that data dir
+
+REGRESSION sets, not independent validation: the paraphrase/demo files are never trained on and their exact texts are
+excluded from generated data, but the v0 failures on them were known while v1/v2 templates were written, so they are
+development-adjacent. `test` is the generator's own held-out split (family-held-out for data/v2, template-pool-held-out
+only for data/ = v1). Untouched speaker/push-to-talk data is still needed before any generalisation claim.
 """
 import argparse
 import json
@@ -14,7 +19,7 @@ from .core import Router, load_labels, models_dir
 
 HERE = Path(__file__).parent
 SETS = (
-    ("test", "data/test.jsonl"),
+    ("test", None),  # <data-dir>/test.jsonl
     ("paraphrase_test", "data/paraphrase_test.jsonl"),
     ("demo_calls", "demo_calls.json"),
     ("demo_calls_47", "demo_calls_47.json"),
@@ -32,6 +37,7 @@ def load_rows(path):
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--checkpoint", default=str(models_dir() / "v1"), help="default: %(default)s (set NOVA_MODELS_DIR to move)")
+    ap.add_argument("--data-dir", default=str(HERE / "data"), help="where `test.jsonl` lives (default: %(default)s = v1 data)")
     ap.add_argument("--labels", default=str(HERE / "labels.json"))
     ap.add_argument("--device", default="auto")
     ap.add_argument("--show-errors", action="store_true")
@@ -43,7 +49,7 @@ def main(argv=None):
         sys.exit(f"{args.checkpoint} is untrained")
     print(f"checkpoint {args.checkpoint} (T={router.temperature:.3f})")
     for name, rel in SETS:
-        rows = load_rows(HERE / rel)
+        rows = load_rows(Path(args.data_dir) / "test.jsonl" if rel is None else HERE / rel)
         results = router.predict_batch([r["text"] for r in rows], topk=1)
         wrong = [(r, p) for r, p in zip(rows, results) if p["label"] != r["label"]]
         n = len(rows)

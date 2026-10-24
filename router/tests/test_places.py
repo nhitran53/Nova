@@ -3,7 +3,7 @@ import json
 
 import pytest
 
-from router.places import DEFAULT_THRESHOLD, load_gazetteer, normalise, resolve_place
+from router.places import DEFAULT_THRESHOLD, load_gazetteer, normalise, resolve_destination, resolve_place
 
 
 @pytest.mark.parametrize("text, place_id", [
@@ -103,3 +103,99 @@ def test_exported_from_package():
     import router
 
     assert router.resolve_place is resolve_place
+
+
+# ---- destination-aware resolution (review finding 2) ----
+def ids(entries):
+    return [e["place_id"] for e in entries]
+
+
+@pytest.mark.parametrize("text, place_id", [
+    ("take me home", "homebase"),
+    ("take me to home", "homebase"),
+    ("directions to homebase", "homebase"),
+    ("homebse", "homebase"),
+    ("go from the rover to the airlock", "airlock"),  # origin first, destination second
+    ("go to the airlock from the rover", "airlock"),  # destination first, origin second
+    ("take me from the rover to the airlock", "airlock"),
+    ("take me back to the base from the crater", "homebase"),
+    ("from the habitat take me home", "homebase"),  # destination without a marker
+    ("head toward the ridge away from the rover", "ridge"),
+    ("zoom in on the crater rim", "crater_rim"),  # "crater rim" is one place, not crater + rim
+    ("take me to the home base", "homebase"),  # "home base" is one place, not home + base
+])
+def test_destination_picks_destination_not_origin(text, place_id):
+    result = resolve_destination(text)
+    assert result["status"] == "resolved" and result["place"]["place_id"] == place_id
+    assert ids(result["candidates"]) == [place_id]
+
+
+def test_origin_is_reported_as_excluded_with_its_role():
+    result = resolve_destination("go from the rover to the airlock")
+    assert [(e["place_id"], e["role"]) for e in result["excluded"]] == [("rover", "origin")]
+
+
+@pytest.mark.parametrize("text, place_id, negated", [
+    ("take me to the rover not home", "rover", "homebase"),
+    ("take me to the rover, not to home", "rover", "homebase"),
+    ("not home, take me to the rover", "rover", "homebase"),
+    ("go to the rover instead of the airlock", "rover", "airlock"),
+    ("go to the rover rather than the airlock", "rover", "airlock"),
+    ("take me to the airlock never the habitat", "airlock", "habitat"),
+])
+def test_negated_places_are_excluded(text, place_id, negated):
+    result = resolve_destination(text)
+    assert result["status"] == "resolved" and result["place"]["place_id"] == place_id
+    assert [(e["place_id"], e["role"]) for e in result["excluded"]] == [(negated, "negated")]
+
+
+@pytest.mark.parametrize("text, expected", [
+    ("go to the rover or the airlock", ["rover", "airlock"]),
+    ("take me to the airlock or the rover", ["airlock", "rover"]),  # order of mention is not a tie-break
+    ("zoom in on the airlock at home", ["airlock", "homebase"]),
+    ("navigate to the ridge and the crater", ["ridge", "crater"]),
+])
+def test_multiple_unresolved_places_are_ambiguous_and_never_picked_by_position(text, expected):
+    result = resolve_destination(text)
+    assert result["status"] == "ambiguous" and result["place"] is None
+    assert ids(result["candidates"]) == expected
+
+
+def test_one_place_named_twice_is_not_ambiguous():
+    result = resolve_destination("take me to home or the base")
+    assert result["status"] == "resolved" and result["place"]["place_id"] == "homebase"
+
+
+@pytest.mark.parametrize("text", ["", "what time is it", "take me from the rover", "not home", "take me to the creator"])
+def test_no_destination_returns_none(text):
+    result = resolve_destination(text)
+    assert result["status"] == "none" and result["place"] is None and result["candidates"] == []
+
+
+def test_creator_is_not_matched_to_crater():
+    assert resolve_place("take me to the creator") is None
+    assert resolve_destination("take me to the creator")["status"] == "none"
+
+
+def test_resolve_destination_exported_from_package():
+    import router
+
+    assert router.resolve_destination is resolve_destination
+
+
+@pytest.mark.parametrize("text", [
+    "go from an unknown location to home",
+    "from the remote unknown starting position toward home",
+    "go from the rover staging area back to home",
+])
+def test_destination_spans_are_extracted_before_matching_origins(text):
+    result = resolve_destination(text)
+    assert result["status"] == "resolved"
+    assert result["place"]["place_id"] == "homebase"
+
+
+def test_negation_scope_does_not_expire_after_three_tokens():
+    result = resolve_destination("go to the rover not to the distant old home")
+    assert result["status"] == "resolved"
+    assert result["place"]["place_id"] == "rover"
+    assert [(e["place_id"], e["role"]) for e in result["excluded"]] == [("homebase", "negated")]

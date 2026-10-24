@@ -1,23 +1,28 @@
-"""Deterministic synthetic router data: JSONL {"text", "label"} for every label in labels.json.
+"""Deterministic synthetic router data, v2: JSONL {"text", "label"} for every label in labels.json.
 
-    python data/gen_synthetic.py            # writes data/{train,dev,test}.jsonl next to this file
+    python data/gen_synthetic.py            # writes data/v2/{train,dev,test}.jsonl (v1 data in data/ is untouched)
 
-Design (v1, after the "take me home" / "take me to home" brittleness bug):
-  * Many phrasings per class: several verbs/frames, politeness wrappers, word-order variants, with and without
-    "to/the/my", contractions and speech-ish noise (fillers, dropped function words, STT-style slips, typos).
-  * One shared PLACES list (home, homebase, home base, base, habitat, airlock, rover, ...) is substituted into
-    navigation, map, safety, oxygen, chit-chat (NO_TOOL), and unrelated (OOD) templates, so a place word alone
-    never decides the class.
-  * call_llm covers general space/science/how-it-works questions; OOD is unrelated topics (food, sports, Earth
-    weather, shopping, gibberish ...).
-  * Each label has separate template pools for train / dev / test (disjoint, see tests/test_data_coverage.py).
-  * Texts that equal (after normalisation) a line of demo_calls*.json or paraphrase_test.jsonl are never emitted,
-    so those hand-written evaluation sets stay verbatim-held-out. They are read for exclusion only.
+v2 fixes review finding 3 (v1 pools were disjoint only as literal template strings; the expanded frames and slot
+fills were shared). Rules, all enforced by tests/test_data_coverage.py:
+  * Template *frames* are disjoint across train/dev/test AFTER expanding every frame-defining slot.
+  * Frame-defining slot families ({take}, {goverb}, {navverb}, {greet}, {thanks}, {ack}, {nova}) and the {dest}
+    preposition forms ("to {P}", "back to {P}", bare "{H}" ...) are partitioned: each value belongs to exactly one
+    split (FAMILY_SLOTS). A literal template never contains another split's multi-word family value.
+  * Content slots ({sensor}, {topic}, {hazard}, {o2}, {city} ...), extra place names, politeness/filler/suffix
+    noise and STT-slip pairs are partitioned the same way (POOLS, NOISE, STT_SLIPS).
+  * Two deliberate, documented exceptions are shared by all splits: the core place names/determiners (PLACES: a closed
+    gazetteer that appears in every class so a place word never decides the label) and the wake word ("nova", "hey nova").
+  * Texts equal (after normalisation) to a line of demo_calls*.json or paraphrase_test.jsonl are never emitted, and no
+    phrase from those files was copied into a template. Those files are regression sets, not independent validation.
 
+Other design: many phrasings per class (verbs, politeness, word order, with/without "to/the/my"), speech-ish noise
+(fillers, dropped function words, STT-style slips, typos); call_llm = space/science/how-it-works questions; OOD =
+unrelated topics (food, sports, Earth weather, shopping, gibberish).
 A template starting with "~" is an imperative that may get a politeness prefix ("could you ...").
+v2 adds cross-class hard negatives where a take/bring/get verb has a non-destination object ("bring me my {sensor}").
 
-HONESTY NOTE: this is placeholder synthetic data from a template family. Dev/test come from the same generator
-family, so scores on them are optimistic and say nothing about real speech.
+HONESTY NOTE: placeholder synthetic data from a template family. Splits are now family-held-out, so dev/test scores
+are lower than v1's and more honest, but they still say nothing about real speech.
 """
 import argparse
 import json
@@ -27,11 +32,12 @@ from pathlib import Path
 
 HERE = Path(__file__).parent
 LABELS_PATH = HERE.parent / "labels.json"
+SPLITS = ("train", "dev", "test")
 SPLIT_SIZES = {"train": 200, "dev": 40, "test": 40}
 HELD_OUT_FILES = (HERE.parent / "demo_calls.json", HERE.parent / "demo_calls_47.json", HERE / "paraphrase_test.jsonl")
 
-# ---- shared place list: noun -> determiners it takes ("" = bare, e.g. "to home"). ----
-# place words appear in every kind of template, so they never decide the class on their own.
+# ---- shared entity vocabulary (documented exception: the same in every split) ----
+# noun -> determiners it takes ("" = bare, e.g. "to home").
 PLACES = {
     "home": ["", "", "my", "our"],
     "homebase": ["", "the", "our"],
@@ -53,76 +59,95 @@ PLACES = {
     "supply depot": ["the"],
     "comms tower": ["the"],
 }
-EVAL_ONLY_PLACES = {"relay tower": ["the"], "solar farm": ["the", "our"], "sample depot": ["the"], "dune field": ["the"]}
-TRAIN_ONLY_PLACES = {"ice shelf": ["the"], "old quarry": ["the"], "lava tube": ["the"], "east outcrop": ["the"]}
+EXTRA_PLACES = {  # place names that exist in exactly one split
+    "train": {"ice shelf": ["the"], "old quarry": ["the"], "lava tube": ["the"], "east outcrop": ["the"]},
+    "dev": {"relay tower": ["the"], "sample depot": ["the"]},
+    "test": {"solar farm": ["the", "our"], "dune field": ["the"]},
+}
 HOME_NOUNS = ("home", "homebase", "home base", "base", "base camp")
 BARE_HOME_NOUNS = ("home", "homebase", "home base")  # "take me home" has no "to"
-DEST_FORMS = ["to {P}", "to {P}", "to {P}", "back to {P}", "back to {P}", "over to {P}", "toward {P}", "back toward {P}"]
+WAKE_FORMS = ["nova", "hey nova"]  # shared entity: the product name, prepended to utterances in every split
 
-# ---- slot pools: (shared, train-only, eval-only). dev/test use shared + eval-only. ----
+# ---- {dest} preposition forms: a frame-defining family, one list per split. {P} = place with determiner, {H} = bare home noun ----
+DEST_FORMS = {
+    "train": ["to {P}", "to {P}", "to {P}", "back to {P}", "back to {P}", "toward {P}", "back toward {P}"],
+    "dev": ["over to {P}", "over to {P}", "towards {P}", "down to {P}"],
+    "test": ["straight to {P}", "all the way to {P}", "up to {P}", "straight back to {P}"],
+}
+BARE_HOME_FORMS = {
+    "train": ["{H}", "{H}", "back {H}"],
+    "dev": ["straight {H}"],
+    "test": ["right {H}", "directly {H}"],
+}
+
+# ---- slot pools: slot -> (train, dev, test); a value lives in exactly one split ----
+FAMILY_SLOTS = ("take", "goverb", "navverb", "greet", "thanks", "ack", "nova")  # frame-defining
 POOLS = {
-    "dir": (["north", "south", "east", "west"], ["northeast", "southwest"], ["northwest", "southeast"]),
+    "take": (["take me", "bring me", "lead me", "guide me"], ["walk me", "escort me", "direct me"],
+             ["get me", "steer me", "show me the way", "help me get"]),
+    "goverb": (["go", "head", "travel", "move"], ["walk", "drive"], ["make my way", "trek"]),
+    "navverb": (["navigate", "route me", "set a course"], ["plot a course", "start navigation"],
+                ["begin guidance", "give me a route"]),
+    "greet": (["hello", "hi", "hey"], ["good morning", "good evening", "howdy"], ["hiya", "greetings", "morning", "yo"]),
+    "thanks": (["thanks", "thank you"], ["thanks a bunch", "cheers", "thanks a lot"],
+               ["much appreciated", "thank you so much", "many thanks"]),
+    "ack": (["okay", "got it", "cool"], ["understood", "roger", "alright"],
+            ["sounds good", "makes sense", "fair enough", "copy that"]),
+    "nova": (["nova"], ["buddy", "friend"], ["partner", "assistant"]),
+    "dir": (["north", "south", "northeast", "southwest"], ["east", "northwest"], ["west", "southeast"]),
     "hazard": (
-        ["a dust storm", "a rockslide", "a radiation spike", "a suit leak"],
-        ["thin ice", "low pressure", "bad visibility"],
-        ["a solar flare", "unstable ground", "a thermal drop"],
+        ["a dust storm", "a rockslide", "a radiation spike", "a suit leak", "thin ice"],
+        ["low pressure", "bad visibility", "a solar flare"],
+        ["unstable ground", "a thermal drop", "a micrometeorite shower"],
     ),
     "sensor": (
-        ["suit pressure", "battery", "heart rate", "core temperature", "CO2 level"],
-        ["radiation dose", "wheel torque", "water supply", "blood pressure"],
-        ["signal strength", "suit temperature", "pulse", "coolant level", "body temperature"],
+        ["suit pressure", "battery", "heart rate", "core temperature", "CO2 level", "radiation dose", "wheel torque",
+         "water supply"],
+        ["blood pressure", "signal strength", "suit temperature"],
+        ["pulse", "coolant level", "body temperature", "motor temperature"],
     ),
     "topic": (
         ["regolith", "radiation shielding", "solar flares", "the water recycler", "orbital mechanics", "neutron stars",
-         "tides", "photosynthesis", "magnetic fields"],
-        ["the suit scrubber", "lava tubes", "low gravity walking", "dust on solar panels", "time dilation",
-         "pressure suits", "the big bang", "plate tectonics", "gravity assists", "dark matter"],
+         "tides", "photosynthesis", "magnetic fields", "the suit scrubber", "lava tubes", "low gravity walking",
+         "dust on solar panels"],
+        ["time dilation", "pressure suits", "the big bang", "plate tectonics", "gravity assists", "dark matter"],
         ["ice mining", "cosmic rays", "thermal insulation", "habitat domes", "the speed of light", "supernovae",
          "ocean currents", "the greenhouse effect", "asteroid belts"],
     ),
     "device": (
-        ["a solar panel", "a fuel cell", "a heat pump", "a water filter", "a radio"],
-        ["a battery", "a telescope", "a thermometer", "a gyroscope", "a rocket engine"],
-        ["a gps receiver", "a spectrometer", "a pressure valve", "an electrolyzer", "a radiator"],
+        ["a solar panel", "a fuel cell", "a heat pump", "a water filter", "a radio", "a battery", "a telescope",
+         "a thermometer"],
+        ["a gyroscope", "a rocket engine", "a gps receiver", "a spectrometer"],
+        ["a pressure valve", "an electrolyzer", "a radiator", "a seismograph"],
     ),
-    "planet": (
-        ["mars", "the moon", "venus", "jupiter"],
-        ["saturn", "mercury", "europa"],
-        ["titan", "neptune", "pluto"],
-    ),
-    "equip": (["the airlock", "the rover", "the habitat", "the lander"], ["the rebreather"], ["the life support system"]),
-    "o2": (["oxygen", "O2"], ["air supply", "air"], ["breathable air", "oxygen reserve", "breathing gas"]),
-    "city": (["London", "Chicago", "Berlin"], ["Tokyo", "Denver", "Seattle"], ["Madrid", "Boston", "Sydney", "Toronto"]),
-    "sport": (["football", "basketball"], ["baseball", "hockey", "tennis"], ["soccer", "golf", "cricket", "rugby"]),
-    "food": (
-        ["pasta", "tacos", "pizza"],
-        ["pancakes", "chicken curry", "lasagna", "meatloaf"],
-        ["risotto", "brownies", "an omelette", "fried rice", "banana bread"],
-    ),
-    "language": (["Spanish", "French"], ["German"], ["Italian", "Japanese", "Portuguese"]),
-    "stuff": (
-        ["a new phone", "running shoes", "a laptop"],
-        ["a used car", "a winter coat", "headphones"],
-        ["a coffee maker", "a bicycle", "a backpack"],
-    ),
-    "celeb": (["Taylor Swift", "Tom Hanks"], ["Beyonce", "Brad Pitt"], ["Keanu Reeves", "Adele"]),
-    "greet": (["hello", "hi", "hey"], ["good morning", "good evening", "howdy"], ["hiya", "greetings", "morning", "yo"]),
-    "thanks": (["thanks", "thank you"], ["thanks a bunch", "cheers", "thanks a lot"], ["much appreciated", "thank you so much"]),
-    "ack": (["okay", "got it", "cool"], ["understood", "roger", "copy that", "alright"], ["sounds good", "makes sense", "fair enough"]),
-    "nova": (["nova"], ["buddy", "friend"], ["partner", "assistant"]),
-    "take": (
-        ["take me", "bring me", "get me", "lead me", "guide me", "walk me"],
-        ["escort me", "direct me", "steer me"],
-        ["show me the way", "carry me", "help me get"],
-    ),
-    "goverb": (["go", "head", "walk", "travel"], ["move", "drive"], ["make my way", "trek"]),
-    "navverb": (["navigate", "route me", "set a course"], ["plot a course", "start navigation"], ["begin guidance", "give me a route"]),
+    "planet": (["mars", "the moon", "venus", "jupiter", "saturn"], ["mercury", "europa", "titan"],
+               ["neptune", "pluto", "uranus"]),
+    "equip": (["the airlock", "the rover"], ["the habitat", "the rebreather"], ["the lander", "the life support system"]),
+    "o2": (["oxygen", "O2", "air supply", "air"], ["oxygen supply", "O2 supply", "breathing air"],
+           ["oxygen reserve", "breathable air", "breathing gas"]),
+    "city": (["London", "Chicago", "Berlin", "Tokyo", "Denver"], ["Seattle", "Madrid", "Boston"],
+             ["Sydney", "Toronto", "Paris"]),
+    "sport": (["football", "basketball", "baseball", "hockey"], ["tennis", "soccer"], ["golf", "cricket", "rugby"]),
+    "food": (["pasta", "tacos", "pizza", "pancakes", "chicken curry", "lasagna"], ["meatloaf", "risotto", "brownies"],
+             ["an omelette", "fried rice", "banana bread"]),
+    "language": (["Spanish", "French", "German"], ["Italian", "Japanese"], ["Portuguese", "Korean"]),
+    "stuff": (["a new phone", "running shoes", "a laptop", "a used car"], ["a winter coat", "headphones", "a coffee maker"],
+              ["a bicycle", "a backpack", "a tablet"]),
+    "celeb": (["Taylor Swift", "Tom Hanks", "Beyonce"], ["Brad Pitt", "Keanu Reeves"], ["Adele", "Morgan Freeman"]),
+    "adj": (["red", "cold", "dusty"], ["bright", "hot"], ["small", "windy"]),
+    "mins": (["5", "10", "15"], ["20", "30"], ["45", "25"]),
+    "dist": (["10 meters", "20 meters", "50 meters"], ["100 meters", "200 meters"], ["500 meters", "300 meters"]),
 }
 SYLLABLES = {
     "train": ["ba", "ko", "ri", "zu", "me", "fa", "do", "la", "ne", "shi", "tor", "vek"],
     "dev": ["gu", "pe", "xa", "ni", "bo", "tre", "qua", "sol", "dim", "fro"],
     "test": ["wi", "ja", "ke", "mu", "pra", "zon", "hep", "lo", "ci", "dra"],
 }
+
+
+def pool(slot, split):
+    return POOLS[slot][SPLITS.index(split)]
+
 
 # ---- template pools per label and split ----
 TEMPLATES = {
@@ -170,7 +195,7 @@ TEMPLATES = {
             "route {dest}", "what's my heading", "~head {dir} for {dist}", "what direction is {place}",
             "{take} {dest}", "{take} {dest}", "{take} {dest}", "{take} {dest} please", "~{take} {dest}",
             "which way should I go to reach {place}", "what bearing to {place}", "~plan a route {dest}",
-            "~start navigation {dest}", "turn me toward {place}", "~point me {dest}", "~set course for {place}",
+            "~start routing {dest}", "turn me toward {place}", "~point me {dest}", "~set course for {place}",
             "next turn please", "what's the best route around {place}", "turn {dir} at the next marker",
             "{take} home", "{take} home", "~{take} home please", "I want to {goverb} {dest}", "I need to get {dest}",
             "I wanna go {dest}", "let's {goverb} {dest}", "{goverb} {dest}", "~{goverb} {dest} now",
@@ -182,7 +207,7 @@ TEMPLATES = {
         ],
         "dev": [
             "walk me {dest}", "what compass heading gets me {dest}", "I need directions {dest}",
-            "which direction do I face for {place}", "lead the way {dest}", "~re-route me around {place}",
+            "which direction do I face for {place}", "lead the way {dest}", "~find a detour around {place}",
             "how do I reach {place} from here", "could you {take} {dest}", "{take} back home", "would you {take} {dest}",
             "I should {goverb} {dest}", "which way am I going {dest}", "~{navverb} {dest} when ready", "I'd like to go {dest}",
             "what's the direction of {place}", "point the way home",
@@ -230,7 +255,7 @@ TEMPLATES = {
             "~report {sensor}", "read out the {sensor} and the {sensor2}", "what is the ambient radiation",
             "~list all vitals", "update me on telemetry", "what's the {sensor} trend",
             "how are the suit systems doing", "pull the latest sensor values", "how's my {sensor} doing",
-            "what is my {sensor}", "tell me my {sensor}", "~check my {sensor}", "{sensor} please",
+            "bring me my {sensor}", "what is my {sensor}", "tell me my {sensor}", "~check my {sensor}", "{sensor} please",
             "what are my vitals", "give me my numbers", "I want my {sensor} and {sensor2}", "status",
             "~show me the readings", "how are my vitals", "~give me the suit status", "what do the sensors say",
             "~read the {sensor}", "what's the {sensor} at", "any change in my {sensor}", "how's everything reading",
@@ -238,7 +263,7 @@ TEMPLATES = {
             "what's my {sensor} right now",
         ],
         "dev": [
-            "tell me the {sensor}", "what does the {sensor} say", "give me the numbers on my suit",
+            "walk me through my {sensor}", "tell me the {sensor}", "what does the {sensor} say", "give me the numbers on my suit",
             "~dump the telemetry", "any change in {sensor}", "how's the battery doing", "~report vitals",
             "what's the {sensor} look like", "~display my {sensor}", "suit readout please", "how are my numbers",
             "I'd like to know my {sensor}", "can you read me the {sensor}", "what are the vitals",
@@ -262,20 +287,20 @@ TEMPLATES = {
             "do I have enough {o2} for the trip {dest}", "how much {o2} will I need {dest}",
             "is my {o2} enough to {goverb} {dest}", "what's my {o2} like", "how's the {o2} holding up",
             "~tell me my {o2} level", "how much {o2} left in the tank", "{o2} usage", "~check the {o2}",
-            "how long can I stay out on this {o2}", "how many minutes until I run out of {o2}",
+            "bring me my {o2} level", "how long can I stay out on this {o2}", "how many minutes until I run out of {o2}",
             "will I run out of {o2} before I get {dest}", "what's my {o2} at",
             "am I low on {o2}", "{o2} left", "how much {o2} do I have", "how is my {o2}",
             "I'm worried about my {o2}, how much is left",
         ],
         "dev": [
-            "how's my {o2} looking", "tell me the {o2} level", "what's the tank at for {o2}", "{o2} usage right now",
+            "walk me through my {o2} numbers", "how's my {o2} looking", "tell me the {o2} level", "what's the tank at for {o2}", "{o2} usage right now",
             "how long can I breathe on this tank", "remaining {o2} time", "show consumption of {o2}",
             "is there enough {o2} to get {dest}", "how's the {o2} going", "~give me the {o2} status",
-            "how much {o2} is there", "can my {o2} get me {dest}", "what is the {o2} level",
+            "how much {o2} is there", "will my {o2} be enough to reach {place}", "what is the {o2} level",
             "is my {o2} okay",
         ],
         "test": [
-            "do a quick {o2} check", "how much breathable air is left", "what's my {o2} draw",
+            "~get me my {o2} level", "do a quick {o2} check", "how much breathable air is left", "what's my {o2} draw",
             "{o2} reserve minutes", "is the {o2} supply holding", "what percent {o2} is left", "my {o2} usage rate",
             "will the {o2} last {dest}", "how much {o2} do I have to {goverb} {dest}", "~read me my {o2}",
             "what's left of my {o2}", "is my {o2} good", "how's the tank", "how much longer will my {o2} last",
@@ -286,7 +311,7 @@ TEMPLATES = {
             "explain how {topic} works", "why is {topic} important", "what's the difference between {topic} and {topic2}",
             "can you explain {topic}", "tell me about {topic}", "how does {topic} affect astronauts",
             "why does {topic} happen", "give me a quick explanation of {topic}", "what would happen if {topic} failed",
-            "walk me through {topic}", "help me understand {topic}", "what should I know about {topic}",
+            "run me through {topic}", "help me understand {topic}", "what should I know about {topic}",
             "describe {topic} in simple terms", "why do we need {topic}", "summarize what {topic} is",
             "what are the pros and cons of {topic}", "teach me about {topic}", "what causes {topic}",
             "I'm curious about {topic}, can you elaborate", "how would you deal with {topic}",
@@ -335,7 +360,7 @@ TEMPLATES = {
             "{greet} there", "{ack} {nova}", "you're a lifesaver", "see you later {nova}", "it's nice talking to you",
             "how's it going {nova}", "{thanks} for that", "I got to {place}", "I'm finally at {place}",
             "{thanks}, we're home", "good to be home", "oh that's cool", "right", "sure", "that works",
-            "okay that makes sense", "I'm done for today",
+            "okay that is clear", "I'm done for today",
         ],
         "test": [
             "{thanks} so much", "{greet} {nova} how are you", "that's helpful", "appreciate it", "all good now",
@@ -367,7 +392,7 @@ TEMPLATES = {
         "dev": [
             "is it going to snow in {city}", "who's winning the {sport} championship",
             "what should I make for dinner with {food}", "{gibberish} {food} {gibberish}", "what's the humidity in {city} this week",
-            "how do you say thank you in {language}", "where can I buy {food}", "what's a good book to read",
+            "how do you say good luck in {language}", "where can I buy {food}", "what's a good book to read",
             "how much is {stuff}", "tell me something about {celeb}", "how do I fix my sink at home",
             "what's the news today", "will it be windy in {city}", "how do I make {food} at home",
             "my printer isn't working", "{gibberish} home",
@@ -381,44 +406,53 @@ TEMPLATES = {
         ],
     },
 }
-ADJ = ["red", "cold", "dusty", "bright", "hot", "small", "windy"]
-
-# ---- noise ----
-POLITE = {
-    "train": ["please", "can you", "could you", "would you", "will you", "I need you to", "I want you to", "hey nova can you",
-              "nova please", "go ahead and", "i'd like you to"],
-    "eval": ["please", "can you", "could you", "would you mind", "I'd like you to", "nova can you", "just", "if you could"],
-}
-FILLERS = {
-    "train": ["uh", "um", "hey nova", "okay nova", "so", "like", "nova", "hmm", "ok so", "yeah", "hey nova uh", "umm",
-              "okay", "alright", "oh"],
-    "eval": ["uh", "um", "hey nova", "nova", "er", "right so", "listen", "nova quick one", "well", "hold on", "okay so"],
-}
-SUFFIXES = {
-    "train": ["please", "thanks", "now", "real quick", "you know", "nova", "for me"],
-    "eval": ["please", "right now", "if you can", "thanks", "quick", "nova", "for me"],
+# ---- noise: disjoint per split (wake word aside, see WAKE_FORMS) ----
+NOISE = {
+    "polite": {
+        "train": ["please", "can you", "could you", "will you", "I need you to", "go ahead and"],
+        "dev": ["would you", "i'd like you to", "if you would"],
+        "test": ["would you mind", "just", "if you could", "I was hoping you'd"],
+    },
+    "filler": {
+        "train": ["uh", "um", "so", "like", "hmm", "ok so", "yeah", "umm", "okay", "alright", "oh"],
+        "dev": ["er", "well", "right so"],
+        "test": ["listen", "hold on", "okay so", "actually"],
+    },
+    "suffix": {
+        "train": ["please", "thanks", "now", "real quick", "you know", "for me"],
+        "dev": ["right now", "whenever you can", "if possible"],
+        "test": ["quick", "if you can", "asap"],
+    },
 }
 DROPPABLE = {"the", "to", "my", "a", "is", "it", "me", "of", "and", "i", "do", "at", "for", "on", "back", "our"}
-STT_SLIPS = {
+STT_SLIPS = {  # word -> slip; (word, slip) pairs are disjoint across splits
     "train": {
         "o2": "oh two", "waypoint": "way point", "waypoints": "way points", "nova": "nover", "route": "root",
         "to": "two", "for": "four", "map": "mac", "heading": "hitting", "safe": "save", "regolith": "rego lith",
         "wheel": "will", "meters": "metres", "know": "no", "your": "you're", "homebase": "home base",
         "home base": "homebase", "base": "bass", "navigate": "navigator", "oxygen": "oxigen", "me": "my",
     },
-    "eval": {
-        "o2": "oh to", "waypoint": "way point", "waypoints": "way points", "nova": "no va", "route": "rout",
-        "to": "too", "for": "fore", "oxygen": "oxigen", "heading": "heating", "telemetry": "telemetery",
+    "dev": {
+        "o2": "oh to", "waypoint": "wave point", "waypoints": "wave points", "nova": "no va", "route": "rout",
+        "to": "too", "for": "fore", "oxygen": "oxyjen", "heading": "heating", "telemetry": "telemetery",
         "hazards": "has ards", "zoom": "zoomed", "bearing": "baring", "there": "their", "rim": "rym",
-        "homebase": "home bass", "home base": "homebase", "base": "bass", "airlock": "air lock", "habitat": "habitats",
-        "take": "tick", "me": "my",
+        "homebase": "home bass", "base": "bays", "airlock": "air lock", "habitat": "habitats", "take": "tick",
+        "me": "mi",
+    },
+    "test": {
+        "o2": "o two", "waypoint": "wey point", "waypoints": "wey points", "nova": "novah", "route": "rooute",
+        "to": "tu", "for": "fer", "oxygen": "oxygin", "heading": "heeding", "telemetry": "telemetree",
+        "hazards": "hazzards", "zoom": "zoo", "bearing": "barring", "there": "they're", "rim": "rimm",
+        "homebase": "hombase", "base": "basse", "airlock": "airlok", "habitat": "habitate", "take": "tack",
+        "me": "mee",
     },
 }
+WAKE_RATE = 0.25
 CLEAN_RATE = 0.2
 
 
 def _noun_pool(split):
-    return {**PLACES, **(TRAIN_ONLY_PLACES if split == "train" else EVAL_ONLY_PLACES)}
+    return {**PLACES, **EXTRA_PLACES[split]}
 
 
 class _Slots(dict):
@@ -428,41 +462,34 @@ class _Slots(dict):
         super().__init__()
         self.rng, self.split = rng, split
 
-    def _place(self, key):
+    def _place(self):
         """Returns (noun, text-with-determiner) for the current place slot."""
-        pool = _noun_pool(self.split)
-        nouns = list(pool)
+        places = _noun_pool(self.split)
+        nouns = list(places)
         weights = [4 if n in HOME_NOUNS else 1 for n in nouns]  # home-ish places are the common case
         noun = self.rng.choices(nouns, weights)[0]
-        det = self.rng.choice(pool[noun])
+        det = self.rng.choice(places[noun])
         return noun, (f"{det} {noun}" if det else noun)
 
     def __missing__(self, key):
         rng = self.rng
-        base = key[:-1] if key not in POOLS and key.endswith("2") and key != "dest2" else key
-        if key == "mins":
-            value = str(rng.choice([5, 10, 15, 20, 30, 45]))
-        elif key == "dist":
-            value = f"{rng.choice([10, 20, 50, 100, 200, 500])} meters"
-        elif key == "gibberish":
+        base = key[:-1] if key not in POOLS and key.endswith("2") else key
+        if key == "gibberish":
             syl = SYLLABLES[self.split]
             value = "".join(rng.choice(syl) for _ in range(rng.randint(2, 5)))
-        elif key == "adj":
-            value = rng.choice(ADJ)
         elif key == "place":
-            value = self._place(key)[1]
+            value = self._place()[1]
         elif key == "dest":
-            noun, text = self._place(key)
+            noun, text = self._place()
             if noun in BARE_HOME_NOUNS and rng.random() < 0.45:
-                value = rng.choice([noun, noun, f"back {noun}"]) if noun == "home" else noun
+                value = rng.choice(BARE_HOME_FORMS[self.split]).format(H=noun)
             else:
-                value = rng.choice(DEST_FORMS).format(P=text)
+                value = rng.choice(DEST_FORMS[self.split]).format(P=text)
         else:
-            shared, train_only, eval_only = POOLS[base]
-            pool = shared + (train_only if self.split == "train" else eval_only)
-            value = rng.choice(pool)
+            values = pool(base, self.split)
+            value = rng.choice(values)
             if key != base:  # second slot of the same kind must differ from the first
-                value = rng.choice([v for v in pool if v != self[base]])
+                value = rng.choice([v for v in values if v != self[base]])
         self[key] = value
         return value
 
@@ -471,6 +498,34 @@ def render(template, rng, split):
     return template.format_map(_Slots(rng, split))
 
 
+# ---- frames / families (used by tests) ----
+def expanded_frames(split):
+    """{label: set of frames}. A frame is a template with every frame-defining slot ({take}, {dest} forms ...)
+    expanded to this split's values and every remaining slot replaced by '{}'."""
+    out = {}
+    for label, pools in TEMPLATES.items():
+        frames = set()
+        for template in pools[split]:
+            options = [template.lstrip("~").lower()]
+            for slot in FAMILY_SLOTS:
+                if "{" + slot + "}" in options[0]:
+                    options = [o.replace("{" + slot + "}", v.lower()) for o in options for v in pool(slot, split)]
+            if "{dest}" in options[0]:
+                forms = DEST_FORMS[split] + BARE_HOME_FORMS[split]
+                options = [o.replace("{dest}", f.format(P="{}", H="{}")) for o in options for f in sorted(set(forms))]
+            frames.update(" ".join(re.sub(r"\{\w*\}", "{}", o).split()) for o in options)
+        out[label] = frames
+    return out
+
+
+def family_values(split):
+    """{family name: set of values} for every frame-defining family in this split."""
+    values = {slot: set(pool(slot, split)) for slot in FAMILY_SLOTS}
+    values["dest_form"] = set(DEST_FORMS[split]) | set(BARE_HOME_FORMS[split])
+    return values
+
+
+# ---- text noise ----
 def _clean(text):
     text = text[0].upper() + text[1:]
     question = re.match(r"(?i)(what|how|why|is|can|do|am|which|who|will|should|where|could|would|any)\b", text)
@@ -489,15 +544,14 @@ def _typo(word, rng):
 
 
 def add_noise(text, rng, split, imperative=False):
-    """Clean (cased, punctuated) with p=CLEAN_RATE; otherwise speech-ish noise."""
-    kind = "train" if split == "train" else "eval"
+    """Clean (cased, punctuated) with p=CLEAN_RATE; otherwise speech-ish noise from this split's own noise pools."""
     if imperative and rng.random() < 0.3:
-        text = rng.choice(POLITE[kind]) + " " + text
+        text = rng.choice(NOISE["polite"][split]) + " " + text
     if rng.random() < CLEAN_RATE:
         return _clean(text)
     text = re.sub(r"[^\w\s]", "", text.lower().replace("'", ""))
     words = text.split()
-    slips = STT_SLIPS[kind]
+    slips = STT_SLIPS[split]
     if rng.random() < 0.4:
         idx = [i for i, w in enumerate(words) if w in slips]
         for i in rng.sample(idx, min(len(idx), rng.choice([1, 2]))):
@@ -515,9 +569,11 @@ def add_noise(text, rng, split, imperative=False):
         i = rng.randrange(len(words))
         words.insert(i, words[i])
     if rng.random() < 0.4:
-        words = rng.choice(FILLERS[kind]).split() + words
+        words = rng.choice(NOISE["filler"][split]).split() + words
+    if rng.random() < WAKE_RATE:
+        words = rng.choice(WAKE_FORMS).split() + words
     if rng.random() < 0.15:
-        words += rng.choice(SUFFIXES[kind]).split()
+        words += rng.choice(NOISE["suffix"][split]).split()
     return " ".join(words)
 
 
@@ -545,7 +601,7 @@ def generate(labels, seed=0, sizes=SPLIT_SIZES, banned=None):
     banned = held_out_texts() if banned is None else banned
     seen = {}
     out = {}
-    for split in ("train", "dev", "test"):
+    for split in SPLITS:
         rows = []
         for label in labels:
             rng = random.Random(f"{seed}/{split}/{label}")
@@ -570,7 +626,7 @@ def generate(labels, seed=0, sizes=SPLIT_SIZES, banned=None):
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--labels", default=str(LABELS_PATH))
-    ap.add_argument("--out-dir", default=str(HERE))
+    ap.add_argument("--out-dir", default=str(HERE / "v2"))
     ap.add_argument("--seed", type=int, default=0)
     args = ap.parse_args(argv)
     labels = json.loads(Path(args.labels).read_text())["labels"]
