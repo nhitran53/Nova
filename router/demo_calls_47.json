@@ -1,0 +1,193 @@
+{
+ "_comment": "15 hand-written utterances for a quick eyeball check of a trained checkpoint. NOT produced by, derived from, or to be added to data/gen_synthetic.py; do not tune training data against them. Extended to 47 calls.",
+ "calls": [
+  {
+   "text": "is it okay to walk out to the crater tonight",
+   "label": "call_safety"
+  },
+  {
+   "text": "are there any dangers on the way to the lander",
+   "label": "call_safety"
+  },
+  {
+   "text": "which way do I walk to get back to the habitat",
+   "label": "call_navigation"
+  },
+  {
+   "text": "give me the heading for the landing pad",
+   "label": "call_navigation"
+  },
+  {
+   "text": "bring the map up and zoom in",
+   "label": "call_map"
+  },
+  {
+   "text": "put a waypoint right here",
+   "label": "call_map"
+  },
+  {
+   "text": "read me my battery and heart rate",
+   "label": "call_data"
+  },
+  {
+   "text": "what are my suit numbers right now",
+   "label": "call_data"
+  },
+  {
+   "text": "how much oxygen is left in my tank",
+   "label": "call_o2"
+  },
+  {
+   "text": "how quickly am I using up my oxygen",
+   "label": "call_o2"
+  },
+  {
+   "text": "explain why mars has such thin air",
+   "label": "call_llm"
+  },
+  {
+   "text": "nice to meet you",
+   "label": "NO_TOOL"
+  },
+  {
+   "text": "thanks that was helpful",
+   "label": "NO_TOOL"
+  },
+  {
+   "text": "what's the best way to bake sourdough bread",
+   "label": "OOD"
+  },
+  {
+   "text": "asdf qwerty zxcv",
+   "label": "OOD"
+  },
+  {
+   "text": "hey nova is it safe to head out right now",
+   "label": "call_safety"
+  },
+  {
+   "text": "any hazards ahead of me",
+   "label": "call_safety"
+  },
+  {
+   "text": "should I turn back or keep going",
+   "label": "call_safety"
+  },
+  {
+   "text": "check if the area is clear",
+   "label": "call_safety"
+  },
+  {
+   "text": "how do I get to the rover",
+   "label": "call_navigation"
+  },
+  {
+   "text": "take me back to base",
+   "label": "call_navigation"
+  },
+  {
+   "text": "what direction is the airlock",
+   "label": "call_navigation"
+  },
+  {
+   "text": "how far is the ridge",
+   "label": "call_navigation"
+  },
+  {
+   "text": "show me the map",
+   "label": "call_map"
+  },
+  {
+   "text": "zoom out a bit",
+   "label": "call_map"
+  },
+  {
+   "text": "drop a pin here",
+   "label": "call_map"
+  },
+  {
+   "text": "pull up the terrain view",
+   "label": "call_map"
+  },
+  {
+   "text": "what's my heart rate",
+   "label": "call_data"
+  },
+  {
+   "text": "give me a status readout",
+   "label": "call_data"
+  },
+  {
+   "text": "how's my suit temperature",
+   "label": "call_data"
+  },
+  {
+   "text": "read out my vitals",
+   "label": "call_data"
+  },
+  {
+   "text": "how much o2 do I have left",
+   "label": "call_o2"
+  },
+  {
+   "text": "what's my oxygen level",
+   "label": "call_o2"
+  },
+  {
+   "text": "am I burning through air too fast",
+   "label": "call_o2"
+  },
+  {
+   "text": "how long will my oxygen last",
+   "label": "call_o2"
+  },
+  {
+   "text": "why is the sky red on mars",
+   "label": "call_llm"
+  },
+  {
+   "text": "tell me about olympus mons",
+   "label": "call_llm"
+  },
+  {
+   "text": "how do solar flares affect suits",
+   "label": "call_llm"
+  },
+  {
+   "text": "explain how the airlock works",
+   "label": "call_llm"
+  },
+  {
+   "text": "hello",
+   "label": "NO_TOOL"
+  },
+  {
+   "text": "good morning nova",
+   "label": "NO_TOOL"
+  },
+  {
+   "text": "thank you",
+   "label": "NO_TOOL"
+  },
+  {
+   "text": "okay cool",
+   "label": "NO_TOOL"
+  },
+  {
+   "text": "who won the game last night",
+   "label": "OOD"
+  },
+  {
+   "text": "what's a good pasta recipe",
+   "label": "OOD"
+  },
+  {
+   "text": "blah blah purple monkey",
+   "label": "OOD"
+  },
+  {
+   "text": "what's the weather in paris",
+   "label": "OOD"
+  }
+ ]
+}

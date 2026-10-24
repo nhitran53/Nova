@@ -1,0 +1,46 @@
+{
+  "_comment": "Pipeline routing config. tool_labels: label -> {tool name, spoken name for clarification questions, whether to resolve a place from the utterance, optional required_slots: a tool whose required slot is unfilled becomes a missing_slot clarify and never executes}. Every other label in labels.json needs a prompt policy in llm_labels. Confidence gate for a TOOL top class (calibrated confidence c): c >= tau_hi -> execute; tau_lo <= c < tau_hi -> ask the injectable arbiter (top-3 classes + 'none'): same class as the router -> execute, anything else (or no arbiter, or an arbiter error) -> deterministic clarification, never a tool; c < tau_lo -> LLM clarify policy. The arbiter can only confirm the router's class, never choose another. Non-tool top classes route to the LLM with their prompt policy when c >= tau_lo.",
+  "tau_hi": 0.9,
+  "tau_lo": 0.5,
+  "tool_labels": {
+    "call_safety": {
+      "tool": "safety",
+      "spoken": "a safety check",
+      "resolve_place": false
+    },
+    "call_navigation": {
+      "tool": "navigation",
+      "spoken": "navigation",
+      "resolve_place": true,
+      "required_slots": [
+        "place"
+      ]
+    },
+    "call_map": {
+      "tool": "map",
+      "spoken": "the map",
+      "resolve_place": true,
+      "required_slots": [
+        "place"
+      ]
+    },
+    "call_data": {
+      "tool": "data",
+      "spoken": "a sensor readout",
+      "resolve_place": false
+    },
+    "call_o2": {
+      "tool": "o2",
+      "spoken": "your oxygen status",
+      "resolve_place": false
+    }
+  },
+  "llm_labels": {
+    "call_llm": "answer_question: answer the space/science question concisely and accurately for an astronaut mid-task.",
+    "NO_TOOL": "chitchat: reply briefly and warmly; no tools are needed.",
+    "OOD": "out_of_scope: politely say this is out of scope for Nova and offer help with mission, suit, navigation or space questions."
+  },
+  "low_confidence_policy": "clarify: the request was unclear; ask one short clarifying question and do not guess a tool.",
+  "clarify_question": "I'm not sure I understood. Did you want {options}?",
+  "place_question": "Which place do you mean: {options}?"
+}

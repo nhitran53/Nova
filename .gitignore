@@ -28,3 +28,8 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+
+# Local elevation data and generated terrain
+/Data/Source/*.tif
+/Assets/JezeroTerrain/Generated/
+/Assets/JezeroTerrain/Generated.meta
