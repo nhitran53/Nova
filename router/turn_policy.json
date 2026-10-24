@@ -133,7 +133,8 @@
       "then"
     ],
     "yes_spoken": "Okay, I sent the refill request to {recipient_name}, marked {urgency}.",
-    "no_spoken": "Okay, I won't call. Say so if you change your mind."
+    "no_spoken": "Okay, I won't call. Say so if you change your mind.",
+    "no_longer_needed": "Your oxygen margin has changed, so a refill is no longer needed. I did not send the request."
   },
   "send_message": {
     "status": "PLACEHOLDER - pending user sign-off (urgency is decided here, by feasibility outcome, never by the LLM)",

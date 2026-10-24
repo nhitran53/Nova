@@ -36,6 +36,8 @@ class SchemaError(ToolRegistryError):
 
 class ToolRegistry:
     def __init__(self, max_tools=MAX_TOOLS):
+        if not 1 <= max_tools <= MAX_TOOLS:
+            raise ValueError(f"max_tools must be between 1 and {MAX_TOOLS}, got {max_tools}")
         self.max_tools = max_tools
         self._tools = {}
         self.calls_this_turn = 0

@@ -106,6 +106,40 @@ def test_api_error_message_has_no_headers_or_key(fresh_singleton, monkeypatch):
     assert "test-key-not-real" not in str(caught.value) and "401" in str(caught.value) and "missing permission" in str(caught.value)
 
 
+def test_key_in_the_api_error_message_is_redacted(fresh_singleton):
+    class ApiError(Exception):
+        status_code, body = 401, {"detail": {"message": "bad key test-key-not-real, check it"}}
+
+    def boom(**kwargs):
+        raise ApiError("x")
+
+    speech.init().convert = boom
+    with pytest.raises(speech.SpeechError) as caught:
+        speech.speak("hi")
+    assert "test-key-not-real" not in str(caught.value) and "[redacted]" in str(caught.value) and "401" in str(caught.value)
+
+
+def test_key_in_a_player_error_is_redacted(monkeypatch):
+    importlib.reload(speech)
+    monkeypatch.setenv(speech.KEY_VAR, "test-key-not-real")
+    monkeypatch.setattr(speech.shutil, "which", lambda name: "/usr/bin/paplay")
+    monkeypatch.setattr(speech.subprocess, "run", lambda command, **kw: subprocess.CompletedProcess(command, 1, stderr=b"oops test-key-not-real"))
+    with pytest.raises(speech.SpeechError) as caught:
+        speech._play(b"pcm")
+    assert "test-key-not-real" not in str(caught.value) and "oops [redacted]" in str(caught.value)
+
+
+def test_client_factory_failure_raises_a_sanitized_speech_error(monkeypatch):
+    def broken_factory(key):
+        raise ValueError(f"bad credentials {key}")
+
+    monkeypatch.setattr(speech, "_client_factory", broken_factory)
+    with pytest.raises(speech.SpeechError) as caught:
+        speech.init()
+    assert "test-key-not-real" not in str(caught.value) and "ValueError" in str(caught.value)
+    assert caught.value.__cause__ is None and caught.value.__suppress_context__ and speech._client is None
+
+
 def test_empty_audio_is_an_error(fresh_singleton):
     speech.init().convert = lambda **kwargs: iter([])
     with pytest.raises(speech.SpeechError, match="no audio"):
@@ -113,8 +147,7 @@ def test_empty_audio_is_an_error(fresh_singleton):
 
 
 def test_player_pipes_pcm_to_paplay_with_timeout_and_reports_nonzero_exit(monkeypatch):
-    monkeypatch.setattr(speech, "_play", speech.__dict__["_play"])  # the real one (fixture replaced it)
-    importlib.reload(speech)
+    importlib.reload(speech)  # restores the real _play, which the autouse fixture replaced
     seen = {}
 
     def fake_run(command, **kwargs):

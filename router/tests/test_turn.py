@@ -131,6 +131,19 @@ def test_navigation_or_map_without_a_place_asks_a_slot_question_and_calls_no_too
     assert rig.registry.log == [] and out["tool_calls"] == 0 and out["tool_call"] is None
 
 
+@pytest.mark.parametrize("text", ["do not go to the crater", "never go to the crater", "please don't go to the crater"])
+def test_negated_navigation_verb_does_not_navigate_to_the_forbidden_place(text):
+    rig = Rig("call_navigation")
+    out = rig.say(text)
+    assert out["route"] == "slot_question" and rig.registry.log == [] and out["tool_calls"] == 0
+
+
+def test_no_then_a_new_command_still_navigates_to_the_new_place():
+    rig = Rig("call_navigation")
+    out = rig.say("no, take me to the airlock")
+    assert out["tool_call"] == {"name": "navigation", "args": {"place": "airlock"}}
+
+
 def test_ambiguous_place_asks_which_place_and_calls_no_tool():
     rig = Rig("call_navigation")
     out = rig.say("go to the rover or the airlock")
@@ -299,9 +312,76 @@ def test_verifier_hook_is_injectable_and_applies_to_every_route():
     ("Count: 1", {"flag": True}, False),                   # bool is not a number
     ("Heading to base 2", {"place": "base 2"}, True),     # digits inside source strings count
     ("Heading to base 7", {"place": "base 2"}, False),
+    ("-5", {"v": 5}, False),                              # the sign is part of the number
+    ("5", {"v": -5}, False),
+    ("-20.0", {"t": -20.0}, True),
+    ("Suit temperature -20.0 degrees.", {"temp_c": -20}, True),
+    ("Suit temperature \u221220.0 degrees.", {"temp_c": -20}, True),  # Unicode minus
+    ("minus twenty", {"t": -20}, True),
+    ("minus twenty", {"t": 20}, False),
+    ("minus 20", {"t": 20}, False),
+    ("minus 20", {"t": -20}, True),
+    ("between 5-10 minutes", {"a": 5, "b": 10}, True),    # a range is two positive numbers, not 5 and -10
+    ("between 5-10 minutes", {"a": 5, "b": -10}, False),
+    ("Heading to ISS-12", {"x": "ISS-12"}, True),         # a hyphen after a word character is not a sign
+    ("Logged 2026-10-24.", {"d": "2026-10-24"}, True),
+    ("Temperature -5.", {"note": "limit is -5"}, True),   # the sign is read the same way inside source strings
+    ("Temperature -5.", {"note": "limit is 5"}, False),
+    ("About half of it.", {}, False),
+    ("A quarter tank, a third, a dozen, a couple.", {}, False),
+    ("Quarters and halves.", {}, False),
+    ("About half of it.", {"note": "half"}, True),        # backed by a source string
+    ("Takes a few minutes, roughly.", {}, True),          # "few" and "point" are ordinary speech
 ])
 def test_verify_numbers(text, source, ok):
     assert verify_numbers(text, source)["ok"] is ok
+
+
+def test_vague_quantity_words_are_reported_as_unsupported():
+    assert verify_numbers("half a dozen", {})["unsupported"] == ["half", "dozen"]
+
+
+def test_negative_temperature_critical_alert_is_spoken_unblocked():
+    rig = Rig(snapshot={**CRITICAL, "o2_pct": 87.5, "temp_c": -20})
+    out = rig.say("hi")
+    assert out["route"] == "alert" and out["blocked_text"] is None and out["verifier"]["ok"]
+    assert out["spoken"] == "Critical alert. Suit temperature -20.0 degrees Celsius. Return to the airlock now."
+    assert rig.router.seen == [] and rig.llm.calls == []
+
+
+def test_two_critical_alerts_with_a_negative_value_are_both_spoken():
+    rig = Rig(snapshot={**CRITICAL, "temp_c": -20})  # CRITICAL already has o2 at 14.2
+    out = rig.say("hi")
+    assert out["blocked_text"] is None and out["verifier"]["ok"]
+    assert "Oxygen at 14.2 percent" in out["spoken"] and "Suit temperature -20.0 degrees Celsius" in out["spoken"]
+
+
+def test_hard_tool_cap_applies_to_the_constructor():
+    for bad in (0, 9, -1):
+        with pytest.raises(ValueError, match="max_tools"):
+            ToolRegistry(max_tools=bad)
+    assert ToolRegistry(max_tools=MAX_TOOLS).max_tools == 8 and ToolRegistry(max_tools=1).max_tools == 1
+
+
+def test_turn_policy_ships_as_package_data():
+    from importlib.resources import files
+
+    assert json.loads(files("router").joinpath("turn_policy.json").read_text())["severity_tiers"]
+    pyproject = (__import__("pathlib").Path(__file__).parent.parent / "pyproject.toml").read_text()
+    assert '"turn_policy.json"' in pyproject
+
+
+@pytest.mark.parametrize("tier", ["critical", "warning"])
+def test_loader_refuses_a_tier_that_preempts_the_router_and_uses_the_llm(tier, tmp_path):
+    policy = copy.deepcopy(load_policy())
+    policy["severity_tiers"][tier].update(preempts_router=True, uses_llm=True)
+    path = tmp_path / "policy.json"
+    path.write_text(json.dumps(policy))
+    with pytest.raises(ValueError, match="cannot use the LLM"):
+        load_policy(path)
+    policy["severity_tiers"][tier].update(preempts_router=False)  # an LLM tier that does not preempt is not refused
+    path.write_text(json.dumps(policy))
+    assert load_policy(path)
 
 
 # ---- 5b. arbiter ----
@@ -460,6 +540,35 @@ def test_yes_makes_exactly_one_send_message_with_urgency_from_the_feasibility_ou
     assert rig.handler.pending_confirmation is None
 
 
+def test_confirming_recomputes_feasibility_from_the_current_snapshot():
+    rig, offer = nav(55)  # outpost: tight, "normal" urgency at offer time
+    assert offer["pending_confirmation"]["outcome"] == "tight" and offer["pending_confirmation"]["distance_m"] == 1500
+    rig.sim.values["minutes_remaining"] = 20  # oxygen dropped while the offer was pending: cannot_reach now
+    out = rig.say("yes")
+    message = ("Nova relay: an astronaut heading to outpost has 20 minutes of oxygen and the trip needs 60. "
+               "Please confirm whether oxygen refills are available.")
+    assert rig.registry.log[1:] == [("send_message", {"recipient": "outpost", "urgency": "urgent", "message": message})]
+    assert out["route"] == "confirmed_yes" and out["spoken"] == "Okay, I sent the refill request to outpost, marked urgent."
+    assert "55" not in out["tool_call"]["args"]["message"]
+
+
+@pytest.mark.parametrize("override", [{"minutes_remaining": 212}, {"minutes_remaining": 60}], ids=["recovered", "boundary"])
+def test_confirming_when_no_refill_is_needed_any_more_sends_nothing_and_speaks_the_fixed_line(override):
+    rig, _ = nav(55)
+    rig.sim.values.update(override)
+    out = rig.say("yes")
+    assert out["route"] == "refill_not_needed" and out["spoken"] == load_policy()["confirmation"]["no_longer_needed"]
+    assert out["tool_calls"] == 0 and out["tool_call"] is None and len(rig.registry.log) == 1
+    assert out["verifier"]["ok"] and rig.handler.pending_confirmation is None and rig.llm.calls == []
+
+
+def test_confirming_without_o2_data_any_more_sends_nothing():
+    rig, _ = nav(55)
+    rig.snapshot = {"bpm": 72}
+    out = rig.say("yes")
+    assert out["route"] == "refill_not_needed" and len(rig.registry.log) == 1
+
+
 def test_send_message_urgency_comes_from_the_policy_mapping_not_from_the_llm_or_the_utterance():
     policy = copy.deepcopy(load_policy())
     policy["send_message"]["urgency_by_outcome"]["tight"] = "urgent"
@@ -531,6 +640,82 @@ def test_a_message_with_a_number_not_from_the_feasibility_data_is_not_sent():
     rig, _ = nav(45, policy=policy)
     out = rig.say("yes")
     assert out["spoken"] == policy["templates"]["verifier_blocked"] and len(rig.registry.log) == 1 and out["tool_calls"] == 0
+
+
+# ---- C. tool / LLM / retrieval failures are spoken, never raised (an alert_source failure still propagates) ----
+class Boom(Exception):
+    pass
+
+
+def break_tool(rig, name):
+    schema, _ = rig.registry._tools[name]
+
+    def boom(**args):
+        raise Boom("secret internals")
+    rig.registry._tools[name] = (schema, boom)
+
+
+def test_a_raising_tool_speaks_the_tool_error_line_and_is_not_retried():
+    rig = Rig("call_o2")
+    break_tool(rig, "o2")
+    out = rig.say("how much oxygen")
+    assert out["route"] == "tool" and out["spoken"] == load_policy()["templates"]["tool_error"] and out["verifier"]["ok"]
+    assert out["tool_error"].startswith("Boom") and out["tool_calls"] == 1 and out["tool_result"] is None
+    assert rig.say("how much oxygen")["tool_calls"] == 1  # the next turn is a fresh single call
+
+
+def test_a_raising_send_message_on_confirmation_speaks_the_tool_error_line():
+    rig, _ = nav(45)
+    break_tool(rig, "send_message")
+    out = rig.say("yes")
+    assert out["route"] == "confirmed_yes" and out["spoken"] == load_policy()["templates"]["tool_error"]
+    assert out["tool_calls"] == 1 and "tool_error" in out and rig.handler.pending_confirmation is None
+
+
+class RaisingLLM(FakeLLM):
+    def __call__(self, text, prompt_policy, passages=None):
+        super().__call__(text, prompt_policy, passages)
+        raise Boom("model offline")
+
+
+def test_a_raising_llm_speaks_the_tool_error_line_for_chitchat_and_call_llm():
+    expected = load_policy()["templates"]["tool_error"]
+    chat = Rig("NO_TOOL", 0.99, llm=RaisingLLM())
+    out = chat.say("hello there")
+    assert out["route"] == "llm" and out["spoken"] == expected and out["llm_error"].startswith("Boom") and len(chat.llm.calls) == 1
+    grounded = Rig("call_llm", 0.97, llm=RaisingLLM(), retriever=lambda t: [PASSAGE])
+    out = grounded.say("how far away is the moon")
+    assert out["route"] == "llm" and out["spoken"] == expected and out["llm_called"] and len(grounded.llm.calls) == 1
+
+
+@pytest.mark.parametrize("retriever", [
+    lambda t: None,
+    lambda t: iter([]),
+    lambda t: [{"text": "x", "score": "high"}],
+    lambda t: [{"text": "x", "score": None}],
+    lambda t: [{"text": "x", "score": float("nan")}],
+    lambda t: [{"text": "x", "score": True}],
+    lambda t: [{"text": "x"}],
+    lambda t: [{"text": 5, "score": 0.9}],
+    lambda t: [PASSAGE, {"text": "x", "score": "high"}],
+    lambda t: 5,
+], ids=["none", "empty-iterator", "string-score", "none-score", "nan-score", "bool-score", "no-score", "non-string-text", "one-bad-passage", "not-iterable"])
+def test_malformed_retrieval_output_means_no_document(retriever):
+    rig = Rig("call_llm", 0.97, retriever=retriever)
+    out = rig.say("how far away is the moon")
+    assert out["route"] == "no_document" and rig.llm.calls == []
+
+
+def test_retrieval_accepts_a_generator_and_materializes_it_once():
+    rig = Rig("call_llm", 0.97, llm=FakeLLM("Moon facts."), retriever=lambda t: (p for p in [PASSAGE]))
+    out = rig.say("tell me about the moon")
+    assert out["route"] == "llm" and rig.llm.passages_seen == [[PASSAGE["text"]]]
+
+
+def test_alert_source_failure_still_propagates_with_a_working_tool_layer():
+    handler = TurnHandler(FakeRouter(), lambda: 1 / 0, default_registry())
+    with pytest.raises(ZeroDivisionError):
+        handler.handle("hi")
 
 
 @pytest.mark.parametrize("text, answer", [
@@ -622,8 +807,5 @@ def test_ood_and_low_confidence_never_reach_the_retriever_or_llm():
     assert calls == []
 
 
-def test_new_policy_sections_exist_and_are_placeholders():
-    policy = load_policy()
-    for name in ("feasibility", "confirmation", "send_message", "llm_scope"):
-        assert policy[name]["status"].startswith("PLACEHOLDER")
-    assert len(default_registry().names()) == 6 <= MAX_TOOLS
+def test_new_policy_sections_exist():  # that every section is labelled PLACEHOLDER is pinned by the loader test above
+    assert {"feasibility", "confirmation", "send_message", "llm_scope"} <= set(load_policy())

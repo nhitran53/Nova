@@ -1,4 +1,4 @@
-"""Trained checkpoints live outside the repo: $NOVA_MODELS_DIR, default /home/isaach/models/Luna/router."""
+"""Trained checkpoints live outside the repo: $NOVA_MODELS_DIR, default /home/isaach/models/Nova/router."""
 from pathlib import Path
 
 import pytest
@@ -11,7 +11,7 @@ HERE = Path(__file__).parent.parent
 
 def test_default_models_dir_is_outside_repo(monkeypatch):
     monkeypatch.delenv("NOVA_MODELS_DIR", raising=False)
-    assert DEFAULT_MODELS_DIR == "/home/isaach/models/Luna/router"
+    assert DEFAULT_MODELS_DIR == "/home/isaach/models/Nova/router"
     assert models_dir() == Path(DEFAULT_MODELS_DIR)
     assert HERE not in models_dir().parents
 

@@ -1,7 +1,7 @@
 """Download answerdotai/ModernBERT-base (safetensors + json/txt only) at an exact revision into a fresh dir.
 
 Usage: python -I download_base.py [target_dir] [--revision COMMIT_SHA]
-  default target: $NOVA_MODELS_DIR/ModernBERT-base (else /home/isaach/models/Luna/router/ModernBERT-base)
+  default target: $NOVA_MODELS_DIR/ModernBERT-base (else /home/isaach/models/Nova/router/ModernBERT-base)
   default revision: the current head of the official repo; the resolved commit SHA and the sha256 of each
   downloaded file are printed so they can be recorded (pass --revision SHA to reproduce the same files).
 The target dir must be new/empty. Downloaded files are untrusted data: nothing here executes them (no

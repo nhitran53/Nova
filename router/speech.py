@@ -1,18 +1,3 @@
-"""Speak a line through ElevenLabs text-to-speech and play it on the local speakers.
-
-    from router import speech
-    speech.init()                          # optional: create the client at startup (otherwise lazy on first speak)
-    speech.speak("Oxygen at 87.5 percent.")     # blocks until playback ends
-    uv run python -m router.speech "Nova speech test."   # live check: real API call + real playback
-
-* One ElevenLabs client per process, created under a lock by `init()` / the first `speak()`; never per call.
-  Importing this module does nothing (no .env read, no client, no API call).
-* The key comes from `router/.env` (path resolved from this file, not the cwd) or the process environment, as
-  ELEVENLABS_API_KEY. It is never printed or put in an error message.
-* Voice / model are env-overridable: ELEVENLABS_VOICE_ID, ELEVENLABS_MODEL_ID (defaults below).
-* Audio is requested as raw 16-bit mono PCM and piped to `paplay` (PulseAudio/PipeWire) or `aplay`.
-* Every network call and every subprocess has a timeout.
-"""
 import os
 import shutil
 import subprocess
@@ -33,12 +18,18 @@ PLAYBACK_TIMEOUT_S = 60
 
 
 class SpeechError(RuntimeError):
-    """Any speech failure (missing key, API error, no audio player, player failure). The message never holds the key."""
+    pass
 
 
 def _default_client_factory(api_key):
     from elevenlabs.client import ElevenLabs
     return ElevenLabs(api_key=api_key, timeout=NETWORK_TIMEOUT_S)
+
+
+def _redacted(text):
+    """`text` with the API key value (environment or .env) replaced, so no SpeechError message can carry it."""
+    key = os.environ.get(KEY_VAR, "").strip()
+    return text.replace(key, "[redacted]") if key else text
 
 
 _client_factory = _default_client_factory  # tests replace this with a fake
@@ -56,7 +47,10 @@ def init():
                 api_key = os.environ.get(KEY_VAR, "").strip()
                 if not api_key:
                     raise SpeechError(f"{KEY_VAR} is not set: put it in {ENV_PATH} or the environment")
-                _client = _client_factory(api_key)
+                try:
+                    _client = _client_factory(api_key)
+                except Exception as exc:  # never forward str(exc) or the chained traceback: the key was an argument
+                    raise SpeechError(f"could not create the ElevenLabs client: {type(exc).__name__}") from None
     return _client
 
 
@@ -79,8 +73,8 @@ def _synthesize(text):
         status = getattr(exc, "status_code", None)
         detail = getattr(exc, "body", None)
         message = detail.get("detail", {}).get("message") if isinstance(detail, dict) and isinstance(detail.get("detail"), dict) else None
-        raise SpeechError(f"ElevenLabs request failed: {type(exc).__name__}" + (f" status={status}" if status else "")
-                          + (f" ({message})" if message else "")) from None
+        raise SpeechError(_redacted(f"ElevenLabs request failed: {type(exc).__name__}" + (f" status={status}" if status else "")
+                                    + (f" ({message})" if message else ""))) from None
     if not audio:
         raise SpeechError("ElevenLabs returned no audio")
     return audio
@@ -103,7 +97,7 @@ def _play(audio):
     except subprocess.TimeoutExpired:
         raise SpeechError(f"{command[0]} timed out after {PLAYBACK_TIMEOUT_S}s") from None
     if done.returncode != 0:
-        raise SpeechError(f"{command[0]} exited {done.returncode}: {done.stderr.decode(errors='replace').strip()[:200]}")
+        raise SpeechError(_redacted(f"{command[0]} exited {done.returncode}: {done.stderr.decode(errors='replace').strip()[:200]}"))
     return {"player": command[0], "returncode": done.returncode}
 
 

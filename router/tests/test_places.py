@@ -197,6 +197,19 @@ def test_destination_spans_are_extracted_before_matching_origins(text):
     assert result["place"]["place_id"] == "homebase"
 
 
+@pytest.mark.parametrize("text, place_id", [
+    ("no, take me to the airlock", "airlock"),
+    ("no go to the airlock", "airlock"),
+    ("rather go to the airlock", "airlock"),
+    ("instead take me to the airlock", "airlock"),
+    ("do not go to the crater, go to the airlock", "airlock"),
+    ("never go to the crater but go to the airlock", "airlock"),
+])
+def test_only_dont_not_never_carry_negation_over_a_command_verb(text, place_id):
+    result = resolve_destination(text)
+    assert result["status"] == "resolved" and result["place"]["place_id"] == place_id
+
+
 def test_negation_scope_does_not_expire_after_three_tokens():
     result = resolve_destination("go to the rover not to the distant old home")
     assert result["status"] == "resolved"
@@ -205,7 +218,8 @@ def test_negation_scope_does_not_expire_after_three_tokens():
 
 
 def test_avoid_and_dont_alone_leave_no_destination():
-    for text in ("avoid the crater", "don't take me to the crater"):
+    for text in ("avoid the crater", "don't take me to the crater", "do not go to the crater", "never go to the crater",
+                 "do not take me to the crater", "please never navigate to the crater"):
         result = resolve_destination(text)
         assert result["status"] == "none" and result["place"] is None
         assert [(e["place_id"], e["role"]) for e in result["excluded"]] == [("crater", "negated")]

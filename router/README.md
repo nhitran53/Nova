@@ -1,7 +1,7 @@
 # Nova router (ModernBERT-base text classifier)
 
 Text input only (voice later). The base model alone has a random head and every prediction is flagged
-`untrained: true`; use a fine-tuned checkpoint (`/home/isaach/models/Luna/router/v2`, see "Data, training, results") for real labels.
+`untrained: true`; use a fine-tuned checkpoint (`/home/isaach/models/Nova/router/v2`, see "Data, training, results") for real labels.
 Checkpoints are git-ignored.
 
 Output of `Router.predict(text)`:
@@ -27,7 +27,7 @@ older macOS and Intel Macs are not supported by that upstream release.
 `uv lock --upgrade` followed by `uv sync --locked` and re-run the checks below.
 
 The base model lives **outside the repo**, in `$NOVA_MODELS_DIR/ModernBERT-base` (default
-`/home/isaach/models/Luna/router/ModernBERT-base`); it is not downloaded during sync. **Only for a fresh machine
+`/home/isaach/models/Nova/router/ModernBERT-base`); it is not downloaded during sync. **Only for a fresh machine
 without the model**, download it into a new/empty directory (pass `--revision SHA` to pin; the resolved commit and
 file sha256s are printed):
 
@@ -85,13 +85,13 @@ of `demo_calls*.json` or `paraphrase_test.jsonl` are never emitted (those files 
 `data/paraphrase_test.jsonl` is 64 hand-written utterances (8 per class, incl. `take me home`, `take me to home`,
 `go to home`, `directions to homebase`) kept as a **regression/development set**, not independent validation; `demo_calls*.json` likewise.
 
-Trained checkpoints are kept **outside git**: `$NOVA_MODELS_DIR` if set, else `/home/isaach/models/Luna/router`
+Trained checkpoints are kept **outside git**: `$NOVA_MODELS_DIR` if set, else `/home/isaach/models/Nova/router`
 (`router.core.models_dir()`). `train.py` (`--out-dir`), `pipeline.py`/`evaluate.py`/`eval_sets.py` (`--checkpoint`) and
 `demo.py` (`--model`) default to that directory; pass an explicit path to override per call. Never write checkpoints
 into the repo (`checkpoints/` stays in `.gitignore` only as a guard). The base model stays in `$NOVA_MODELS_DIR/ModernBERT-base`, outside git.
 
 ```sh
-export NOVA_MODELS_DIR=${NOVA_MODELS_DIR:-/home/isaach/models/Luna/router}
+export NOVA_MODELS_DIR=${NOVA_MODELS_DIR:-/home/isaach/models/Nova/router}
 mkdir -p "$NOVA_MODELS_DIR"
 uv run python data/gen_synthetic_v1.py  # reproduces v1 data; no training needed
 uv run python data/gen_synthetic.py     # writes data/v2; does not touch v1

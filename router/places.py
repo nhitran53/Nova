@@ -72,6 +72,9 @@ def _score(window, alias):
 ORIGIN_WORDS = frozenset({"from"})
 # normalise() drops apostrophes, so "don't" arrives as "dont".
 NEGATION_WORDS = frozenset({"not", "no", "never", "except", "without", "instead", "rather", "dont", "avoid"})
+# Negations that directly govern a following command verb. "no"/"instead"/"rather" are excluded on purpose: they can
+# open an affirmative command ("no, take me to the airlock", "rather go to the airlock").
+CARRY_NEGATION_WORDS = frozenset({"dont", "not", "never"})
 DESTINATION_WORDS = frozenset({"to", "toward", "towards", "into", "onto"})
 NAVIGATION_WORDS = frozenset({"take", "bring", "lead", "guide", "walk", "head", "go", "navigate", "route"})
 
@@ -117,8 +120,8 @@ def _destination_spans(tokens):
             next_role = "negated"
         elif token in ORIGIN_WORDS:
             next_role = "origin" if role != "negated" else role
-        elif token in NAVIGATION_WORDS and role == "negated" and tokens[i - 1] == "dont":
-            continue  # "don't go/take me to X": the command verb stays inside the negation
+        elif token in NAVIGATION_WORDS and role == "negated" and tokens[i - 1] in CARRY_NEGATION_WORDS:
+            continue  # "don't / do not / never go to X": the command verb stays inside the negation
         elif token in NAVIGATION_WORDS or token == "but":
             next_role = "destination"
         elif token in DESTINATION_WORDS:

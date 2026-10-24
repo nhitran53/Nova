@@ -94,9 +94,10 @@ def main(argv=None):
         out = handler.handle(text)
         sim.values = base
         pipe = out["pipeline"]
-        route = ("n/a (alert preempted router)" if out["route"] == "alert" else "n/a (yes/no matcher answered before the router)") if pipe is None else (
-            f"{pipe['label']} conf={pipe['confidence']:.3f} -> {pipe['route']}"
-            + (f"/{pipe.get('gate') or pipe.get('reason')}"))
+        if pipe is None:
+            route = "n/a (alert preempted router)" if out["route"] == "alert" else "n/a (yes/no matcher answered before the router)"
+        else:
+            route = f"{pipe['label']} conf={pipe['confidence']:.3f} -> {pipe['route']}/{pipe.get('gate') or pipe.get('reason')}"
         call = out["tool_call"] and f"{out['tool_call']['name']}({out['tool_call']['args']})"
         print(f"\n[{title}] {text!r}")
         print(f"  router : {route}")

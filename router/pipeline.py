@@ -91,10 +91,10 @@ class Pipeline:
         if tool_cfg is None:
             return self._llm(text, label, confidence, label, self.config["llm_labels"][label])
         if confidence >= self.tau_hi:
-            return self._tool(text, label, confidence, tool_cfg, gate="tau_hi", topk=topk)
+            return self._tool(text, label, confidence, tool_cfg, gate="tau_hi")
         verdict = self._arbitrate(text, label, topk)
         if verdict == "agree":
-            return self._tool(text, label, confidence, tool_cfg, gate="arbiter_agree", topk=topk)
+            return self._tool(text, label, confidence, tool_cfg, gate="arbiter_agree")
         return self._clarify_intent(label, confidence, topk, reason=verdict)
 
     def _arbitrate(self, text, label, topk):
@@ -107,7 +107,7 @@ class Pipeline:
             return "arbiter_error"
         return "agree" if answer == label else "arbiter_disagree"
 
-    def _tool(self, text, label, confidence, tool_cfg, gate, topk):
+    def _tool(self, text, label, confidence, tool_cfg, gate):
         args = {}
         if tool_cfg.get("resolve_place"):
             resolution = resolve_destination(text, threshold=self.place_threshold)

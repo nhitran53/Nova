@@ -15,7 +15,7 @@ import torch
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
 META_FILENAME = "router_meta.json"
-DEFAULT_MODELS_DIR = "/home/isaach/models/Luna/router"  # trained checkpoints live outside the repo
+DEFAULT_MODELS_DIR = "/home/isaach/models/Nova/router"  # trained checkpoints live outside the repo
 UNTRAINED_WARNING = (
     "UNTRAINED: classification head is randomly initialised "
     "(no router_meta.json with trained=true); labels/confidences are meaningless."
