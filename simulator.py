@@ -1,27 +1,8 @@
 """
 NOVA telemetry simulator (Mars demo)
-
-Every tick (1 real second) it:
-  1. reads the active mission and its settings
-  2. measures real time since the last successful tick (monotonic clock)
-     and converts it to simulated time with missions.time_scale
-  3. updates every reading from simple rules (activity + scenario)
-  4. inserts one row into telemetry
-  5. creates / updates / resolves alerts (one row per alert_key while open)
-  6. marks Earth messages delivered once their demo delay is over
-
-It does NOT move the astronaut. Unity writes astronaut_positions.
+It does not move the astronaut
 Only ONE simulator may run at a time (enforced with a Postgres advisory lock).
-
-Time rules
-  - Starting the simulator = resume. Time while it was stopped is NOT counted.
-  - A gap longer than MAX_GAP_S between ticks (laptop sleep, DB outage) is
-    treated as a pause and logged, never silently shortened.
-  - If a tick fails, its time is carried into the next successful tick.
-  - After a lost connection + reconnect, the interval is treated as a pause
-    (the lost transaction may have committed; never count it twice).
-
-Run (Mac, local Postgres with your own user):
+Run:
     pip install "psycopg[binary]"
     python simulator.py                          # run forever
     python simulator.py --scenario o2_leak       # change scenario, then run
@@ -30,7 +11,6 @@ Run (Mac, local Postgres with your own user):
     python simulator.py --new-mission            # fresh mission: full tank, at habitat
     python simulator.py --ticks 10               # stop after 10 ticks
 
-Hosted database:  export DATABASE_URL="postgresql://user:pass@host:5432/nova"
 """
 
 import argparse
@@ -41,22 +21,17 @@ import sys
 import time
 from dataclasses import dataclass, asdict
 from typing import Optional
-
 import psycopg
 from psycopg.rows import dict_row
-
 from simulator_rules import ACTIVITY_O2, SCENARIO_O2, o2_used_pct
 
-DATABASE_URL = os.getenv("DATABASE_URL", "dbname=nova")   # local socket, your Mac user
+DATABASE_URL = os.getenv("DATABASE_URL", "dbname=nova") 
 TICK_SECONDS = 1.0
 MAX_GAP_S = 10.0              # longer gap between ticks = pause (sleep/outage)
 MAX_CONSECUTIVE_ERRORS = 10   # then exit with a clear error
-LOCK_KEY = 4242_0001          # advisory lock id: "the NOVA simulator"
+LOCK_KEY = 4242_0001  # advisory lock id: "the NOVA simulator"
 MARS_SOL_HOURS = 24.66
 
-# ---------------------------------------------------------------------------
-# Demo behavior (scripted for the demo, NOT physiological predictions)
-# ---------------------------------------------------------------------------
 ACTIVITY_HEART = {"resting": 70, "walking": 95, "working": 110, "running": 145}
 ACTIVITY_CO2 = {"resting": 2.0, "walking": 3.0, "working": 4.0, "running": 5.5}   # mmHg in suit
 ACTIVITY_SUIT_TEMP = {"resting": 21.0, "walking": 22.0, "working": 23.0, "running": 25.0}
@@ -65,7 +40,6 @@ BATTERY_DRAIN = {"resting": 0.03, "walking": 0.04, "working": 0.05, "running": 0
 SUIT_PRESSURE_NOMINAL = 29.6      # kPa (~4.3 psi)
 SUIT_PRESSURE_LEAK = 24.0         # where pressure drifts during o2_leak
 RADIATION_EVENT_MULT = 40.0       # dose-rate multiplier during a solar particle event
-
 
 @dataclass
 class Reading:
@@ -166,10 +140,8 @@ def step(prev: Reading, mission, planet, sim_dt: float) -> Reading:
     return r
 
 
-# ---------------------------------------------------------------------------
-# Alerts
-# ---------------------------------------------------------------------------
 
+# Alerts
 @dataclass
 class Rule:
     key: str
@@ -277,9 +249,9 @@ def check_alerts(cur, mission, r: Reading):
               "Warning. Solar particle event detected. Take shelter in the habitat.")
 
 
-# ---------------------------------------------------------------------------
+
 # Database
-# ---------------------------------------------------------------------------
+
 
 def load_active_mission(cur):
     cur.execute("""SELECT m.*, p.temp_min_c, p.temp_max_c, p.radiation_msv_per_day

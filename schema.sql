@@ -2,6 +2,8 @@
 BEGIN;
 
 -- 1. Planet reference information
+-- holds all the hard physics and environmental baselines 
+-- gravity, surface_pressure, max/min temps, weather
 CREATE TABLE IF NOT EXISTS planets (
     id TEXT PRIMARY KEY,
     display_name TEXT NOT NULL,
@@ -17,39 +19,34 @@ CREATE TABLE IF NOT EXISTS planets (
 );
 
 -- 2. Mission settings
+-- track what scenario we are at
+-- o2 burn rate
+-- time scaling
 CREATE TABLE IF NOT EXISTS missions (
     id SERIAL PRIMARY KEY,
     name TEXT NOT NULL DEFAULT 'NOVA-1',
     astronaut TEXT NOT NULL DEFAULT 'Commander',
     planet_id TEXT NOT NULL REFERENCES planets(id),
-
     scenario TEXT NOT NULL DEFAULT 'normal'
         CHECK (
             scenario IN ('normal','o2_leak','dust_storm','radiation_event')
         ),
-
     activity TEXT NOT NULL DEFAULT 'walking'
         CHECK (activity IN ('resting', 'walking', 'working', 'running')),
-
     -- Elapsed Earth hours within the simulated Mars sol.
     mission_day_start REAL NOT NULL DEFAULT 12
         CHECK (mission_day_start >= 0 AND mission_day_start < 24.66),
-
     -- Simulated seconds per real second.
     time_scale REAL NOT NULL DEFAULT 30 CHECK (time_scale > 0),
-
     -- Demo route-calculation settings.
     walk_speed_mps REAL NOT NULL DEFAULT 0.8
         CHECK (walk_speed_mps > 0),
-
     -- Percentage POINTS consumed per simulated minute.
     -- Backend must account for changes caused by activity or leaks.
     o2_burn_pct_per_min REAL NOT NULL DEFAULT 0.15
         CHECK (o2_burn_pct_per_min > 0),
-
     o2_reserve_pct REAL NOT NULL DEFAULT 20
         CHECK (o2_reserve_pct BETWEEN 0 AND 100),
-
     started_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     active BOOLEAN NOT NULL DEFAULT TRUE
 );
@@ -60,12 +57,13 @@ ON missions (active)
 WHERE active = TRUE;
 
 -- 3. Suit and environment readings
+-- vitals every few seconds 
+-- o2, heart rate, suit pressure, outside weather 
 CREATE TABLE IF NOT EXISTS telemetry (
     id BIGSERIAL PRIMARY KEY,
     mission_id INT NOT NULL
         REFERENCES missions(id) ON DELETE CASCADE,
     ts TIMESTAMPTZ NOT NULL DEFAULT now(),
-
     sim_seconds DOUBLE PRECISION NOT NULL CHECK (sim_seconds >= 0),
     -- Remaining usable tank supply
     o2_percent REAL NOT NULL CHECK (o2_percent BETWEEN 0 AND 100),
@@ -76,24 +74,15 @@ CREATE TABLE IF NOT EXISTS telemetry (
     suit_pressure_kpa REAL NOT NULL CHECK (suit_pressure_kpa >= 0),
     battery_percent REAL NOT NULL CHECK (battery_percent BETWEEN 0 AND 100),
     suit_temp_c REAL NOT NULL,
-
     -- Accumulated simulated radiation dose during this mission.
     radiation_msv REAL NOT NULL CHECK (radiation_msv >= 0),
-
     ext_temp_c REAL NOT NULL,
     wind_mps REAL NOT NULL CHECK (wind_mps >= 0),
     visibility_km REAL NOT NULL CHECK (visibility_km >= 0),
-
     weather TEXT NOT NULL
         CHECK (
-            weather IN ('clear',
-                'dusty',
-                'dust_devil',
-                'dust_storm',
-                'solar_particle_event'
-            )
+            weather IN ('clear','dusty','dust_devil','dust_storm','solar_particle_event')
         ),
-
     local_time_hours REAL NOT NULL
         CHECK (local_time_hours >= 0 AND local_time_hours < 24.66)
 );
@@ -103,6 +92,7 @@ ON telemetry (mission_id, ts DESC, id DESC);
 
 -- Latest reading for the active mission.
 -- Empty until the simulator inserts telemetry.
+-- query directly
 CREATE OR REPLACE VIEW latest_telemetry AS
 SELECT DISTINCT ON (t.mission_id) t.*
 FROM telemetry t
@@ -111,6 +101,7 @@ WHERE m.active
 ORDER BY t.mission_id, t.ts DESC, t.id DESC;
 
 -- 4. Minimap markers
+-- stores coords of habitat, rover, craters, hazards
 CREATE TABLE IF NOT EXISTS map_locations (
     id SERIAL PRIMARY KEY,
     code TEXT UNIQUE NOT NULL,
@@ -118,36 +109,24 @@ CREATE TABLE IF NOT EXISTS map_locations (
 
     location_type TEXT NOT NULL
         CHECK (
-            location_type IN (
-                'habitat',
-                'rover',
-                'sample_site',
-                'landmark',
-                'crater',
-                'hazard',
-                'waypoint'
-            )
+            location_type IN ('habitat','rover','sample_site','landmark','crater','hazard','waypoint')
         ),
-
     x_m DOUBLE PRECISION NOT NULL,
     z_m DOUBLE PRECISION NOT NULL,
-
     -- Approximate zone radius in the demo.
     radius_m REAL NOT NULL DEFAULT 5 CHECK (radius_m > 0),
-
     hazard_level TEXT NOT NULL DEFAULT 'safe'
         CHECK (hazard_level IN ('safe', 'caution', 'danger')),
-
     -- Whether this location provides oxygen in the simulation.
     o2_refill BOOLEAN NOT NULL DEFAULT FALSE,
-
     source TEXT NOT NULL DEFAULT 'seed'
         CHECK (source IN ('seed', 'vision', 'astronaut')),
-
     description TEXT
 );
 
 -- 5. Recorded astronaut positions
+-- tracks x/z coords
+-- heading of player over time
 CREATE TABLE IF NOT EXISTS astronaut_positions (
     id BIGSERIAL PRIMARY KEY,
     mission_id INT NOT NULL
@@ -162,6 +141,7 @@ CREATE TABLE IF NOT EXISTS astronaut_positions (
 CREATE INDEX IF NOT EXISTS positions_mission_ts
 ON astronaut_positions (mission_id, ts DESC, id DESC);
 
+-- query most recent data from active mission
 CREATE OR REPLACE VIEW latest_position AS
 SELECT DISTINCT ON (p.mission_id) p.*
 FROM astronaut_positions p
@@ -172,18 +152,13 @@ ORDER BY p.mission_id, p.ts DESC, p.id DESC;
 -- 6. Destination requests and route assessments
 --
 -- Backend calculates:
--- trip_minutes =
---     (outbound_distance_m + return_distance_m)
---     / walk_speed_mps / 60
---     + time_at_destination_minutes
---
--- estimated_o2_required_pct =
---     trip_minutes * effective_burn_rate
---     + reserve
---
+-- trip_minutes =(outbound_distance_m + return_distance_m)
+-- / walk_speed_mps / 60 + time_at_destination_minutes
+-- estimated_o2_required_pct = trip_minutes * effective_burn_rate + reserve
 -- Required oxygen INCLUDES reserve.
 -- Backend must verify fresh readings, matching mission IDs,
 -- traversable routes, and an available return location.
+-- for when player points at a location and ask if they can walk there 
 CREATE TABLE IF NOT EXISTS navigation_requests (
     id BIGSERIAL PRIMARY KEY,
     mission_id INT NOT NULL
@@ -207,23 +182,19 @@ CREATE TABLE IF NOT EXISTS navigation_requests (
                 'cancelled'
             )
         ),
-
+    -- check constraints 
     outbound_distance_m REAL CHECK (outbound_distance_m >= 0),
     return_distance_m REAL CHECK (return_distance_m >= 0),
 
-    time_at_destination_minutes REAL NOT NULL DEFAULT 0
-        CHECK (time_at_destination_minutes >= 0),
+    time_at_destination_minutes REAL NOT NULL DEFAULT 0 CHECK (time_at_destination_minutes >= 0),
 
     -- Snapshot of the assumptions used for this assessment.
     assessed_walk_speed_mps REAL CHECK (assessed_walk_speed_mps > 0),
-    assessed_o2_burn_pct_per_min REAL
-        CHECK (assessed_o2_burn_pct_per_min > 0),
-    assessed_o2_reserve_pct REAL
-        CHECK (assessed_o2_reserve_pct BETWEEN 0 AND 100),
+    assessed_o2_burn_pct_per_min REAL CHECK (assessed_o2_burn_pct_per_min > 0),
+    assessed_o2_reserve_pct REAL CHECK (assessed_o2_reserve_pct BETWEEN 0 AND 100),
 
     -- May exceed 100 if a proposed trip is too long.
-    estimated_o2_required_pct REAL
-        CHECK (estimated_o2_required_pct >= 0),
+    estimated_o2_required_pct REAL CHECK (estimated_o2_required_pct >= 0),
 
     o2_available_pct REAL CHECK (o2_available_pct BETWEEN 0 AND 100),
     warning_message TEXT,
@@ -274,36 +245,20 @@ CREATE TABLE IF NOT EXISTS alerts (
 
     channel TEXT NOT NULL
         CHECK (
-            channel IN (
-                'o2',
-                'co2',
-                'vitals',
-                'suit',
-                'power',
-                'radiation',
-                'weather',
-                'navigation',
-                'vision',
-                'comms'
-            )
+            channel IN ('o2','co2','vitals','suit','power','radiation','weather','navigation','vision','comms')
         ),
-
     level TEXT NOT NULL
         CHECK (level IN ('info', 'caution', 'critical')),
-
     message TEXT NOT NULL,
     voice_text TEXT,
-
     -- Acknowledgment does not mean the condition has ended.
     acknowledged_at TIMESTAMPTZ,
     alert_key TEXT,
     resolved_at TIMESTAMPTZ,
-
     navigation_request_id BIGINT
         REFERENCES navigation_requests(id) ON DELETE SET NULL,
     location_id INT
         REFERENCES map_locations(id) ON DELETE SET NULL,
-
     CHECK (resolved_at IS NULL OR resolved_at >= ts),
     CHECK (acknowledged_at IS NULL OR acknowledged_at >= ts)
 );
@@ -327,6 +282,8 @@ WHERE m.active
   AND a.resolved_at IS NULL;
 
 -- 8. Messages between the astronaut and Earth
+-- demo_delay_s: speed of light 
+-- message status calculates how many seconds are let until a message actually arrives 
 CREATE TABLE IF NOT EXISTS messages (
     id BIGSERIAL PRIMARY KEY,
     mission_id INT NOT NULL
@@ -373,6 +330,7 @@ FROM messages msg;
 -- 9. Helmet display commands
 -- Unity processes unseen, unexpired commands in ID order.
 -- NULL expires_at means no expiration.
+-- this allows backend to send dynamic commands to the player's visor.
 CREATE TABLE IF NOT EXISTS hud_commands (
     id BIGSERIAL PRIMARY KEY,
     mission_id INT NOT NULL
@@ -383,22 +341,8 @@ CREATE TABLE IF NOT EXISTS hud_commands (
 
     metrics TEXT[] NOT NULL DEFAULT '{}'
         CHECK (
-            metrics <@ ARRAY[
-                'o2_percent',
-                'co2_mmhg',
-                'heart_rate',
-                'spo2',
-                'suit_pressure_kpa',
-                'battery_percent',
-                'suit_temp_c',
-                'radiation_msv',
-                'ext_temp_c',
-                'wind_mps',
-                'visibility_km',
-                'weather',
-                'local_time_hours',
-                'comm_delay',
-                'minimap'
+            metrics <@ ARRAY['o2_percent','co2_mmhg','heart_rate','spo2','suit_pressure_kpa','battery_percent',
+                'suit_temp_c','radiation_msv','ext_temp_c','wind_mps','visibility_km','weather','local_time_hours','comm_delay','minimap'
             ]::TEXT[]
         ),
 
@@ -418,6 +362,8 @@ WHERE applied_at IS NULL;
 -- 10. Optional vision detection results
 -- Detect terrain/objects in the Mars demo.
 -- Leave world coordinates NULL unless a positioning method supplies them.
+-- place to dump ml data 
+-- logs label, confidence score, estimated x/z coords
 CREATE TABLE IF NOT EXISTS vision_detections (
     id BIGSERIAL PRIMARY KEY,
     mission_id INT NOT NULL
