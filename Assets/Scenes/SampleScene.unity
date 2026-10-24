@@ -14,19 +14,19 @@ OcclusionCullingSettings:
 RenderSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 10
-  m_Fog: 0
-  m_FogColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
-  m_FogMode: 3
-  m_FogDensity: 0.01
+  m_Fog: 1
+  m_FogColor: {r: 0.57, g: 0.4, b: 0.3, a: 1}
+  m_FogMode: 2
+  m_FogDensity: 0.000003
   m_LinearFogStart: 0
   m_LinearFogEnd: 300
-  m_AmbientSkyColor: {r: 0.212, g: 0.227, b: 0.259, a: 1}
-  m_AmbientEquatorColor: {r: 0.114, g: 0.125, b: 0.133, a: 1}
-  m_AmbientGroundColor: {r: 0.047, g: 0.043, b: 0.035, a: 1}
+  m_AmbientSkyColor: {r: 0.46, g: 0.35, b: 0.28, a: 1}
+  m_AmbientEquatorColor: {r: 0.38, g: 0.28, b: 0.22, a: 1}
+  m_AmbientGroundColor: {r: 0.22, g: 0.16, b: 0.12, a: 1}
   m_AmbientIntensity: 1
-  m_AmbientMode: 0
+  m_AmbientMode: 1
   m_SubtractiveShadowColor: {r: 0.42, g: 0.478, b: 0.627, a: 1}
-  m_SkyboxMaterial: {fileID: 10304, guid: 0000000000000000f000000000000000, type: 0}
+  m_SkyboxMaterial: {fileID: 2100000, guid: 35eb1b431b687a148ba58e0950e0c128, type: 2}
   m_HaloStrength: 0.5
   m_FlareStrength: 1
   m_FlareFadeSpeed: 3
@@ -35,15 +35,15 @@ RenderSettings:
   m_DefaultReflectionMode: 0
   m_DefaultReflectionResolution: 128
   m_ReflectionBounces: 1
-  m_ReflectionIntensity: 1
+  m_ReflectionIntensity: 0
   m_CustomReflection: {fileID: 0}
-  m_Sun: {fileID: 0}
-  m_IndirectSpecularColor: {r: 0.18028378, g: 0.22571412, b: 0.30692285, a: 1}
+  m_Sun: {fileID: 410087040}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
   m_ObjectHideFlags: 0
-  serializedVersion: 12
+  serializedVersion: 13
+  m_BakeOnSceneLoad: 0
   m_GISettings:
     serializedVersion: 2
     m_BounceScale: 1
@@ -156,7 +156,7 @@ Camera:
   m_Enabled: 1
   serializedVersion: 2
   m_ClearFlags: 1
-  m_BackGroundColor: {r: 0.19215687, g: 0.3019608, b: 0.4745098, a: 0}
+  m_BackGroundColor: {r: 0, g: 1, b: 0, a: 1}
   m_projectionMatrixMode: 1
   m_GateFitMode: 2
   m_FOVAxisMode: 0
@@ -177,9 +177,9 @@ Camera:
     y: 0
     width: 1
     height: 1
-  near clip plane: 0.3
-  far clip plane: 1000
-  field of view: 60
+  near clip plane: 0.15
+  far clip plane: 120000
+  field of view: 75
   orthographic: 0
   orthographic size: 5
   m_Depth: -1
@@ -190,7 +190,7 @@ Camera:
   m_TargetTexture: {fileID: 0}
   m_TargetDisplay: 0
   m_TargetEye: 3
-  m_HDR: 1
+  m_HDR: 0
   m_AllowMSAA: 1
   m_AllowDynamicResolution: 0
   m_ForceIntoRT: 0
@@ -206,11 +206,11 @@ Transform:
   m_GameObject: {fileID: 330585543}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 1, z: -10}
+  m_LocalPosition: {x: 0, y: 1.7, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 0}
+  m_Father: {fileID: 359549670}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &330585547
 MonoBehaviour:
@@ -235,27 +235,105 @@ MonoBehaviour:
     m_Bits: 1
   m_VolumeTrigger: {fileID: 0}
   m_VolumeFrameworkUpdateModeOption: 2
-  m_RenderPostProcessing: 1
+  m_RenderPostProcessing: 0
   m_Antialiasing: 0
   m_AntialiasingQuality: 2
   m_StopNaN: 0
   m_Dithering: 0
   m_ClearDepth: 1
-  m_AllowXRRendering: 1
+  m_AllowXRRendering: 0
   m_AllowHDROutput: 1
   m_UseScreenCoordOverride: 0
   m_ScreenSizeOverride: {x: 0, y: 0, z: 0, w: 0}
   m_ScreenCoordScaleBias: {x: 0, y: 0, z: 0, w: 0}
   m_RequiresDepthTexture: 0
   m_RequiresColorTexture: 0
-  m_Version: 2
   m_TaaSettings:
-    quality: 3
-    frameInfluence: 0.1
-    jitterScale: 1
-    mipBias: 0
-    varianceClampScale: 0.9
-    contrastAdaptiveSharpening: 0
+    m_Quality: 3
+    m_FrameInfluence: 0.1
+    m_JitterScale: 1
+    m_MipBias: 0
+    m_VarianceClampScale: 0.9
+    m_ContrastAdaptiveSharpening: 0
+  m_Version: 2
+--- !u!1 &359549667
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 359549670}
+  - component: {fileID: 359549669}
+  - component: {fileID: 359549668}
+  m_Layer: 0
+  m_Name: Mars Explorer
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &359549668
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 359549667}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7168ee554be84b741b7ea7b6e849285c, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::MarsExplorer
+  inputActions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
+  view: {fileID: 330585546}
+  walkSpeed: 2.5
+  fastSpeed: 15
+  mouseSensitivity: 0.08
+  eyeHeight: 1.7
+  gravity: -3.71
+--- !u!143 &359549669
+CharacterController:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 359549667}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Height: 1.8
+  m_Radius: 0.3
+  m_SlopeLimit: 45
+  m_StepOffset: 0.3
+  m_SkinWidth: 0.03
+  m_MinMoveDistance: 0
+  m_Center: {x: 0, y: 0.9, z: 0}
+--- !u!4 &359549670
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 359549667}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0.50000006, z: 0, w: -0.8660254}
+  m_LocalPosition: {x: 25493.764, y: -2567.3167, z: 51219.863}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 330585546}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &410087039
 GameObject:
   m_ObjectHideFlags: 0
@@ -282,16 +360,16 @@ Light:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 410087039}
   m_Enabled: 1
-  serializedVersion: 11
+  serializedVersion: 12
   m_Type: 1
-  m_Color: {r: 1, g: 1, b: 1, a: 1}
-  m_Intensity: 2
+  m_Color: {r: 1, g: 0.89, b: 0.76, a: 1}
+  m_Intensity: 1.4
   m_Range: 10
   m_SpotAngle: 30
   m_InnerSpotAngle: 21.80208
-  m_CookieSize: 10
+  m_CookieSize2D: {x: 10, y: 10}
   m_Shadows:
-    m_Type: 2
+    m_Type: 1
     m_Resolution: -1
     m_CustomResolution: -1
     m_Strength: 1
@@ -329,13 +407,16 @@ Light:
   m_AreaSize: {x: 1, y: 1}
   m_BounceIntensity: 1
   m_ColorTemperature: 5000
-  m_UseColorTemperature: 1
+  m_UseColorTemperature: 0
   m_BoundingSphereOverride: {x: 0, y: 0, z: 0, w: 0}
   m_UseBoundingSphereOverride: 0
   m_UseViewFrustumForShadowCasterCull: 1
   m_ForceVisible: 0
   m_ShadowRadius: 0
   m_ShadowAngle: 0
+  m_LightUnit: 1
+  m_LuxAtDistance: 1
+  m_EnableSpotReflector: 1
 --- !u!4 &410087041
 Transform:
   m_ObjectHideFlags: 0
@@ -344,7 +425,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 410087039}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.40821788, y: -0.23456968, z: 0.10938163, w: 0.8754261}
+  m_LocalRotation: {x: 0.25465575, y: -0.36785898, z: 0.10548186, w: 0.88809}
   m_LocalPosition: {x: 0, y: 3, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
@@ -363,17 +444,680 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 474bcb49853aa07438625e644c072ee6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_Version: 3
   m_UsePipelineSettings: 1
   m_AdditionalLightsShadowResolutionTier: 2
-  m_LightLayerMask: 1
-  m_RenderingLayers: 1
   m_CustomShadowLayers: 0
-  m_ShadowLayerMask: 1
-  m_ShadowRenderingLayers: 1
   m_LightCookieSize: {x: 1, y: 1}
   m_LightCookieOffset: {x: 0, y: 0}
   m_SoftShadowQuality: 1
+  m_RenderingLayersMask:
+    serializedVersion: 0
+    m_Bits: 1
+  m_ShadowRenderingLayersMask:
+    serializedVersion: 0
+    m_Bits: 1
+  m_Version: 4
+  m_LightLayerMask: 1
+  m_ShadowLayerMask: 1
+  m_RenderingLayers: 1
+  m_ShadowRenderingLayers: 1
+--- !u!1001 &476455761
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 1133423228527049055, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_TreeDistance
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1133423228527049055, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DrawInstanced
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 1133423228527049055, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_SplatMapDistance
+      value: 2000
+      objectReference: {fileID: 0}
+    - target: {fileID: 1133423228527049055, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DrawTreesAndFoliage
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1133423228527049055, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_HeightmapPixelError
+      value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 1133423228527049055, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DetailObjectDistance
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1265881626255040678, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_TreeDistance
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1265881626255040678, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DrawInstanced
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 1265881626255040678, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_SplatMapDistance
+      value: 2000
+      objectReference: {fileID: 0}
+    - target: {fileID: 1265881626255040678, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DrawTreesAndFoliage
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1265881626255040678, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_HeightmapPixelError
+      value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 1265881626255040678, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DetailObjectDistance
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1493878889638318917, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_TreeDistance
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1493878889638318917, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DrawInstanced
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 1493878889638318917, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_SplatMapDistance
+      value: 2000
+      objectReference: {fileID: 0}
+    - target: {fileID: 1493878889638318917, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DrawTreesAndFoliage
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1493878889638318917, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_HeightmapPixelError
+      value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 1493878889638318917, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DetailObjectDistance
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2050810012566049329, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_Name
+      value: Jezero Terrain
+      objectReference: {fileID: 0}
+    - target: {fileID: 2280752132541670053, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_TreeDistance
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2280752132541670053, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DrawInstanced
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2280752132541670053, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_SplatMapDistance
+      value: 2000
+      objectReference: {fileID: 0}
+    - target: {fileID: 2280752132541670053, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DrawTreesAndFoliage
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2280752132541670053, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_HeightmapPixelError
+      value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 2280752132541670053, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DetailObjectDistance
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3208313231974574451, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_TreeDistance
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3208313231974574451, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DrawInstanced
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3208313231974574451, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_SplatMapDistance
+      value: 2000
+      objectReference: {fileID: 0}
+    - target: {fileID: 3208313231974574451, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DrawTreesAndFoliage
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3208313231974574451, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_HeightmapPixelError
+      value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 3208313231974574451, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DetailObjectDistance
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3495401173161410841, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_TreeDistance
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3495401173161410841, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DrawInstanced
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3495401173161410841, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_SplatMapDistance
+      value: 2000
+      objectReference: {fileID: 0}
+    - target: {fileID: 3495401173161410841, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DrawTreesAndFoliage
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3495401173161410841, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_HeightmapPixelError
+      value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 3495401173161410841, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DetailObjectDistance
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3516453189498326592, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_TreeDistance
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3516453189498326592, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DrawInstanced
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3516453189498326592, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_SplatMapDistance
+      value: 2000
+      objectReference: {fileID: 0}
+    - target: {fileID: 3516453189498326592, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DrawTreesAndFoliage
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3516453189498326592, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_HeightmapPixelError
+      value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 3516453189498326592, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DetailObjectDistance
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3672884073574786731, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_TreeDistance
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3672884073574786731, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DrawInstanced
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3672884073574786731, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_SplatMapDistance
+      value: 2000
+      objectReference: {fileID: 0}
+    - target: {fileID: 3672884073574786731, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DrawTreesAndFoliage
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3672884073574786731, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_HeightmapPixelError
+      value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 3672884073574786731, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DetailObjectDistance
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4036757300580578615, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_TreeDistance
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4036757300580578615, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DrawInstanced
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 4036757300580578615, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_SplatMapDistance
+      value: 2000
+      objectReference: {fileID: 0}
+    - target: {fileID: 4036757300580578615, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DrawTreesAndFoliage
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4036757300580578615, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_HeightmapPixelError
+      value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 4036757300580578615, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DetailObjectDistance
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4680361702050641033, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_TreeDistance
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4680361702050641033, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DrawInstanced
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 4680361702050641033, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_SplatMapDistance
+      value: 2000
+      objectReference: {fileID: 0}
+    - target: {fileID: 4680361702050641033, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DrawTreesAndFoliage
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4680361702050641033, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_HeightmapPixelError
+      value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 4680361702050641033, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DetailObjectDistance
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4822418320734430797, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_TreeDistance
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4822418320734430797, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DrawInstanced
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 4822418320734430797, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_SplatMapDistance
+      value: 2000
+      objectReference: {fileID: 0}
+    - target: {fileID: 4822418320734430797, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DrawTreesAndFoliage
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4822418320734430797, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_HeightmapPixelError
+      value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 4822418320734430797, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DetailObjectDistance
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5072962350624203811, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_TreeDistance
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5072962350624203811, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DrawInstanced
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5072962350624203811, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_SplatMapDistance
+      value: 2000
+      objectReference: {fileID: 0}
+    - target: {fileID: 5072962350624203811, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DrawTreesAndFoliage
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5072962350624203811, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_HeightmapPixelError
+      value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 5072962350624203811, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DetailObjectDistance
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5326920435997034556, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_TreeDistance
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5326920435997034556, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DrawInstanced
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5326920435997034556, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_SplatMapDistance
+      value: 2000
+      objectReference: {fileID: 0}
+    - target: {fileID: 5326920435997034556, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DrawTreesAndFoliage
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5326920435997034556, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_HeightmapPixelError
+      value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 5326920435997034556, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DetailObjectDistance
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5475540895007348095, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_TreeDistance
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5475540895007348095, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DrawInstanced
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5475540895007348095, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_SplatMapDistance
+      value: 2000
+      objectReference: {fileID: 0}
+    - target: {fileID: 5475540895007348095, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DrawTreesAndFoliage
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5475540895007348095, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_HeightmapPixelError
+      value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 5475540895007348095, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DetailObjectDistance
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5487673572436250796, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_TreeDistance
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5487673572436250796, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DrawInstanced
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5487673572436250796, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_SplatMapDistance
+      value: 2000
+      objectReference: {fileID: 0}
+    - target: {fileID: 5487673572436250796, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DrawTreesAndFoliage
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5487673572436250796, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_HeightmapPixelError
+      value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 5487673572436250796, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DetailObjectDistance
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5691185876328479200, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_TreeDistance
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5691185876328479200, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DrawInstanced
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5691185876328479200, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_SplatMapDistance
+      value: 2000
+      objectReference: {fileID: 0}
+    - target: {fileID: 5691185876328479200, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DrawTreesAndFoliage
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5691185876328479200, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_HeightmapPixelError
+      value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 5691185876328479200, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DetailObjectDistance
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6329050770545636635, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_TreeDistance
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6329050770545636635, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DrawInstanced
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6329050770545636635, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_SplatMapDistance
+      value: 2000
+      objectReference: {fileID: 0}
+    - target: {fileID: 6329050770545636635, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DrawTreesAndFoliage
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6329050770545636635, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_HeightmapPixelError
+      value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 6329050770545636635, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DetailObjectDistance
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6350658650693186575, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_TreeDistance
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6350658650693186575, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DrawInstanced
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6350658650693186575, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_SplatMapDistance
+      value: 2000
+      objectReference: {fileID: 0}
+    - target: {fileID: 6350658650693186575, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DrawTreesAndFoliage
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6350658650693186575, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_HeightmapPixelError
+      value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 6350658650693186575, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DetailObjectDistance
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6533751063113651645, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_TreeDistance
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6533751063113651645, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DrawInstanced
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6533751063113651645, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_SplatMapDistance
+      value: 2000
+      objectReference: {fileID: 0}
+    - target: {fileID: 6533751063113651645, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DrawTreesAndFoliage
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6533751063113651645, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_HeightmapPixelError
+      value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 6533751063113651645, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DetailObjectDistance
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6933286154812599452, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_TreeDistance
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6933286154812599452, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DrawInstanced
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6933286154812599452, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_SplatMapDistance
+      value: 2000
+      objectReference: {fileID: 0}
+    - target: {fileID: 6933286154812599452, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DrawTreesAndFoliage
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6933286154812599452, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_HeightmapPixelError
+      value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 6933286154812599452, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DetailObjectDistance
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7018124689334090165, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7018124689334090165, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7018124689334090165, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7018124689334090165, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 7018124689334090165, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7018124689334090165, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7018124689334090165, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7018124689334090165, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7018124689334090165, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7018124689334090165, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7147301155051881536, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_TreeDistance
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7147301155051881536, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DrawInstanced
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 7147301155051881536, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_SplatMapDistance
+      value: 2000
+      objectReference: {fileID: 0}
+    - target: {fileID: 7147301155051881536, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DrawTreesAndFoliage
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7147301155051881536, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_HeightmapPixelError
+      value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 7147301155051881536, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DetailObjectDistance
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7349866664834502610, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_TreeDistance
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7349866664834502610, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DrawInstanced
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 7349866664834502610, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_SplatMapDistance
+      value: 2000
+      objectReference: {fileID: 0}
+    - target: {fileID: 7349866664834502610, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DrawTreesAndFoliage
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7349866664834502610, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_HeightmapPixelError
+      value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 7349866664834502610, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DetailObjectDistance
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7995204849092756070, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_TreeDistance
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7995204849092756070, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DrawInstanced
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 7995204849092756070, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_SplatMapDistance
+      value: 2000
+      objectReference: {fileID: 0}
+    - target: {fileID: 7995204849092756070, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DrawTreesAndFoliage
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7995204849092756070, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_HeightmapPixelError
+      value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 7995204849092756070, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DetailObjectDistance
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8574564135368916852, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_TreeDistance
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8574564135368916852, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DrawInstanced
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 8574564135368916852, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_SplatMapDistance
+      value: 2000
+      objectReference: {fileID: 0}
+    - target: {fileID: 8574564135368916852, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DrawTreesAndFoliage
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8574564135368916852, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_HeightmapPixelError
+      value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 8574564135368916852, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DetailObjectDistance
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8968604325246736445, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_TreeDistance
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8968604325246736445, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DrawInstanced
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 8968604325246736445, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_SplatMapDistance
+      value: 2000
+      objectReference: {fileID: 0}
+    - target: {fileID: 8968604325246736445, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DrawTreesAndFoliage
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8968604325246736445, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_HeightmapPixelError
+      value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 8968604325246736445, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
+      propertyPath: m_DetailObjectDistance
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: dd4e4b56fbc936444bf24ef737e29f7f, type: 3}
 --- !u!1 &832575517
 GameObject:
   m_ObjectHideFlags: 0
@@ -398,7 +1142,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 832575517}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 172515602e62fb746b5d573b38a5fe58, type: 3}
   m_Name: 
@@ -427,6 +1171,7 @@ Transform:
 SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
-  - {fileID: 330585546}
   - {fileID: 410087041}
   - {fileID: 832575519}
+  - {fileID: 476455761}
+  - {fileID: 359549670}
