@@ -7,6 +7,9 @@
 After the scripted turns a "generation demo" prints, for a few turns, the GenerationRequest summary, the rendered prompt,
 the raw generator output and the post-processed verified line (FillerGenerator / forced-bad generators, offline).
 
+A final "DB-backed" section runs the same TurnHandler over FixtureDatasource (rows seeded from schema.sql, offline: no
+Postgres), including an o2_leak advanced until the oxygen alert preempts.
+
 Fake sim values, fake tools, stub LLM, a keyword fake retriever (only "moon" has a document), no arbiter: nothing here
 calls a real LLM or a real tool. Confirmation replies ("yes"/"no") are answered by the deterministic matcher before the
 router, so their fake-router entry is never used.
@@ -19,6 +22,7 @@ from pathlib import Path
 
 from .core import Router, models_dir
 from . import speech
+from .datasource import FixtureDatasource
 from .generation import FillerGenerator, render_prompt_text, run_generation
 from .tools import SimState, default_registry
 from .turn import TurnHandler
@@ -129,6 +133,39 @@ def generation_demo(router, scripted, sim):
             print(f"  spoken  : {out['spoken']}")
 
 
+# (title, utterance, fake-router (label, confidence), sim seconds to advance the fixture BEFORE this turn, scenario to switch to or None)
+DB_TURNS = [
+    ("o2 from DB telemetry", "how much oxygen do I have left", ("call_o2", 0.98), 0, None),
+    ("data: radiation is a delta of the cumulative dose", "what's my heart rate and temperature", ("call_data", 0.97), 0, None),
+    ("navigation to the rover: DB coordinates + feasibility", "take me to the rover", ("call_navigation", 0.99), 0, None),
+    ("navigation to the crater rim: comfortable", "take me to the crater rim", ("call_navigation", 0.99), 0, None),
+    ("o2_leak, 5000 sim s later: navigation, CANNOT RETURN + refill offer", "take me to the crater rim", ("call_navigation", 0.99), 5000, "o2_leak"),
+    ("follow-up 'yes' -> send_message persisted to the messages table", "yes please", ("call_o2", 0.99), 0, None),
+    ("o2_leak, 600 sim s later: CRITICAL oxygen alert preempts", "how much oxygen do I have left", ("call_o2", 0.98), 600, None),
+]
+
+
+def db_demo(router, scripted):
+    print("\n--- DB-backed demo (FixtureDatasource seeded from schema.sql; no Postgres; PLACEHOLDER definitions in turn_policy.json 'data_source') ---")
+    ds = FixtureDatasource()
+    handler = TurnHandler(router, ds.snapshot, default_registry(datasource=ds), llm_fn=demo_llm, retriever=demo_retriever)
+    for title, text, fake_route, advance_s, scenario in DB_TURNS:
+        if scenario:
+            ds.mission["scenario"] = scenario  # the leak starts here; earlier rows were normal
+        if advance_s:
+            ds.advance(advance_s)
+        if scripted:
+            scripted.next = fake_route
+        out = handler.handle(text)
+        snap = ds.snapshot()
+        call = out["tool_call"] and out["tool_call"]["name"]
+        print(f"\n-- {title}: {text!r}")
+        print(f"  snapshot: o2={snap['o2_pct']:.1f}% minutes={snap['minutes_remaining']} radiation={snap['radiation_usv_h']:.2f} uSv/h")
+        print(f"  turn    : {out['route']}   tool call: {call or 'none'}   verify ok={out['verifier']['ok']}")
+        print(f"  spoken  : {out['spoken']}")
+    print(f"\n  messages table (fixture): {[m['body'][:60] for m in ds.messages]}")
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--model", default=str(models_dir() / "v1"), help="default: %(default)s")
@@ -174,6 +211,7 @@ def main(argv=None):
         if args.speak:
             print(f"  speech : " + (f"FAILED {out['tts_error']}" if "tts_error" in out else "spoken"))
     generation_demo(router, scripted, sim)
+    db_demo(router, scripted)
     return 0
 
 

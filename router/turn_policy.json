@@ -169,6 +169,33 @@
     "retrieval_top_k": 3,
     "no_document": "I don't have a document for that yet."
   },
+  "data_source": {
+    "status": "PLACEHOLDER - pending user sign-off (opt-in DB-backed datasource, router/datasource.py; every value and definition; no mission document backs any of it)",
+    "max_age_s": 10,
+    "place_aliases": {
+      "homebase": "HAB",
+      "habitat": "HAB",
+      "rover": "ROVER",
+      "crater": "CRATR",
+      "crater_rim": "CRATR",
+      "ridge": "RIDGE"
+    },
+    "message": {
+      "body_format": "[{urgency}] to {recipient_name}: {message}",
+      "real_delay_s": 600.0,
+      "demo_delay_s": 5.0
+    },
+    "definitions": {
+      "o2_pct": "telemetry.o2_percent, direct",
+      "bpm": "telemetry.heart_rate, direct",
+      "temp_c": "telemetry.suit_temp_c, direct (ext_temp_c is NOT used: it starts at -40 C and would trip the -10 C critical)",
+      "suit_pressure_kpa": "telemetry.suit_pressure_kpa, direct",
+      "radiation_usv_h": "(radiation_msv[t] - radiation_msv[t-1]) / ((sim_seconds[t] - sim_seconds[t-1]) / 3600) * 1000 from the last two telemetry rows; raises when fewer than two rows or sim_seconds does not advance",
+      "minutes_remaining": "floor(o2_percent / o2_burn_pct_per_min(mission, live activity and scenario)), counted to an EMPTY tank; the reserve is added once, by feasibility.reserve_margin_min; missions.o2_reserve_pct is unused",
+      "eta_min": "ceil(distance_m / feasibility.walking_speed_m_per_min), so one navigation turn speaks one minute figure; missions.walk_speed_mps (0.8 m/s = 48 m/min) is not used",
+      "distance_m": "Euclidean distance from latest_position to the map_locations (x_m, z_m), rounded to a whole meter"
+    }
+  },
   "_comment_generation": "Post-tool-call generation (router/generation.py). The whole 'generation' section is PLACEHOLDER pending user sign-off: persona, style limits, attempt/deadline budget, passage-number provenance (default 'digits'; 'off' available; 'quote_span' documented but unbuilt and refused by the loader; risk_term_passage_override forces 'off' for a grounded turn whose question or passage hits llm_scope.risk_terms; attribution_prefix is prepended by code to a grounded answer that speaks a passage number), history length, refusal and fallback wording, retry wording, deny-lists, slot formats/units and the raw-output size cap (max_raw_chars). Qualitative tier labels (critical/warning/normal) are NOT configured here: they are derived from the human-owned sim_fields thresholds. No real model, mission document or suit rule backs any value.",
   "generation": {
     "status": "PLACEHOLDER - pending user sign-off (every value; passage_numbers 'digits' is the default, 'off' bans model-written numbers from documents, 'quote_span' is unbuilt; risk_term_passage_override and attribution_prefix are new)",

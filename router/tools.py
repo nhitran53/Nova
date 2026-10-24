@@ -6,8 +6,11 @@ Schemas are fixed at registration: `{"required": [...], "properties": {arg: type
 unknown or missing args and wrong types before the tool runs.
 
 Tool results are `{"tool": name, "ok": bool, "data": {...}}`; every number the assistant speaks must come from `data`.
-All sim numbers below are fabricated demo values, not real suit telemetry.
+All sim numbers below are fabricated demo values, not real suit telemetry, unless `default_registry(datasource=...)` is
+used: then the same six tools read a `router.datasource.Datasource` (staging DB schema; opt-in, SimState stays the default).
 """
+import math
+
 MAX_TOOLS = 8
 PLACE_DISTANCES_M = {  # fabricated: (distance in meters, walking minutes)
     "homebase": (120, 2), "habitat": (150, 3), "airlock": (80, 1), "rover": (200, 4), "lander": (900, 15),
@@ -88,15 +91,21 @@ class SimState:
         return dict(self.values)
 
 
-def default_registry(sim=None):
-    """Six fake tools (safety, navigation, map, data, o2, send_message) over `sim`; leaves room for two more."""
+def default_registry(sim=None, datasource=None):
+    """Six tools (safety, navigation, map, data, o2, send_message); leaves room for two more.
+
+    Default: FAKE tools over `sim` (SimState, fabricated places). With `datasource`: same names, schemas and result keys,
+    but readings, places and messages come from the datasource (it raises DataUnavailableError rather than guess)."""
+    if datasource is not None:
+        if sim is not None:
+            raise ValueError("pass either sim or datasource, not both")
+        return _datasource_registry(datasource)
     sim = SimState() if sim is None else sim
     registry = ToolRegistry()
 
     def safety():
         s = sim.snapshot()
-        go = s["o2_pct"] >= 16.0 and 20.0 <= s["suit_pressure_kpa"] <= 40.0
-        return {"tool": "safety", "ok": True, "data": {"status_word": "go" if go else "no go"}}
+        return _safety_result(s)
 
     def place_result(tool, place):
         if place not in PLACE_DISTANCES_M:
@@ -119,6 +128,17 @@ def default_registry(sim=None):
                 "data": {"recipient": recipient, "recipient_name": recipient.replace("_", " "), "urgency": urgency,
                          "status": "queued"}}
 
+    _register_six(registry, safety, place_result, data, o2, send_message)
+    return registry
+
+
+def _safety_result(s):
+    """go iff o2_pct >= 16.0 and 20 <= suit_pressure_kpa <= 40 (the safety loop owns go/no-go; shared by both registries)."""
+    go = s["o2_pct"] >= 16.0 and 20.0 <= s["suit_pressure_kpa"] <= 40.0
+    return {"tool": "safety", "ok": True, "data": {"status_word": "go" if go else "no go"}}
+
+
+def _register_six(registry, safety, place_result, data, o2, send_message):
     registry.register("safety", {"required": [], "properties": {}}, safety)
     registry.register("navigation", {"required": ["place"], "properties": {"place": str}},
                       lambda place: place_result("navigation", place))
@@ -128,4 +148,39 @@ def default_registry(sim=None):
     registry.register("o2", {"required": [], "properties": {}}, o2)
     registry.register("send_message", {"required": ["recipient", "urgency", "message"],
                                        "properties": {"recipient": str, "urgency": str, "message": str}}, send_message)
+
+
+def _datasource_registry(datasource):
+    from .datasource import load_walking_speed_m_per_min
+    registry = ToolRegistry()
+
+    def safety():
+        s = datasource.snapshot()
+        return _safety_result(s)
+
+    def place_result(tool, place):
+        found = datasource.place(place)
+        if found is None:
+            return {"tool": tool, "ok": False, "data": {"error": "unknown place"}}
+        eta_min = math.ceil(found["distance_m"] / load_walking_speed_m_per_min() - 1e-9)  # same speed as assess_feasibility
+        return {"tool": tool, "ok": True, "data": {"place": place, "place_name": place.replace("_", " "),
+                                                   "distance_m": found["distance_m"], "eta_min": eta_min}}
+
+    def data():
+        s = datasource.snapshot()
+        return {"tool": "data", "ok": True, "data": {k: s[k] for k in ("bpm", "radiation_usv_h", "temp_c")}}
+
+    def o2():
+        s = datasource.snapshot()
+        return {"tool": "o2", "ok": True, "data": {k: s[k] for k in ("o2_pct", "minutes_remaining")}}
+
+    def send_message(recipient, urgency, message):
+        """Persists the message through the datasource; a failed write is ok False. No numbers in the result."""
+        if not datasource.queue_message(recipient, urgency, message):
+            return {"tool": "send_message", "ok": False, "data": {"error": "message not queued"}}
+        return {"tool": "send_message", "ok": True,
+                "data": {"recipient": recipient, "recipient_name": recipient.replace("_", " "), "urgency": urgency,
+                         "status": "queued"}}
+
+    _register_six(registry, safety, place_result, data, o2, send_message)
     return registry
