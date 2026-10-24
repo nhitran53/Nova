@@ -10,6 +10,16 @@
 [Mm]emoryCaptures/
 [Rr]ecordings/
 
+# Generated Android and test files
+/.utmp/
+/Assets/Resources/PerformanceTestRun*.json*
+/Assets/Resources.meta
+/ProjectSettings/SceneTemplateSettings.json
+
+# Unity crash recovery scenes
+/Assets/_Recovery/
+/Assets/_Recovery.meta
+
 # IDE generated files
 .vs/
 .vscode/
