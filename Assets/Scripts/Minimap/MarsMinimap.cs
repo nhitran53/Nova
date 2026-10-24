@@ -37,7 +37,7 @@ public class MarsMinimap : MonoBehaviour
 
     [Header("Desktop rig (no Helmet HUD): drawn flat on the screen")]
     [Tooltip("Map diameter in pixels for a 1080p-tall window (scales with the window).")]
-    [Min(50f)] public float screenDiameter = 300f;
+    [Min(50f)] public float screenDiameter = 360f;
     [Tooltip("Gap from the bottom-left corner of the screen, in pixels for a 1080p-tall window.")]
     public Vector2 screenMargin = new Vector2(40f, 60f);
 
@@ -83,6 +83,7 @@ public class MarsMinimap : MonoBehaviour
     Sprite discSprite, ringSprite, badgeSprite, arrowSprite;
     GameObject canvasGO;
     RectTransform content;   // holds everything; this is what gets placed and scaled
+    CanvasScaler scaler;
     RectTransform rotator, zoneLayer, markerLayer, arrow, north;
     RawImage terrainImage;
     Image frame;
@@ -275,13 +276,15 @@ public class MarsMinimap : MonoBehaviour
     }
 
     // Bottom-left corner of the screen. Runs every frame so Inspector tweaks show up live.
+    // Text on a screen canvas is drawn at the canvas's scale, not the object's scale, so shrinking
+    // `content` made the labels blurry. Instead the CanvasScaler does all the shrinking.
     void ApplyScreenLayout()
     {
-        float scale = screenDiameter / PX;
-        Vector2 size = content.sizeDelta;
+        float s = screenDiameter / PX;   // 1 canvas unit = s pixels on a 1080p-tall window
+        scaler.referenceResolution = new Vector2(1920f / s, 1080f / s);
         content.anchorMin = content.anchorMax = Vector2.zero;
-        content.localScale = Vector3.one * scale;
-        content.anchoredPosition = screenMargin + size * (0.5f * scale);
+        content.localScale = Vector3.one;
+        content.anchoredPosition = screenMargin / s + content.sizeDelta * 0.5f;
     }
 
     // Compass heading of where the astronaut is looking, flattened onto the ground.
@@ -328,7 +331,7 @@ public class MarsMinimap : MonoBehaviour
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
         canvas.sortingOrder = 10;
         // Keeps the map the same share of the window at any resolution (ignored when nested in the HUD).
-        var scaler = canvasGO.GetComponent<CanvasScaler>();
+        scaler = canvasGO.GetComponent<CanvasScaler>();
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
         scaler.referenceResolution = new Vector2(1920f, 1080f);
         scaler.matchWidthOrHeight = 1f;
@@ -362,13 +365,13 @@ public class MarsMinimap : MonoBehaviour
         arrowOutline.effectDistance = new Vector2(2f, -2f);
         arrow = arrowImg.rectTransform;
 
-        var northText = NewText("North", root, 30, new Vector2(40f, 40f));
+        var northText = NewText("North", root, 36, new Vector2(40f, 40f));
         northText.text = "N";
         northText.fontStyle = FontStyle.Bold;
         northText.color = new Color(1f, 0.45f, 0.35f);
         north = northText.rectTransform;
 
-        infoText = NewText("Info", root, 26, new Vector2(PX + 80f, 36f));
+        infoText = NewText("Info", root, 30, new Vector2(PX + 80f, 36f));
         infoText.rectTransform.anchoredPosition = new Vector2(0f, -(PX * 0.5f + 46f));
     }
 
@@ -526,8 +529,8 @@ public class MarsMinimap : MonoBehaviour
         v.zone.enabled = false;
         v.icon = NewImage("Marker " + code, markerLayer, badgeSprite, IconPx);
         v.root = v.icon.rectTransform;
-        v.label = NewText("Label", v.root, 24, new Vector2(220f, 30f));
-        v.label.rectTransform.anchoredPosition = new Vector2(0f, IconPx * 0.5f + 15f);
+        v.label = NewText("Label", v.root, 28, new Vector2(240f, 34f));
+        v.label.rectTransform.anchoredPosition = new Vector2(0f, IconPx * 0.5f + 17f);
         views[code] = v;
         return v;
     }
