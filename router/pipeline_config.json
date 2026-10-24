@@ -1,0 +1,17 @@
+{
+  "_comment": "Pipeline routing config. tool_labels: label -> {tool name, whether to resolve a place from the utterance}. Every other label in labels.json needs a prompt policy in llm_labels. tau_lo: below this (calibrated) confidence the utterance goes to the LLM to clarify instead of firing a tool.",
+  "tau_lo": 0.5,
+  "tool_labels": {
+    "call_safety": {"tool": "safety", "resolve_place": false},
+    "call_navigation": {"tool": "navigation", "resolve_place": true},
+    "call_map": {"tool": "map", "resolve_place": true},
+    "call_data": {"tool": "data", "resolve_place": false},
+    "call_o2": {"tool": "o2", "resolve_place": false}
+  },
+  "llm_labels": {
+    "call_llm": "answer_question: answer the space/science question concisely and accurately for an astronaut mid-task.",
+    "NO_TOOL": "chitchat: reply briefly and warmly; no tools are needed.",
+    "OOD": "out_of_scope: politely say this is out of scope for Nova and offer help with mission, suit, navigation or space questions."
+  },
+  "low_confidence_policy": "clarify: the request was unclear; ask one short clarifying question and do not guess a tool."
+}

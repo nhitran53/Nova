@@ -24,7 +24,7 @@ packages = ["router"]
 package-dir = {router = "."}
 
 [tool.setuptools.package-data]
-router = ["labels.json"]
+router = ["labels.json", "places.json", "pipeline_config.json"]
 
 [tool.uv.sources]
 torch = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]

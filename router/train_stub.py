@@ -18,7 +18,7 @@ HERE = Path(__file__).parent
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Fine-tune the router (stub).")
     ap.add_argument("--data", required=True, help="JSONL of {text,label}")
-    ap.add_argument("--base", default=str(HERE / "models" / "ModernBERT-base"))
+    ap.add_argument("--base", default="ModernBERT-base", help="base model dir (real train.py defaults to $NOVA_MODELS_DIR/ModernBERT-base)")
     ap.add_argument("--labels", default=str(HERE / "labels.json"))
     ap.add_argument("--out", required=True, help="output model dir")
     ap.add_argument("--epochs", type=int, default=3)

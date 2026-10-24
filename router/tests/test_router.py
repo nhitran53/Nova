@@ -9,9 +9,10 @@ from pathlib import Path
 import pytest
 
 from router import Router, load_labels
+from router.core import base_model_dir
 
 HERE = Path(__file__).parent.parent
-MODEL_DIR = Path(os.environ.get("ROUTER_MODEL_DIR", HERE / "models" / "ModernBERT-base"))
+MODEL_DIR = Path(os.environ.get("ROUTER_MODEL_DIR", base_model_dir()))
 LABELS = HERE / "labels.json"
 TEXTS = ["check my oxygen level", "where is the rover", "what is the weather like on mars?", "tell me a joke"]
 

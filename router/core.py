@@ -6,6 +6,7 @@ that marker every prediction carries `untrained: true` and a warning: labels
 from a random head are meaningless.
 """
 import json
+import os
 import time
 import warnings
 from pathlib import Path
@@ -14,10 +15,21 @@ import torch
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
 META_FILENAME = "router_meta.json"
+DEFAULT_MODELS_DIR = "/home/isaach/models/Luna/router"  # trained checkpoints live outside the repo
 UNTRAINED_WARNING = (
     "UNTRAINED: classification head is randomly initialised "
     "(no router_meta.json with trained=true); labels/confidences are meaningless."
 )
+
+
+def models_dir():
+    """Directory holding trained checkpoints (v1, ...): $NOVA_MODELS_DIR, else DEFAULT_MODELS_DIR."""
+    return Path(os.environ.get("NOVA_MODELS_DIR", DEFAULT_MODELS_DIR))
+
+
+def base_model_dir():
+    """Pretrained ModernBERT-base (downloaded by download_base.py): <models_dir>/ModernBERT-base."""
+    return models_dir() / "ModernBERT-base"
 
 
 def load_labels(labels_path):
@@ -64,14 +76,22 @@ class Router:
         self.untrained = not meta.get("trained", False)
 
     @classmethod
-    def load(cls, model_dir_or_id, labels_path, device="auto", temperature=1.0, max_length=128, seed=0):
+    def load(cls, model_dir_or_id, labels_path, device="auto", temperature=None, max_length=None, seed=0):
         """Load a ModernBERT checkpoint (local dir or HF id) with a len(labels)-way head.
 
+        `temperature` / `max_length` default to the values in router_meta.json (written by train.py),
+        else 1.0 / 128. A meta file whose label order differs from labels.json is rejected.
         `seed` fixes the random head init so untrained outputs are at least reproducible.
         """
         labels = load_labels(labels_path)
         dev = resolve_device(device)
         meta = read_meta(model_dir_or_id)
+        if "labels" in meta and meta["labels"] != labels:
+            raise ValueError(f"{model_dir_or_id}: trained label order {meta['labels']} != {labels_path} {labels}")
+        if temperature is None:
+            temperature = meta.get("temperature", 1.0)
+        if max_length is None:
+            max_length = meta.get("max_length", 128)
         tokenizer = AutoTokenizer.from_pretrained(model_dir_or_id)
         torch.manual_seed(seed)
         with warnings.catch_warnings():
