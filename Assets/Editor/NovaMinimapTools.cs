@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using UnityEditor;
 using UnityEditor.SceneManagement;
+using UnityEditor.Events;
 using UnityEngine;
 
 // Editor menu: Tools > Nova > Minimap
@@ -24,6 +25,7 @@ public static class NovaMinimapTools
         {
             if (old.GetComponent<Camera>() == null)
             {
+                ConfigurePresentation(old);
                 Selection.activeGameObject = old.gameObject;
                 Debug.Log($"[Minimap] Already in the scene on '{old.name}'.");
                 return;
@@ -36,10 +38,34 @@ public static class NovaMinimapTools
 
         var go = new GameObject("Nova Minimap");
         Undo.RegisterCreatedObjectUndo(go, "Add Nova Minimap");
-        Undo.AddComponent<MarsMinimap>(go);
+        ConfigurePresentation(Undo.AddComponent<MarsMinimap>(go));
         Selection.activeGameObject = go;
         EditorSceneManager.MarkSceneDirty(go.scene);
         Debug.Log("[Minimap] Added 'Nova Minimap'. Save the scene and press Play. Keys: M show/hide, [ ] zoom, N north-up.");
+    }
+
+    static void ConfigurePresentation(MarsMinimap map)
+    {
+        Undo.RecordObject(map, "Dock minimap in helmet");
+        map.hudSlot = new Vector2(430, -245);
+        map.hudDiameter = 200;
+        var presentation = map.GetComponent<HolographicMinimap>();
+        if (presentation == null) presentation = Undo.AddComponent<HolographicMinimap>(map.gameObject);
+        var pinch = map.GetComponent<PinchToggle>();
+        if (pinch == null) pinch = Undo.AddComponent<PinchToggle>(map.gameObject);
+        var settings = new SerializedObject(pinch);
+        settings.FindProperty("hand").enumValueIndex = 1;
+        settings.FindProperty("helmet").objectReferenceValue =
+            UnityEngine.Object.FindAnyObjectByType<HelmetHUD>(FindObjectsInactive.Include);
+        settings.ApplyModifiedProperties();
+        bool connected = false;
+        for (int i = 0; i < pinch.OnPinch.GetPersistentEventCount(); i++)
+            connected |= pinch.OnPinch.GetPersistentTarget(i) == presentation &&
+                pinch.OnPinch.GetPersistentMethodName(i) == nameof(HolographicMinimap.Toggle);
+        if (!connected) UnityEventTools.AddPersistentListener(pinch.OnPinch, presentation.Toggle);
+        EditorUtility.SetDirty(map);
+        EditorUtility.SetDirty(pinch);
+        EditorSceneManager.MarkSceneDirty(map.gameObject.scene);
     }
 
     // Same rows as the map_locations seed in schema.sql. Offsets are meters from the habitat.

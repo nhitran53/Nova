@@ -2113,6 +2113,120 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8ffbdb0d89044ab184e63d10a4675254, type: 3}
   m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::SuitTelemetry
+--- !u!1 &2099554818
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2099554822}
+  - component: {fileID: 2099554821}
+  - component: {fileID: 2099554820}
+  - component: {fileID: 2099554819}
+  m_Layer: 0
+  m_Name: Nova Minimap
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &2099554819
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2099554818}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 34e2b919650643c7929f89a797969f74, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::PinchToggle
+  hand: 1
+  debounce: 0.35
+  releaseTime: 0.08
+  enableToggle: 1
+  diagnostics: 1
+  helmet: {fileID: 1944352500}
+  onPinch:
+    m_PersistentCalls:
+      m_Calls:
+      - m_Target: {fileID: 2099554820}
+        m_TargetAssemblyTypeName: HolographicMinimap, Assembly-CSharp
+        m_MethodName: Toggle
+        m_Mode: 0
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName:
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument:
+          m_BoolArgument: 0
+        m_CallState: 2
+--- !u!114 &2099554820
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2099554818}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3a3dde5fa6e6769408f220fd460bfbbe, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::HolographicMinimap
+  palmOffset: {x: 0, y: -0.12, z: -0.03}
+  rotationOffset: {x: 0, y: 0, z: 0}
+  diameterMeters: 0.32
+--- !u!114 &2099554821
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2099554818}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: da0e8ac4930a642a7847332c898f5eff, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::MarsMinimap
+  head: {fileID: 0}
+  dockIntoHelmetHud: 1
+  hudSlot: {x: -430, y: -245}
+  hudDiameter: 200
+  screenDiameter: 360
+  screenMargin: {x: 40, y: 60}
+  zoomLevelsMeters:
+  - 300
+  - 1000
+  - 4000
+  zoomIndex: 1
+  headingUp: 1
+  opacity: 0.92
+  textureSize: 512
+  verticalExaggeration: 4
+  contourLines: 1
+  gridLines: 1
+  zeroHeightIsNoData: 1
+  buildBudgetMs: 2.5
+  keyboardShortcuts: 1
+--- !u!4 &2099554822
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2099554818}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
@@ -2121,3 +2235,4 @@ SceneRoots:
   - {fileID: 832575519}
   - {fileID: 1156821665}
   - {fileID: 1052622280}
+  - {fileID: 2099554822}

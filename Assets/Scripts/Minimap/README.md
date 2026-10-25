@@ -1,18 +1,41 @@
 # Helmet minimap
 
-Round 2D map of Mars in the lower left of the helmet view. On the Quest rig it docks into the
-Helmet HUD (bottom-left slot, visor material); on the desktop rig it floats in front of the camera.
+The map sits in the bottom left of your helmet
+Right pinch opens the hand map and left pinch controls the wrist computer
 
 ## Setup (once)
 
 1. Make sure the Jezero terrain is imported (`Tools/convert_jezero.py`, then **Tools > Jezero > Import Terrain**).
    Without it the map still works but shows a dark disc with a grid instead of terrain.
-2. **Tools > Nova > Minimap > Add Minimap To Scene** (creates a `Nova Minimap` object; it follows whichever rig is active).
-3. **Tools > Nova > Minimap > Create Demo Markers Around Player** (the `schema.sql` seed places, moved to
-   where Mars Explorer stands). Drag them onto real features in the Scene view.
+2. `SampleScene` already has the minimap. For another scene use **Tools > Nova > Minimap > Add Minimap To Scene**.
+3. Optional **Tools > Nova > Minimap > Create Demo Markers Around Player** adds demo markers near the player.
+   Move them onto real features before exporting.
 4. Save the scene and press Play.
 
 Keys while testing on desktop: **M** show/hide, **[ ]** zoom, **N** heading-up / north-up.
+
+## Using the hand map
+
+Pinch your right thumb and index finger to open the map above your hand
+Release and pinch again to bring it back to the helmet
+The map keeps updating in both views
+If hand tracking is lost it returns to the helmet
+
+Select `Nova Minimap` to adjust **HUD Slot** and **HUD Diameter**
+Use **Palm Offset** and **Rotation Offset** on **Holographic Minimap** to adjust the hand view
+**Diameter Meters** changes its size
+
+Keep your palm angled away from the headset when pinching
+Quest uses palm facing pinches for its own menu
+
+## Testing
+
+For Quest Link select Windows and connect your headset
+Open `SampleScene` and press Play
+Check both pinches and make sure movement and the rest of the HUD still work
+
+For standalone Quest 3 select Android and use Build and Run
+Hand tracking and readability still need testing in the headset
 
 ## What is on the map
 
@@ -27,6 +50,8 @@ Keys while testing on desktop: **M** show/hide, **[ ]** zoom, **N** heading-up /
 `map_locations` seed coordinates are placeholders. After placing markers, use
 **Tools > Nova > Minimap > Copy map_locations SQL** and give the result to whoever owns `schema.sql`.
 Coordinates: Unity x = `x_m`, Unity z = `z_m`, 1 unit = 1 m.
+The map and API use the current Unity scene coordinates
+If your database has positions from before the terrain was shifted export them again with the SQL menu
 
 ## Files
 
@@ -34,6 +59,7 @@ Coordinates: Unity x = `x_m`, Unity z = `z_m`, 1 unit = 1 m.
 |---|---|
 | `MapMarker.cs` | Component for a place on the map (code, name, type, radius, hazard, O2 refill). |
 | `MarsMinimap.cs` | Builds and updates the whole minimap at runtime. Lives on the `Nova Minimap` object. |
+| `HolographicMinimap.cs` | Shows the same map above your right hand. |
 | `MinimapApiLink.cs` | Optional. `GET /map` for extra pins, `POST /position` for zone alerts. Off until `apiBaseUrl` is set. |
 | `../../Editor/NovaMinimapTools.cs` | The Tools > Nova > Minimap menu. |
 
