@@ -30,9 +30,8 @@ from pathlib import Path
 from .core import Router, models_dir
 from .datasource import DataUnavailableError, FixtureDatasource
 from .demo_turn import demo_retriever
-from .generation import FillerGenerator
-from .llm_generator import (API_KEY_ENV, CONSTRAIN_MODES, RUNTIMES, HTTPChatGenerator, check_server, load_live_llm_config,
-                            redact_secrets)
+from .llm_generator import API_KEY_ENV, CONSTRAIN_MODES, RUNTIMES, redact_secrets
+from .llm_generator import build_generator as build_llm_generator
 from .tools import default_registry
 from .turn import TurnHandler, load_policy
 
@@ -104,21 +103,12 @@ def parse_args(argv):
 
 
 def build_generator(args, say):
-    """-> (generator, label). Real HTTP generator when a server answers, else the offline FillerGenerator (one clear line)."""
-    if args.no_llm:
-        say("LLM: disabled (--no-llm); using the offline FillerGenerator")
-        return FillerGenerator(), "FillerGenerator (offline)"
+    """-> (generator, label): llm_generator.build_generator with the CLI flags; an invalid config exits with one clean line."""
     try:
-        config = load_live_llm_config(runtime=args.runtime, base_url=args.base_url, model=args.llm_model, constrain=args.constrain)
-    except ValueError as exc:  # one clean line, no traceback; redacted in case a message ever carries a credential
-        raise SystemExit(f"invalid LLM config: {redact_secrets(str(exc), os.environ.get(API_KEY_ENV))}") from None
-    ok, message = check_server(config["base_url"], config["health_timeout_s"])
-    if not ok:
-        say(f"LLM: {message}; falling back to the offline FillerGenerator")
-        return FillerGenerator(), "FillerGenerator (offline)"
-    generator = HTTPChatGenerator(config)
-    say(f"LLM: {message}; using {generator.describe()}")
-    return generator, f"HTTPChatGenerator ({config['runtime']})"
+        return build_llm_generator(say, no_llm=args.no_llm, runtime=args.runtime, base_url=args.base_url, model=args.llm_model,
+                                   constrain=args.constrain)
+    except ValueError as exc:
+        raise SystemExit(f"invalid LLM config: {exc}") from None
 
 
 def build_router(args, say):
@@ -263,7 +253,7 @@ def main(argv=None, stdin=None):
     if args.deadline_ms is not None:
         policy["generation"]["deadline_ms"] = args.deadline_ms
     handler = TurnHandler(router, ds.snapshot, default_registry(datasource=ds), generator=generator, retriever=demo_retriever,
-                          policy=policy)
+                          policy=policy, interim_fn=lambda line, route: say(f"nova (interim): {line}"))
     say(f"generator: {label}; deadline {policy['generation']['deadline_ms']} ms; sim: FixtureDatasource (offline)")
     say(snapshot_line(ds))
     try:
@@ -318,6 +308,9 @@ def run_session(lines, interactive, args, ds, handler, label):
                 continue
             show_turn(turns, text, out, int((time.monotonic() - started) * 1000), say)
             say(f"  {snapshot_line(ds)}")
+            if out.get("end_session"):
+                say("(session ended by the user)")
+                break
     say(f"\nsession over: {turns} turn(s); generator {label}")
     return 0
 

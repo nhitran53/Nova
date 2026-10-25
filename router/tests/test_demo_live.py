@@ -250,3 +250,10 @@ def test_hi_deterministic_and_keyboard_interrupt_exits_cleanly(capsys, tmp_path)
 
     assert main(["--fake-router", "--no-llm"], stdin=InterruptedInput()) == 130
     assert "session interrupted" in capsys.readouterr().out
+
+
+def test_interim_line_is_printed_and_thank_you_ends_the_session(capsys, tmp_path):
+    out = run(capsys, ["--no-llm"], "explain gravity\nthank you\nhow is my oxygen\n", tmp_path)
+    assert "nova (interim): Let me think." in out and out.index("nova (interim)") < out.index("[turn 1]")
+    assert "spoken  : Happy to help!" in out and "(session ended by the user)" in out
+    assert "how is my oxygen" not in out.split("(session ended by the user)")[1] and "session over: 2 turn(s)" in out

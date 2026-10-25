@@ -24,7 +24,7 @@ def test_hi_is_exact_user_wording_without_generator_and_still_verified(text):
     assert result["spoken"] == "Hey, I'm Nova, your navigation and observation voice assistant."
     assert result["route"] == "greeting" and result["verifier"]["ok"]
     assert not generator.calls and result["tool_calls"] == 0
-    assert h.handle("thanks")["llm_called"]  # not every conversational turn is a greeting
+    assert h.handle("nice weather today")["llm_called"]  # not every conversational turn is a greeting
 
 
 @pytest.mark.parametrize("text", ["why is the sky grey", "why is the sky grey on Mars", "why is the sky grey on mar"])

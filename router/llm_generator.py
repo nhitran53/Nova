@@ -36,7 +36,7 @@ import urllib.request
 from copy import deepcopy
 from pathlib import Path
 
-from .generation import GenerationResult, output_gbnf, output_json_schema, render_prompt
+from .generation import FillerGenerator, GenerationResult, output_gbnf, output_json_schema, render_prompt
 
 HERE = Path(__file__).parent
 POLICY_PATH = HERE / "turn_policy.json"
@@ -270,3 +270,41 @@ def _check_server(base_url, timeout):
             return True, f"server reachable at {base}" + (f" (models: {', '.join(names)})" if names else "")
         return True, f"server reachable at {base} (/health ok)"
     return False, f"server at {base} did not look like an OpenAI-compatible server ({'; '.join(problems)})"
+
+
+def build_generator(say, no_llm=False, runtime=None, base_url=None, model=None, constrain=None):
+    """-> (generator, label). The real HTTPChatGenerator when a server answers its health check, else the offline
+    FillerGenerator after ONE `say(...)` line. Raises ValueError (message redacted) for an invalid live_llm config."""
+    if no_llm:
+        say("LLM: disabled (--no-llm); using the offline FillerGenerator")
+        return FillerGenerator(), "FillerGenerator (offline)"
+    try:
+        config = load_live_llm_config(runtime=runtime, base_url=base_url, model=model, constrain=constrain)
+    except ValueError as exc:  # redacted in case a message ever carries a credential
+        raise ValueError(redact_secrets(str(exc), os.environ.get(API_KEY_ENV))) from None
+    ok, message = check_server(config["base_url"], config["health_timeout_s"])
+    if not ok:
+        say(f"LLM: {message}; falling back to the offline FillerGenerator")
+        return FillerGenerator(), "FillerGenerator (offline)"
+    generator = HTTPChatGenerator(config)
+    say(f"LLM: {message}; using {generator.describe()}")
+    return generator, f"HTTPChatGenerator ({config['runtime']})"
+
+
+def build_generator(say, no_llm=False, runtime=None, base_url=None, model=None, constrain=None):
+    """-> (generator, label). The real HTTPChatGenerator when a server answers its health check, else the offline
+    FillerGenerator after ONE `say(...)` line. Raises ValueError (message redacted) for an invalid live_llm config."""
+    if no_llm:
+        say("LLM: disabled (--no-llm); using the offline FillerGenerator")
+        return FillerGenerator(), "FillerGenerator (offline)"
+    try:
+        config = load_live_llm_config(runtime=runtime, base_url=base_url, model=model, constrain=constrain)
+    except ValueError as exc:  # redacted in case a message ever carries a credential
+        raise ValueError(redact_secrets(str(exc), os.environ.get(API_KEY_ENV))) from None
+    ok, message = check_server(config["base_url"], config["health_timeout_s"])
+    if not ok:
+        say(f"LLM: {message}; falling back to the offline FillerGenerator")
+        return FillerGenerator(), "FillerGenerator (offline)"
+    generator = HTTPChatGenerator(config)
+    say(f"LLM: {message}; using {generator.describe()}")
+    return generator, f"HTTPChatGenerator ({config['runtime']})"

@@ -58,10 +58,12 @@ passage forces "off" for a grounded turn), "attribution_prefixed"}. The whole di
 GenerationRequest object of the latest request is `TurnHandler.last_generation_request` (None when a turn built none).
 
 Result keys: text, route ("alert"|"tool"|"slot_question"|"clarify"|"llm"|"ood"|"low_confidence"|"risk_diverted"|
-"no_document"|"greeting"|"repair_offer"|"destination_safety"|"confirmed_yes"|"confirmed_no"|"refill_not_needed"), pipeline (the Pipeline.handle dict or None), alerts, tool_call
+"no_document"|"greeting"|"repair_offer"|"destination_safety"|"confirmed_yes"|"confirmed_no"|"refill_not_needed"|"session_end"), pipeline (the Pipeline.handle dict or None), alerts, tool_call
 ({"name","args"} or None), tool_result, tool_calls (0 or 1), llm_called, spoken, verifier, blocked_text,
 pending_confirmation (the offer stored by THIS turn, or None), tool_error / llm_error (only when the tool or the LLM
-raised: templates.tool_error is spoken, nothing is retried; an alert_source failure still propagates), passages (grounded call_llm only), tts_error (only when
+raised: templates.tool_error is spoken, nothing is retried; an alert_source failure still propagates), passages (grounded call_llm only), end_session (true only on a whole-utterance goodbye/thanks),
+interim / interim_error (the "Let me think." wait line spoken through `interim_fn(line, "llm_interim")` before a chitchat / general / grounded generation, or why it
+failed), tts_error (only when
 `tts_fn` raised; `tts_fn(spoken, route)` is called once per turn with the verified/substituted line, after everything else).
 All wording lives in turn_policy.json and is PLACEHOLDER pending user sign-off.
 """
@@ -123,6 +125,9 @@ def _unsupported_navigation_scope(context, policy):
                 mixed_request = True
                 break
     return budget or (reading and projection) or mixed_request
+
+
+INTERIM_KINDS = frozenset({"chitchat", "general_explanation", "grounded_answer"})
 
 
 def load_policy(path=POLICY_PATH):
@@ -221,7 +226,9 @@ def match_confirmation(text, policy):
 
 class TurnHandler:
     def __init__(self, router, alert_source, registry=None, llm_fn=stub_llm, arbiter_fn=None, policy=None,
-                 pipeline_config=None, verifier=verify_numbers, retriever=None, tts_fn=None, generator=None, clock=time.monotonic):
+                 pipeline_config=None, verifier=verify_numbers, retriever=None, tts_fn=None, generator=None, clock=time.monotonic,
+                 interim_fn=None):
+        self.interim_fn = interim_fn  # interim_fn(line, "llm_interim") speaks the short wait line before a slow generation; None = silent
         self.retriever = retriever
         self.last_generation_request = None  # the GenerationRequest object of the latest request (not part of the result dict)
         self.history = []  # (user_text, spoken) of spoken LLM turns; only used when generation.history_turns > 0
@@ -263,13 +270,17 @@ class TurnHandler:
         alerts = evaluate_alerts(snapshot, self.policy)
         result = {"text": text, "route": None, "pipeline": None, "alerts": alerts, "tool_call": None,
                   "tool_result": None, "tool_calls": 0, "llm_called": False, "pending_confirmation": None}
-        tiers = self.policy["severity_tiers"]
-        critical = [a for a in alerts if tiers[a["severity"]]["preempts_router"]]
         pending, self.pending_confirmation = self.pending_confirmation, None  # cleared by every turn; re-set by an offer
+        critical = self._critical_alert_line(alerts)
         if critical:
             self.pending_clarification = None
-            lines = [self.policy["alert_lines"][a["field"]].format(value=a["value"]) for a in critical]
-            return self._speak(result, "alert", " ".join(lines), snapshot)
+            return self._speak(result, "alert", critical, snapshot)
+
+        session_end = self.policy["session_end"]
+        if normalized(text) in {normalized(p) for p in session_end["phrases"]}:  # whole utterance only: "yes thank you" is not an end
+            self.pending_clarification = None
+            result["end_session"] = True
+            return self._speak(result, "session_end", session_end["line"], {})
 
         if normalized(text) in self.policy['clarification']['cancel']:
             self.pending_clarification = None
@@ -298,6 +309,12 @@ class TurnHandler:
         if out["reason"] == "low_confidence":
             return self._speak(result, "low_confidence", self.policy["templates"]["low_confidence"], {})
         return self._llm_turn(result, text, out)
+
+    def _critical_alert_line(self, alerts):
+        """-> the spoken line for every alert whose tier preempts the router, or None."""
+        tiers = self.policy["severity_tiers"]
+        critical = [a for a in alerts if tiers[a["severity"]]["preempts_router"]]
+        return " ".join(self.policy["alert_lines"][a["field"]].format(value=a["value"]) for a in critical) if critical else None
 
     def _llm_turn(self, result, text, out):
         """Scope is decided here by router class (reason), risk terms and retrieval score; never by the LLM."""
@@ -338,6 +355,9 @@ class TurnHandler:
                             passages=passages, history=self.history[-keep:] if keep else (), prompt_policy=prompt_policy)
         source = [p.text for p in req.passages] if req.passage_numbers == "digits" else {}
         self.last_generation_request = req
+        interim = gen.get("interim")
+        if interim and interim["enabled"] and kind in INTERIM_KINDS:
+            self._speak_interim(result, interim["line"])
         outcome = run_generation(req, self.generator, self.policy, gen["neutral_chitchat"], error_text=templates["tool_error"],
                                  verifier=self.verifier)
         if outcome.status == "fallback" and (kind == "grounded_answer" or NUMBER_VIOLATIONS & set(outcome.violations)):
@@ -352,6 +372,13 @@ class TurnHandler:
                                 "refusal": outcome.refusal, "passage_numbers": req.passage_numbers,
                                 "configured_passage_numbers": req.configured_passage_numbers,
                                 "passage_override_reason": req.passage_override_reason, "attribution_prefixed": prefixed}
+        snapshot = self.alert_source()  # a critical alert that appeared while the model was generating preempts its answer
+        alerts = evaluate_alerts(snapshot, self.policy)
+        critical = self._critical_alert_line(alerts)
+        if critical:
+            result["alerts"] = alerts
+            self.pending_clarification = None
+            return self._speak(result, "alert", critical, snapshot)
         if outcome.status == "error":
             result["llm_error"] = outcome.error
             return self._speak(result, "llm", outcome.text, {})
@@ -380,6 +407,20 @@ class TurnHandler:
             self.history.append((text, result["spoken"]))
             del self.history[:-keep]  # only the last `keep` turns can ever be sent; do not retain older utterances
         return result
+
+    def _speak_interim(self, result, line):
+        """Speak the fixed wait line through interim_fn (never counted as the turn's answer). Failures only set result keys."""
+        if self.interim_fn is None:
+            return
+        verdict = self.verifier(line, {})
+        if not verdict["ok"]:
+            result["interim_error"] = "blocked by verifier"
+            return
+        try:
+            self.interim_fn(line, "llm_interim")
+            result["interim"] = line
+        except Exception as exc:
+            result["interim_error"] = f"{type(exc).__name__}: {exc}"[:300]
 
     def _retrieve(self, text, scope):
         """Passages scoring >= retrieval_min_score, best first, at most retrieval_top_k. No retriever, None, an error or
@@ -582,7 +623,6 @@ class TurnHandler:
         key = feasibility["outcome"] + ("_home" if feasibility["is_home"] else "")
         lines = self.policy["feasibility"]["lines"]
         suffix = " " + lines.get(key, lines[feasibility["outcome"]]).format(**feasibility)
-        suffix += self.policy["clarification"]["budget"].format(**feasibility)
         offer = None
         if feasibility["outcome"] in self.policy["send_message"]["urgency_by_outcome"] and not feasibility["is_home"]:  # no refill call to the home base itself
             offer = {"kind": "refill_call", "turn": self.turn_index, "place": data["place"], "place_name": data["place_name"],
