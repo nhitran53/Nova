@@ -47,7 +47,7 @@ public class NavigationHud : MonoBehaviour
         int eta = Mathf.CeilToInt(nav.EtaSeconds);
         string status = nav.Status == NavigationStatus.OffRoute
             ? $"OFF ROUTE  {Mathf.RoundToInt(nav.DistanceFromTrail)} m"
-            : "ON ROUTE";
+            : nav.AutoNavigating ? "AUTO NAVIGATION" : "ON ROUTE";
         return $"<size=70%>DESTINATION</size>\n<b>{name}</b>  {Mathf.RoundToInt(nav.RemainingMeters)} m\n" +
             $"ETA {eta / 60}:{eta % 60:00}   {Direction(head, nav.NextWaypoint)}\n<size=80%>{status}</size>";
     }
