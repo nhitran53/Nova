@@ -10,6 +10,16 @@
 [Mm]emoryCaptures/
 [Rr]ecordings/
 
+# Generated Android and test files
+/.utmp/
+/Assets/Resources/PerformanceTestRun*.json*
+/Assets/Resources.meta
+/ProjectSettings/SceneTemplateSettings.json
+
+# Unity crash recovery scenes
+/Assets/_Recovery/
+/Assets/_Recovery.meta
+
 # IDE generated files
 .vs/
 .vscode/
@@ -29,7 +39,12 @@ Thumbs.db
 .env.*
 !.env.example
 
+# Python virtual environment
+/.venv/
+
 # Local elevation data and generated terrain
 /Data/Source/*.tif
+/JEZ_hirise_*.tif
+__pycache__/
 /Assets/JezeroTerrain/Generated/
 /Assets/JezeroTerrain/Generated.meta
