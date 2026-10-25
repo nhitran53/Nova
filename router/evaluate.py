@@ -1,12 +1,7 @@
-"""Evaluate a trained router checkpoint on a labelled JSONL split.
+"""Evaluate a trained checkpoint on a labelled split.
 
-    python -m router.evaluate --checkpoint $NOVA_MODELS_DIR/synthetic-v0 [--split test]
-
-Reports accuracy, macro-F1, per-class precision/recall, confusion matrix, ECE, and a confidence-threshold sweep
-(coverage vs. error), prints a short table and writes reports/<checkpoint-name>.json.
-
-HONESTY NOTE: with the synthetic data from data/gen_synthetic.py the test split comes from the same generator
-family as train, so these numbers are optimistic and are NOT evidence for the 95% target on real speech.
+Write accuracy and calibration reports without overwriting existing results.
+Synthetic splits do not establish accuracy on real speech.
 """
 import argparse
 import json
@@ -17,6 +12,7 @@ from pathlib import Path
 import numpy as np
 import torch
 
+from .training_tools import is_trip, data_contract, check_checkpoint_contract, V4_CAVEAT, write_report
 from .core import Router, load_labels, models_dir
 
 HERE = Path(__file__).parent
@@ -27,19 +23,27 @@ CAVEAT = (
     "for the 95% target on real speech."
 )
 
+V3_CAVEAT = (
+    "Agent-authored synthetic v3-trip, family-separated splits; not human-heldout speech or a safety benchmark. "
+    "Small correlated samples do not establish operational risk or release readiness."
+)
 
-def load_jsonl(path, labels):
-    """-> (texts, label indices). Rejects labels missing from `labels`."""
+
+def load_jsonl(path, labels, label_field='label'):
+    """-> (texts, label indices). Use only the explicit field; never infer or relabel."""
     index = {name: i for i, name in enumerate(labels)}
     texts, ys = [], []
     for n, line in enumerate(Path(path).read_text().splitlines(), 1):
         if not line.strip():
             continue
         row = json.loads(line)
-        if row["label"] not in index:
-            raise ValueError(f"{path}:{n}: unknown label {row['label']!r}")
+        if label_field not in row:
+            raise ValueError(f"{path}:{n}: missing label field {label_field!r}")
+        label = row[label_field]
+        if label not in index:
+            raise ValueError(f"{path}:{n}: unknown label {label!r} in {label_field!r}")
         texts.append(row["text"])
-        ys.append(index[row["label"]])
+        ys.append(index[label])
     return texts, np.array(ys)
 
 
@@ -139,7 +143,7 @@ def format_table(report):
     for row in report["threshold_sweep"]:
         err = "  n/a" if row["error"] is None else f"{row['error']:.3f}"
         lines.append(f"{row['threshold']:<9}  {row['coverage']:.3f}     {err}")
-    lines.append("NOTE: " + CAVEAT)
+    lines.append("NOTE: " + report.get("caveat", CAVEAT))
     return "\n".join(lines)
 
 
@@ -148,10 +152,12 @@ def main(argv=None):
     ap.add_argument("--checkpoint", default=str(models_dir() / "v1"), help="default: %(default)s (set NOVA_MODELS_DIR to move)")
     ap.add_argument("--data-dir", default=str(HERE / "data"))
     ap.add_argument("--split", default="test")
+    ap.add_argument("--label-field", choices=('label', 'expected_label'), default='label',
+                    help="Explicit JSONL target field; frozen heldout_scenarios/regression require expected_label")
     ap.add_argument("--labels", default=str(HERE / "labels.json"))
     ap.add_argument("--report-dir", default=str(HERE / "reports"))
     ap.add_argument("--device", default="auto")
-    ap.add_argument("--batch-size", type=int, default=64)
+    ap.add_argument("--batch-size", type=int, default=4)
     args = ap.parse_args(argv)
 
     labels = load_labels(args.labels)
@@ -160,15 +166,22 @@ def main(argv=None):
         router = Router.load(args.checkpoint, args.labels, device=args.device)
     if router.untrained:
         sys.exit(f"{args.checkpoint} has no router_meta.json with trained=true; nothing meaningful to evaluate")
-    texts, y_true = load_jsonl(Path(args.data_dir) / f"{args.split}.jsonl", labels)
+    try:
+        check_checkpoint_contract(router.meta, args.data_dir)
+    except ValueError as exc:
+        ap.error(str(exc))
+    texts, y_true = load_jsonl(Path(args.data_dir) / f"{args.split}.jsonl", labels, args.label_field)
     logits = compute_logits(router.model, router.tokenizer, texts, router.device, router.max_length, args.batch_size)
     report = build_report(logits, y_true, labels, router.temperature)
-    report.update(checkpoint=str(args.checkpoint), split=args.split, n=len(texts),
-                  data_hash=router.meta.get("data_hash"), caveat=CAVEAT)
+    report.update(checkpoint=str(args.checkpoint), split=args.split, label_field=args.label_field, n=len(texts),
+                  data_hash=router.meta.get("data_hash"), data_contract=data_contract(args.data_dir),
+                  caveat=V4_CAVEAT if data_contract(args.data_dir) == 'v4-trip-1' else V3_CAVEAT if is_trip(args.data_dir) else CAVEAT)
+    if data_contract(args.data_dir) == 'v4-trip-1' and args.split == 'seen_during_development':
+        report['evidence_role'] = 'seen_during_development_not_independent'
     name = Path(args.checkpoint).resolve().name
-    out = Path(args.report_dir) / f"{name}.json"
+    out = Path(args.report_dir) / f"{name}_{args.split}.json"
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps(report, indent=2) + "\n")
+    write_report(out, report)
     print(format_table(report))
     print(f"report -> {out}")
     return 0

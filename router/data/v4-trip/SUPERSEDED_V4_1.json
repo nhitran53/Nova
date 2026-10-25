@@ -1,0 +1,18 @@
+{
+  "schema_version": "v4-trip-1.1",
+  "sha256": {
+    "README.md": "7e95d23af9f38dc1209f1742e4ae8933bfde3c95971be000b8be6d78ceacb173",
+    "REVISION_REPORT.md": "b5a7a74b45f4f3e3668e93b5d4e008e343b6bc7b693d891d21ca08ed5020b3c6",
+    "calibration.jsonl": "77f93009ad7875561a048af4b7e05e7e8e62e2b2578ce84ecadf7390315111c1",
+    "dev.jsonl": "8e4ddd3ee1105e13f408d71b794aa8048b84ad931233491271987cf1f7843023",
+    "families.json": "6adb585057ce3c34b89c9f2c2951773d58fe07a186b89cd2c499a8da0446bc77",
+    "manifest.json": "300fc761c52604f56089506b38cd16a826293877cf118d1e489589cace692575",
+    "near_duplicate_report.json": "9d2b72963eb2839773d01679526431cf12bb531ad6fb71c80ed0c3c09f9885fc",
+    "release.py": "09e942f6286c4e7b750e176e4a7fe92efda9107aac53a9700adbbc50256c9ec3",
+    "test.jsonl": "4d1f4fe7d2d2a88ad92260b65d596bdcecd718372ff6d893e1d86d7e289b8a18",
+    "threshold.jsonl": "97cbe8f277ca37f769669bcbe230a56c0b0b133624bed31152ce7edd3b443c88",
+    "train.jsonl": "f6aaf9c033c037db856152c39baa2a1781614144bcc822191df8bfdcf6626fb7"
+  },
+  "status": "SUPERSEDED by v4.2",
+  "version": "v4.1"
+}

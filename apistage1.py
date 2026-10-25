@@ -1,13 +1,15 @@
 import logging
 import os
+from pathlib import Path
 
 import psycopg
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 
 app = FastAPI(title="NOVA API — Stage 1")
 logger = logging.getLogger(__name__)
 
-# Same local database connection approach as simulator
+load_dotenv(Path(__file__).resolve().parent / ".env")
 DATABASE_URL = os.getenv("DATABASE_URL", "dbname=nova")
 
 @app.get("/health")

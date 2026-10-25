@@ -1,65 +1,132 @@
-# Nova router (ModernBERT-base text classifier)
+# Nova router
 
-Text input only (voice later). The base model alone has a random head and every prediction is flagged
-`untrained: true`; use a fine-tuned checkpoint (`/home/isaach/models/Nova/router/v2`, see "Data, training, results") for real labels.
-Checkpoints are git-ignored.
-
-Output of `Router.predict(text)`:
-`{label, confidence, topk:[{label,p}], latency_ms, untrained, warning?}` - softmax probs
-(optionally divided by `temperature`). Runs on CPU; `device='auto'` picks MPS (Mac), then CUDA, then CPU.
+ModernBERT chooses the route for a request
+Python tools read telemetry and Gemini can generate supported replies
+The voice server connects this to Unity
 
 ## Setup
 
-Install [uv](https://docs.astral.sh/uv/getting-started/installation/), then:
+Use Python 3.12 or newer
+From the repo folder install the locked environment
 
 ```sh
-cd router
-uv sync --locked                  # local .venv, editable router package, includes pytest
+uv sync --project router --locked
 ```
 
-Python >=3.12 is supported; `.python-version` selects 3.14. The resolved torch release has
-Python 3.14 wheels on Linux x86_64 and macOS ARM64, so no Python downgrade is needed.
-Linux uses the explicit PyTorch CPU index; macOS uses the default PyPI wheels (MPS included).
-The latest torch's macOS wheels require Apple Silicon and macOS 14 or newer (including the target M5 Mac);
-older macOS and Intel Macs are not supported by that upstream release.
-`pyproject.toml` declares dependencies and `uv.lock` records exact versions for both platforms;
-`requirements.txt` has been removed. To deliberately refresh dependencies, run
-`uv lock --upgrade` followed by `uv sync --locked` and re-run the checks below.
+Keep model files outside the repo
+Use `NOVA_MODELS_DIR` or `--model` to select a checkpoint
+A base model without a trained classifier head reports `untrained`
+Keep the trained label order matched to `labels.json`
 
-The base model lives **outside the repo**, in `$NOVA_MODELS_DIR/ModernBERT-base` (default
-`/home/isaach/models/Nova/router/ModernBERT-base`); it is not downloaded during sync. **Only for a fresh machine
-without the model**, download it into a new/empty directory (pass `--revision SHA` to pin; the resolved commit and
-file sha256s are printed):
+Put keys and database settings in the root `.env`
+Never commit that file
+Microphone and Windows playback use `sounddevice` which is included in the router dependencies
+To update an existing Windows venv run `.\router\.venv\Scripts\python.exe -m pip install -e .\router` from the repo folder
 
-```sh
-uv run python -I download_base.py
+## Run with Unity
+
+Start PostgreSQL first
+Run these in separate terminals from the repo folder
+
+```cmd
+.\router\.venv\Scripts\python.exe simulator.py
 ```
 
-The downloaded model dir is untrusted data: keep scripts out of it, load with `trust_remote_code`
-off (default), and use safetensors. `.gitignore` covers `.venv/`, `models/`, `checkpoints/`, caches and build artifacts.
-
-Base model recorded on 2026-10-24: `answerdotai/ModernBERT-base` @ `8949b909ec900327062f0ebf497f51aef5e6f0c8`,
-`model.safetensors` sha256 `340ac08b74eef0d7bdec2d7981a6a3d4249bf0e6aab60634b72ad02c2b8023a9`.
-
-## Run (from Nova/router)
-
-```sh
-uv run python -m router.cli --text "check my oxygen level"  # pretty; add --json for JSON
-uv run python -m router.cli                               # REPL, empty line quits
-uv run pytest                                            # offline after model download
-uv run python -m router.bench_latency --runs 50 --device cpu
+```powershell
+.\router\.venv\Scripts\python.exe -m router.voice_server --model "$HOME\models\Nova\router\ModernBERT-v4.2" --datasource postgres
 ```
 
-After activating `.venv` (`source .venv/bin/activate`), plain `python -m router.cli` also works.
-From `Nova/`, use `uv run --project router python -m router.cli --text "check my oxygen level"`.
-The package remains flat in this directory; `core.py` holds the implementation so it does not
-shadow the installed `router` package when running commands here. `from router import Router`
-remains supported. Default model path is `$NOVA_MODELS_DIR/ModernBERT-base` (see above), independent of the checkout.
+This example uses the local Windows checkpoint
+Change `--model` if your checkpoint is somewhere else
+The server defaults to `sim` when `--datasource` is omitted
+Server `--device` selects the torch device rather than the mic
+`--timeout` sets how many seconds of silence end a conversation
+Keep the simulator running so readings stay fresh
+Use `--datasource sim` for voice without PostgreSQL
+That mode does not supply the shared HUD telemetry
 
-Use `--model <dir|HF id>` or `ROUTER_MODEL_DIR` to point at another checkpoint, `--temperature T`, `--device`.
-Set `HF_HUB_OFFLINE=1` to explicitly disable Hub requests when using the local model.
+The server uses localhost on port 8765
+Unity reads voice status and telemetry from it
+Wrist demo buttons update the simulator oxygen value through the server
+No database credentials go to Unity
 
-## Swapping labels
+## BERT model
+
+ModernBERT chooses tool routes and Gemini does not retrain it
+Model files stay outside Git and need to be copied separately
+Pass the trained checkpoint folder with `--model`
+Its label order must match `router/labels.json`
+Without `--model` the server uses `NOVA_MODELS_DIR/v1`
+The current fallback is `/home/isaach/models/Nova/router/v1` which is a Linux path
+
+ModernBERT-v4.2 is still marked as a candidate in its metadata
+Using it does not promote or retrain the model
+
+Check readiness from PowerShell after starting the server
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8765/voice/status
+```
+
+Wait for `router_ready` to be true
+A failed load reports `router_error`
+
+## Gemini
+
+Keep `GEMINI_API_KEY` and `ELEVENLABS_API_KEY` in the root `.env`
+Each teammate needs their own local file
+Ollama is optional and is not needed for the Gemini setup
+
+The voice server uses Gemini for replies and as a second routing layer
+Gemini can choose a tool when BERT does not
+Critical alerts bypass this second routing layer
+Gemini is checked when each conversation starts and falls back to offline replies if it's down
+Add `--no-llm` to the server to skip Gemini entirely
+Model names and routing policy in `turn_policy.json` are still provisional
+
+Voice and wake word can use another file through `NOVA_ENV_FILE`
+The simulator and Stage 1 API still use the root `.env`
+Environment variables take priority over file values
+
+## Wake word
+
+The listener starts a conversation through the same voice server used by Unity
+It releases the mic during the conversation and resumes afterward
+The custom `hey_nova.onnx` model is not in Git
+See [wake-word setup](../wakeword/README.md#windows-setup) for the separate environment and Windows commands
+
+## Demo controls
+
+The simulator consumes oxygen at the mission time scale
+Use the wrist **REFILL** button for a normal conversation demo
+Use **-10 O2** and **+10 O2** to show changing readings
+Critical readings take priority over conversation
+Alert thresholds and response wording live in `turn_policy.json`
+They are demo settings and have not been validated for a real suit
+
+Restart the simulator and server after code updates
+Do not use `--new-mission` unless you want to end the active mission and start another
+Existing mission history is kept
+
+## Checks
+
+```cmd
+.\router\.venv\Scripts\python.exe -m pytest router/tests/test_datasource.py router/tests/test_voice_server.py router/tests/test_db_config.py
+```
+
+These checks do not use the microphone or paid speech APIs
+The full suite also contains model and release checks
+Passing synthetic tests does not establish performance on real speech
+Keep released datasets and their provenance records unchanged
+
+## More detail
+
+[Unity voice and wrist setup](../Assets/Scripts/Voice/README.md)
+[LLM demo details](docs/live-demo.md)
+[Response generation](docs/post-tool-generation.md)
+[Reference datasets and units](docs/reference-data.md)
+[Trip clarification](docs/trip-clarification-implementation.md)
+[Dataset handoff](docs/v3-trip-handoff.md)
 
 Edit `labels.json` (`{"labels": [...]}`). Order = class index; the head size is `len(labels)`, so a fine-tuned
 checkpoint is only valid with the label order it was trained on. Current labels are **placeholders**
@@ -157,8 +224,11 @@ uv run python -m router.demo_turn --fake     # same turns with a scripted fake r
 ```
 
 `TurnHandler(router, alert_source, registry, llm_fn=..., arbiter_fn=...).handle(text)` order: (1) poll
-`alert_source()` (sim snapshot) - a **critical** alert speaks a fixed template and returns before the router, arbiter
-or LLM run, for every class; (2) `Pipeline.handle`; (3) required-slot check: navigation/map without a resolved place
+`alert_source()` (sim snapshot) - a **critical** alert speaks a fixed, snapshot-verified template first, then normal read-only routing continues.
+No interim/LLM generation, menus, refill/print offers or messages are allowed while it persists; greetings and
+scene diagnostics still work. Pending offers/clarifications clear. `lines` holds alert then answer, each independently
+verified against its own source; `spoken` joins them with a space for older clients. A new/changed critical alert
+at the final re-poll replaces the answer. The alert repeats on every utterance; (2) `Pipeline.handle`; (3) required-slot check: navigation/map without a resolved place
 -> deterministic slot question, ambiguous place -> "which place" question, never a tool call (`pipeline.py` now returns
 `clarify/missing_slot` for a tool whose `required_slots` are unfilled; note map now requires a place, so "zoom out"
 alone asks where); (4) at most one call through `ToolRegistry` (max 8 tools, 1 call per turn, fixed schemas; six fake
@@ -202,19 +272,32 @@ from `pipeline_config.json`. Demo note: on `Get me the coolant level.` v1 gives 
   in a passage does not count). Risk terms are not applied to `call_llm` (retrieval gates it). Breaking change: the
   old "call_llm goes straight to the stub" behavior is gone.
 
-## Speech (`speech.py`, 2026-10-24)
+## Live LLM demo (`llm_generator.py`, `demo_live.py`, 2026-10-24)
+`uv run python -m router.demo_live [--fake-router] [--no-llm] [--script FILE]` runs the turn stack on the offline FixtureDatasource with an
+HTTP chat generator with Gemini as the current default behind chitchat and call_llm
+It falls back to the FillerGenerator when the service is unavailable and does not wire up the second routing layer
+Config: PLACEHOLDER `live_llm` in `turn_policy.json`. Only tested against a fake local server. See `docs/live-demo.md`.
+
+## Speech (`tts.py`, 2026-10-24)
 
 The final spoken line (`result["spoken"]`: after the number verifier and blocked-line substitution, every route incl.
 alerts) can also be spoken aloud. Text output is unchanged. Off by default (tests make no API call).
 
-- Setup: `uv sync` (adds `elevenlabs`, `python-dotenv`); put `ELEVENLABS_API_KEY=...` in `router/.env` (gitignored; the
+- Setup: `uv sync` (adds `elevenlabs`, `python-dotenv`); put `ELEVENLABS_API_KEY=...` in the root `.env` (gitignored; the
   path is resolved from the file, not the cwd). Optional overrides: `ELEVENLABS_VOICE_ID` (default `VmPkIaPdP997cjIfBWRB`),
   `ELEVENLABS_MODEL_ID` (default `eleven_v4`, accepted by the API; the key lacks `models_read`, so the list endpoint is not usable).
-- One client per process (`speech.init()` at startup, else lazy on first `speak`); PCM 24 kHz piped to `paplay` (else `aplay`);
+- One client per process (`tts.init()` at startup, else lazy on first `speak`); PCM 24 kHz piped to `paplay` (else `aplay`);
   20 s network and 60 s playback timeouts; empty text is a no-op; errors are `SpeechError` without the key.
-- `TurnHandler(..., tts_fn=speech.speak)` calls `tts_fn(spoken, route)` once per turn; an exception is caught and stored as
+- `TurnHandler(..., tts_fn=tts.speak)` calls `tts_fn(spoken, route)` once per turn; an exception is caught and stored as
   `result["tts_error"]`, the turn is otherwise unchanged.
-- Live checks: `uv run python -m router.speech "Nova speech test."`; `uv run python -m router.demo_turn --speak --max-turns 3`.
+- Live checks: `uv run python -m router.tts "Nova speech test."`; `uv run python -m router.demo_turn --speak --max-turns 3`.
+
+## Speech-to-text (`stt.py`, 2026-10-24)
+- `uv run --with sounddevice python -m router.stt` (conversation: listen, route, speak reply, repeat until 10 s of silence or Ctrl-C; `--once`, `--no-speak`, `--model DIR`): loads the router checkpoint on a background thread, streams the mic to
+  ElevenLabs Scribe realtime (`scribe_v2_realtime`, server VAD, 1 s silence ends the utterance), then runs the first transcript
+  through `TurnHandler`. `stt.listen_and_route()` is the same as a function; `stt.transcribe(frames)` is the STT part alone.
+- Same key handling as `tts.py` (the root `.env`, never in errors). `sounddevice` is included in `pyproject.toml`.
+- Tests: `tests/test_stt.py` (fake client). Verified live with TTS-generated audio; mic capture itself not tried.
 - Not built: streaming synthesis, interrupting speech for a critical alert, Unity/Quest audio path, voice-activity handling.
 
 ## v2 family split and verification (2026-10-24, Linux CPU)
@@ -309,3 +392,7 @@ config .90/.50 with no arbiter: v2 `okay im home please` -> NO_TOOL/.819/LLM stu
   re-measure on the target Mac. At that earlier checkpoint nine tests passed (six model smoke tests and three packaging checks);
   the CLI still reports `untrained`. macOS 14 ARM64 dependency selection passed a cross-platform
   `uv sync --locked --dry-run`; actual MPS execution still needs verification on the Mac.
+
+Use `python -m router.train --help` for training options
+Use `python -m router.evaluate --help` for evaluation options
+Training and model promotion are separate from running this demo

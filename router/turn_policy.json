@@ -1,20 +1,30 @@
 {
   "_comment": "Turn-level policy for router/turn.py. EVERY value below is a PLACEHOLDER pending user sign-off: severity tiers, critical sim fields and thresholds, alert wording, slot-question wording and all templates. The human owns these; they are not validated against any real suit, mission rule or safety document. Each section carries a 'status' string and the loader refuses a section without one starting with PLACEHOLDER. Follow-up (feasibility, refill-call confirmation, send_message, LLM scope): the new sections 'feasibility', 'confirmation', 'send_message' and 'llm_scope' are equally PLACEHOLDER (walking speed, reserve margin, O2 fallback rate, home places, expiry, yes/no vocabulary, urgency mapping, risk terms, retrieval threshold and every sentence); no mission document or real suit/EVA rule backs any of them.",
+  "hazard_zone": {
+    "status": "PLACEHOLDER - demo only: Jezero-local center, radius, safe margin, ETA and broadcast wording pending sign-off",
+    "center_x_m": 900.0,
+    "center_z_m": 350.0,
+    "radius_m": 300,
+    "safe_margin_m": 25,
+    "eta_hours_min": 24,
+    "eta_hours_max": 36,
+    "eta_hours": 30,
+    "broadcast_line": "Emergency Alert: Local telescopes have detected an incoming meteor near Jezero Crater. Impact expected within 24 to 36 hours. Evacuate the area."
+  },
   "severity_tiers": {
     "status": "PLACEHOLDER - pending user sign-off",
     "critical": {
       "preempts_router": true,
-      "uses_llm": false,
-      "spoken": true
+      "uses_llm": false
     },
     "warning": {
       "preempts_router": false,
-      "uses_llm": false,
-      "spoken": false
+      "uses_llm": false
     }
   },
   "sim_fields": {
     "status": "PLACEHOLDER - pending user sign-off (field list, thresholds, units, priority order = listed order)",
+    "meteor_inside": {"critical_above": 0.5},
     "o2_pct": {
       "critical_below": 16.0,
       "warning_below": 30.0
@@ -40,6 +50,7 @@
   },
   "alert_lines": {
     "status": "PLACEHOLDER - pending user sign-off (spoken verbatim, no LLM; numbers are the sim value)",
+    "meteor_inside": "You are currently in the blast radius. Move away now.",
     "o2_pct": "Critical alert. Oxygen at {value:.1f} percent. Return to the airlock now.",
     "suit_pressure_kpa": "Critical alert. Suit pressure {value:.1f} kilopascals. Seal check and return to the airlock now.",
     "temp_c": "Critical alert. Suit temperature {value:.1f} degrees Celsius. Return to the airlock now.",
@@ -57,6 +68,7 @@
     "ambiguous_place": "Which place do you mean: {options}?"
   },
   "templates": {
+    "alert_active_deferred": "I'll answer that once the alert is clear.",
     "status": "PLACEHOLDER - pending user sign-off (every number must come from the tool_result; the verifier blocks the rest)",
     "safety": "Safety check: {status_word}.",
     "navigation": "Heading to {place_name}. About {distance_m:.0f} meters. Estimated time in minutes: {eta_min:.0f}.",
@@ -68,6 +80,16 @@
     "ood": "That is outside what I can help with. I can help with oxygen, vitals, navigation, the map and safety.",
     "verifier_blocked": "I can't read that out reliably right now."
   },
+  "navigation_scope": {
+    "status": "PLACEHOLDER - deterministic navigation scope vocabulary and wording; owner must rewrite/sign off",
+    "unsupported_resources": ["battery", "batteries", "water", "fuel", "food", "power"],
+    "budget_phrases": ["enough", "sufficient", "adequate", "suffice", "last", "hold out", "make it", "get me", "budget", "range", "run out", "running out"],
+    "trip_phrases": ["trip", "travel", "make it", "get home", "get there", "get to", "reach", "arrive", "arrival", "return"],
+    "unsupported_readings": ["radiation", "heart rate", "heart beat", "pulse", "bpm", "beats per minute", "temperature"],
+    "projection_phrases": ["what will", "will my", "would my", "would be", "will be", "projected", "predict", "expected", "at", "when i get", "when we get"],
+    "arrival_phrases": ["on arrival", "at arrival", "when i arrive", "when we arrive", "when i get there", "when we get there"],
+    "clarification": "PLACEHOLDER: I can estimate an oxygen trip budget, not other resource budgets or projected readings. Would you like an oxygen-only trip assessment?"
+  },
   "feasibility": {
     "status": "PLACEHOLDER - pending user sign-off (every value; no EVA rule, suit model or terrain model backs any of it)",
     "walking_speed_m_per_min": 60,
@@ -76,20 +98,21 @@
     "home_places": [
       "homebase"
     ],
-    "lines": {
-      "comfortable": "Oxygen check: the round trip needs about {required_min} minutes including a {reserve_min} minute reserve, and you have {o2_minutes_remaining}.",
-      "comfortable_home": "Oxygen check: the way home needs about {required_min} minutes including a {reserve_min} minute reserve, and you have {o2_minutes_remaining}.",
-      "tight": "Warning, oxygen margin is tight: {outbound_min} minutes out, {return_min} minutes back and a {reserve_min} minute reserve need {required_min} minutes, and you have {o2_minutes_remaining}.",
-      "tight_home": "Warning, oxygen margin is tight: the way home takes {outbound_min} minutes plus a {reserve_min} minute reserve, {required_min} in all, and you have {o2_minutes_remaining}.",
-      "cannot_return": "Warning, on your current oxygen you cannot get back home without a refill: {outbound_min} minutes out plus {return_min} minutes back is {trip_min}, and you have {o2_minutes_remaining}.",
-      "cannot_reach": "Warning, you cannot reach it on your current oxygen: the trip out takes {outbound_min} minutes and you have {o2_minutes_remaining}.",
-      "cannot_reach_home": "Warning, you cannot reach home on your current oxygen: the way home takes {outbound_min} minutes and you have {o2_minutes_remaining}."
+    "concise": {
+      "comfortable": "{place_name} is {outbound_min} minutes away. You have enough oxygen for the round trip.",
+      "comfortable_home": "{place_name} is {outbound_min} minutes away. You have enough oxygen to get home.",
+      "tight": "{place_name} is {outbound_min} minutes away. Your oxygen margin for the round trip is tight.",
+      "tight_home": "{place_name} is {outbound_min} minutes away. Your oxygen margin for getting home is tight.",
+      "cannot_return": "{place_name} is {outbound_min} minutes away. You have enough oxygen to get there, but not back.",
+      "cannot_reach": "{place_name} is {outbound_min} minutes away. You do not have enough oxygen to get there.",
+      "cannot_reach_home": "{place_name} is {outbound_min} minutes away. You do not have enough oxygen to get home.",
+      "unavailable": "{place_name}: oxygen feasibility is unavailable."
     }
   },
   "confirmation": {
     "status": "PLACEHOLDER - pending user sign-off (expiry, vocabulary, offer and reply wording)",
     "expiry_turns": 2,
-    "offer": "Do you want me to call {place_name} and check if they have oxygen refills?",
+    "offer": "Do you want me to call {recipient_label} to check for refills?",
     "yes_phrases": [
       "yes",
       "yeah",
@@ -134,12 +157,22 @@
     ],
     "yes_spoken": "Okay, I sent the refill request to {recipient_name}, marked {urgency}.",
     "no_spoken": "Okay, I won't call. Say so if you change your mind.",
-    "no_longer_needed": "Your oxygen margin has changed, so a refill is no longer needed. I did not send the request."
+    "no_longer_needed": "Your oxygen margin has changed, so a refill is no longer needed. I did not send the request.",
+    "accept_as_order": [
+      "no just navigate",
+      "just navigate",
+      "just go",
+      "no just go",
+      "go anyway",
+      "navigate anyway",
+      "skip it",
+      "no just do it"
+    ],
+    "decline_proceed_spoken": "Okay, not calling. Continuing to {place_name}."
   },
   "send_message": {
     "status": "PLACEHOLDER - pending user sign-off (urgency is decided here, by feasibility outcome, never by the LLM)",
     "urgency_by_outcome": {
-      "tight": "normal",
       "cannot_return": "urgent",
       "cannot_reach": "urgent"
     },
@@ -147,6 +180,7 @@
   },
   "llm_scope": {
     "status": "PLACEHOLDER - pending user sign-off (no knowledge-base documents exist yet; scope is router class + retrieval score + risk terms, never the LLM judging itself)",
+    "general_fallback": false,
     "risk_terms": [
       "oxygen",
       "o2",
@@ -166,9 +200,569 @@
       "injured",
       "leak"
     ],
+    "speaking_scope": {
+      "status": "PLACEHOLDER - pending sign-off for scope, prompts and offer; greeting is exact user-requested wording",
+      "greetings": [
+        "hi",
+        "who are you",
+        "what is your name"
+      ],
+      "greeting": "Hey, I'm Nova, your navigation and observation voice assistant.",
+      "repair_terms": [
+        "fix",
+        "repair",
+        "troubleshoot",
+        "broken",
+        "malfunction"
+      ],
+      "consequential_terms": [
+        "safety",
+        "safe",
+        "danger",
+        "hazard",
+        "operate",
+        "procedure",
+        "disconnect",
+        "reconnect",
+        "restart",
+        "reset",
+        "bypass",
+        "disable",
+        "override"
+      ],
+      "travel_phrases": [
+        "can i make",
+        "can i get",
+        "can i reach",
+        "can we make",
+        "can we get",
+        "can we reach",
+        "get there",
+        "make it",
+        "travel",
+        "trip",
+        "reach",
+        "walk",
+        "go to",
+        "return to"
+      ],
+      "non_request_travel_phrases": [
+        "no trip",
+        "no travel",
+        "without a trip",
+        "without travel",
+        "not going anywhere",
+        "not planning a trip",
+        "not planning to travel",
+        "not planning to walk",
+        "trip is not planned",
+        "trip isn t planned",
+        "do not plan a trip",
+        "don t plan a trip"
+      ],
+      "destination_safety": "A general safety check does not assess that trip. Ask for navigation to check the destination.",
+      "repair_offer": "What is wrong? Would you like to contact base?",
+      "general_prefixes": [
+        "why ",
+        "what is ",
+        "what are ",
+        "explain "
+      ],
+      "general_prompt": "You may explain general knowledge without a retrieved source. This is not a live observation. Do not diagnose, give repair or operational instructions, claim an action, or state live conditions. If unsure, refuse. Never include numbers. Empty passages are expected for general explanations. For an answer, use refusal:null and text containing the answer. When refusing, use a refusal code and empty text; never combine an answer with a refusal."
+    },
     "risk_diverted": "I can't answer that from memory. Ask me for your live readings, or check the procedure documents.",
     "retrieval_min_score": 0.5,
     "retrieval_top_k": 3,
     "no_document": "I don't have a document for that yet."
+  },
+  "data_source": {
+    "status": "PLACEHOLDER - pending user sign-off (opt-in DB-backed datasource, router/datasource.py; every value and definition; no mission document backs any of it)",
+    "max_age_s": 10,
+    "place_aliases": {
+      "homebase": "HAB",
+      "habitat": "HAB",
+      "rover": "ROVER",
+      "crater": "CRATR",
+      "crater_rim": "CRATR",
+      "ridge": "RIDGE",
+      "shuttle": "SHUTTLE"
+    },
+    "message": {
+      "body_format": "[{urgency}] to {recipient_name}: {message}",
+      "real_delay_s": 600.0,
+      "demo_delay_s": 5.0
+    },
+    "definitions": {
+      "o2_pct": "telemetry.o2_percent, direct",
+      "bpm": "telemetry.heart_rate, direct",
+      "temp_c": "telemetry.suit_temp_c, direct (ext_temp_c is NOT used: it starts at -40 C and would trip the -10 C critical)",
+      "suit_pressure_kpa": "telemetry.suit_pressure_kpa, direct",
+      "radiation_usv_h": "(radiation_msv[t] - radiation_msv[t-1]) / ((sim_seconds[t] - sim_seconds[t-1]) / 3600) * 1000 from the last two telemetry rows; raises when fewer than two rows or sim_seconds does not advance",
+      "minutes_remaining": "floor(o2_percent / o2_burn_pct_per_min(mission, live activity and scenario)), counted to an EMPTY tank; the reserve is added once, by feasibility.reserve_margin_min; missions.o2_reserve_pct is unused",
+      "eta_min": "ceil(distance_m / feasibility.walking_speed_m_per_min), so one navigation turn speaks one minute figure; missions.walk_speed_mps (0.8 m/s = 48 m/min) is not used",
+      "distance_m": "Euclidean distance from latest_position to the map_locations (x_m, z_m), rounded to a whole meter"
+    }
+  },
+  "session_end": {
+    "status": "PLACEHOLDER - thank you closes the session after the current request and reply finish. Other ending phrases match the whole utterance. No further listening follows the reply.",
+    "phrases": ["thank you", "thanks", "thank you nova", "thanks nova", "that's all", "goodbye", "bye"],
+    "line": "Happy to help!"
+  },
+  "demo_scene": {
+    "status": "PLACEHOLDER - pending owner sign-off (hackathon demo scene, OFF by default; enable with enabled=true, NOVA_DEMO_SCENE=1 or llm_options demo_scene. A whole-utterance phrase is answered with scene_line built from the rover-diagnostics fixture, then 'yes' queues ONE simulated 3D-print job. No router, no LLM, no retrieval for speech. Honest wording: diagnostics plus gaze, never vision, never safe/unsafe to drive; wording is not owner-approved)",
+    "enabled": false,
+    "phrases": [
+      "what is this",
+      "what is that",
+      "what am i looking at",
+      "whats this",
+      "what's this"
+    ],
+    "wake_prefixes": [
+      "hey nova",
+      "hi nova",
+      "hello nova",
+      "okay nova",
+      "ok nova",
+      "nova",
+      "hey",
+      "hi",
+      "hello"
+    ],
+    "alert_result_line": "That's your rover. Its diagnostics flag damage on the {part_label}.",
+    "scene_line": "That's your rover. Its diagnostics flag damage on the {part_label}. Want me to send a replacement {print_part} to the 3D printer?",
+    "no_fault_line": "That's your rover. No faults reported.",
+    "queued_line": "Replacement wheel queued.",
+    "declined_line": "Okay, I won't send it."
+  },
+  "fast_replies": {
+    "status": "PLACEHOLDER - pending user sign-off (whole-utterance phrases answered with a fixed line before the router: no tool, no LLM, no interim; wake_prefixes are stripped only when the utterance is not already a phrase; set enabled=false to restore the router path; wording is not owner-approved)",
+    "enabled": true,
+    "wake_prefixes": ["hey nova", "hi nova", "hello nova", "okay nova", "ok nova", "nova", "hey", "hi", "hello"],
+    "intents": {
+      "greeting": {
+        "phrases": ["hi", "hello", "hey", "hi nova", "hello nova", "hey nova", "good morning", "good morning nova"],
+        "line": "Hello. How can I help?"
+      },
+      "identity": {
+        "phrases": ["who are you", "what is your name", "what's your name", "whats your name"],
+        "line": "I'm Nova, your navigation and observation voice assistant."
+      }
+    }
+  },
+  "_comment_generation": "Post-tool-call generation (router/generation.py). The whole 'generation' section is PLACEHOLDER pending user sign-off: persona, style limits, attempt/deadline budget, passage-number provenance (default 'digits'; 'off' available; 'quote_span' documented but unbuilt and refused by the loader; risk_term_passage_override forces 'off' for a grounded turn whose question or passage hits llm_scope.risk_terms; attribution_prefix is prepended by code to a grounded answer that speaks a passage number), history length, refusal and fallback wording, retry wording, deny-lists, slot formats/units and the raw-output size cap (max_raw_chars). Qualitative tier labels (critical/warning/normal) are NOT configured here: they are derived from the human-owned sim_fields thresholds. No real model, mission document or suit rule backs any value.",
+  "second_layer": {
+    "status": "PLACEHOLDER - pending user sign-off (Gemini re-reads utterances the router did not send to a tool and may name ONE tool label from the closed set; it never runs for alerts, never decides go/no-go, args stay deterministic)",
+    "enabled": true,
+    "deadline_ms": 1500,
+    "max_tokens": 24,
+    "descriptions": {
+      "call_safety": "a safety check of the rover and suit state",
+      "call_navigation": "directions or a route to a named place",
+      "call_map": "where a named place is on the map",
+      "call_data": "a live sensor readout of the environment or vitals",
+      "call_o2": "the astronaut's oxygen level and how long it lasts",
+      "call_vision": "a look at what the astronaut sees or points at in the headset view (what is this, what am I looking at)"
+    }
+  },
+  "live_distance": {
+    "status": "PLACEHOLDER - pending user sign-off (navigation distance from the live Unity position for places Unity knows; straight-line ground distance; any failure keeps the old distance)",
+    "places": {"shuttle": "shuttle_001", "rover": "rover"},
+    "arrived_m": 8,
+    "arrived_line": "You're already at the {place_name}."
+  },
+  "vision": {
+    "status": "PLACEHOLDER - pending user sign-off (phrases, lines, timeouts and size limit; one Unity-rendered headset image per request goes to Gemini with verified Unity target facts only)",
+    "enabled": true,
+    "pointing_cues": ["pointing at", "pointing to", "point at", "pointed at", "pointing toward", "pointing towards"],
+    "looking_cues": ["what am i looking at", "what i am looking at", "what i'm looking at", "what is in front of me",
+                     "what do you see", "what can you see", "what you see", "what i am seeing", "what i'm seeing",
+                     "describe the view", "describe the scene", "describe what i see", "what is this", "what is that",
+                     "identify this", "identify that"],
+    "condition_words": ["broken", "damaged", "damage", "bent", "crooked", "cracked", "wrong", "busted", "tilted", "missing"],
+    "visual_words": ["this", "that", "it", "see", "look", "looks", "looking", "anything", "visible"],
+    "interim_line": "Let me take a look.",
+    "unavailable_line": "I can't see the headset view right now.",
+    "error_line": "I couldn't analyze the view right now.",
+    "no_pointing_hand_line": "I can't see a pointing hand. Point with your index finger and ask again.",
+    "no_target_line": "I can't tell what you're pointing at. Nothing is in line with your finger.",
+    "scene_context": "The astronaut is on the surface of Mars.",
+    "frame_timeout_s": 6,
+    "request_timeout_s": 12,
+    "max_tokens": 200,
+    "answer_sentences": 2,
+    "share_diagnostics": false,
+    "known_damage": {
+      "enabled": true,
+      "object_id": "perseverance",
+      "part": "front_right_wheel",
+      "line": "That's the rover's front right wheel. It appears to be broken.",
+      "manual_query": "drive module wheel",
+      "manual_line": "The rover manual covers this in {title}.",
+      "hud_manual": {
+        "line": "The Perseverance assembly instructions for the wheel are on your HUD.",
+        "doc_id": "perseverance_assembly",
+        "section_id": "wheel_assembly",
+        "title": "Wheel Assembly",
+        "asset": "wheel_assembly",
+        "source": "Mars 2020 Perseverance Rover assembly instructions"
+      }
+    },
+    "debug_dir": "",
+    "max_image_bytes": 2000000
+  },
+  "generation": {
+    "status": "PLACEHOLDER - pending user sign-off (every value; passage_numbers 'digits' is the default, 'off' bans model-written numbers from documents, 'quote_span' is unbuilt; risk_term_passage_override and attribution_prefix are new)",
+    "interim": {"enabled": true, "line": "Let me think."},
+    "persona": "You are Nova, a calm navigation and observation voice assistant riding with an astronaut on the surface of Mars. The user is an astronaut on Mars, so answer in that setting. If asked who you are, say: I'm Nova, your navigation and observation voice assistant. Speak briefly, plainly and warmly, as a voice. Light banter, jokes and simple general or science questions are fine. For anything serious, such as health, injury, safety, life support, oxygen, suit or rover faults, hazards, emergencies or go or no-go decisions, do not advise or explain: output the refusal out_of_scope, because those are answered only by tools. You may offer only simple, generic comfort such as to stay calm and take a slow breath.",
+    "max_sentences": 2,
+    "max_words": 40,
+    "max_tokens": 80,
+    "max_attempts": 2,
+    "deadline_ms": 3000,
+    "passage_numbers": "digits",
+    "history_turns": 0,
+    "max_raw_chars": 2000,
+    "risk_term_passage_override": true,
+    "attribution_prefix": "According to the document,",
+    "refusal_codes": [
+      "no_info",
+      "out_of_scope"
+    ],
+    "refusal_lines": {
+      "no_info": "I don't have that information.",
+      "out_of_scope": "That is outside what I can help with."
+    },
+    "allowed_extra_chars": "\u2019\u2018\u201c\u201d\u2013\u2014",
+    "neutral_chitchat": "I'm here. Ask me about your oxygen, vitals, the route or the map.",
+    "corrective_retry": {
+      "template": "Your previous reply was rejected: {violations}. Answer again in the same JSON shape.",
+      "hints": {
+        "parse_error": "Output only the JSON object.",
+        "bad_shape": "Use exactly the keys refusal and text.",
+        "digit_in_prose": "Write no digits; refer to values only by their slot names in braces.",
+        "placeholder_in_prose": "Do not write [number] or any text in square brackets; numbers in the passages are hidden, so answer without a number or output a refusal code.",
+        "number_word_in_prose": "Write no spelled-out numbers; refer to values only by their slot names in braces.",
+        "vague_quantity_in_prose": "Do not use words like half, quarter, couple, twice, several or an ordinal like fifth.",
+        "split_token_in_prose": "Write every word whole; do not split a word with spaces, hyphens or dots, and write no numbers.",
+        "non_ascii_in_prose": "Use plain ASCII letters and punctuation only (curly quotes and en/em dashes are fine); no accents, lookalike letters or invisible characters.",
+        "unknown_slot": "Use only the slots listed under SLOTS.",
+        "malformed_slot": "Write slots as {name} with matching braces.",
+        "missing_required_slot": "Mention every required slot.",
+        "too_many_sentences": "Use fewer sentences.",
+        "too_many_words": "Use fewer words.",
+        "action_claim": "Do not say you did something.",
+        "directive_verb": "Do not give instructions or advice.",
+        "live_reading_claim": "Do not state live readings.",
+        "unsupported_number": "Use only numbers that appear in the context."
+      }
+    },
+    "directive_verbs": [
+      "return",
+      "abort",
+      "evacuate",
+      "seal",
+      "stop",
+      "take shelter",
+      "you should",
+      "you must",
+      "you need to",
+      "head back",
+      "go back"
+    ],
+    "action_claim_phrases": {
+      "i sent": "send_message",
+      "i've sent": "send_message",
+      "i have sent": "send_message",
+      "i called": "send_message",
+      "i've called": "send_message",
+      "i have called": "send_message",
+      "i started": null,
+      "i've started": null,
+      "i have started": null,
+      "i turned": null,
+      "i've turned": null,
+      "i set": null,
+      "i've set": null
+    },
+    "live_reading_phrases": [
+      "your oxygen",
+      "your o2",
+      "your heart rate",
+      "your pulse",
+      "your suit pressure",
+      "your pressure",
+      "your temperature",
+      "your radiation",
+      "you have enough",
+      "you are safe",
+      "you're safe"
+    ],
+    "slot_kinds": {
+      "o2_pct": {
+        "kind": "percent",
+        "fmt": "{:.1f}",
+        "unit_phrase": "percent",
+        "required": true
+      },
+      "minutes_remaining": {
+        "kind": "minutes",
+        "fmt": "{:.0f}",
+        "unit_phrase": "minutes",
+        "required": true
+      },
+      "bpm": {
+        "kind": "bpm",
+        "fmt": "{:.0f}",
+        "unit_phrase": "beats per minute",
+        "required": true
+      },
+      "radiation_usv_h": {
+        "kind": "microsieverts_per_hour",
+        "fmt": "{:.2f}",
+        "unit_phrase": "microsieverts per hour",
+        "required": true
+      },
+      "temp_c": {
+        "kind": "celsius",
+        "fmt": "{:.1f}",
+        "unit_phrase": "degrees Celsius",
+        "required": true
+      },
+      "distance_m": {
+        "kind": "meters",
+        "fmt": "{:.0f}",
+        "unit_phrase": "meters",
+        "required": true
+      },
+      "eta_min": {
+        "kind": "minutes",
+        "fmt": "{:.0f}",
+        "unit_phrase": "minutes",
+        "required": true
+      },
+      "outbound_min": {
+        "kind": "minutes",
+        "fmt": "{:.0f}",
+        "unit_phrase": "minutes",
+        "required": false
+      },
+      "return_min": {
+        "kind": "minutes",
+        "fmt": "{:.0f}",
+        "unit_phrase": "minutes",
+        "required": false
+      },
+      "trip_min": {
+        "kind": "minutes",
+        "fmt": "{:.0f}",
+        "unit_phrase": "minutes",
+        "required": false
+      },
+      "reserve_min": {
+        "kind": "minutes",
+        "fmt": "{:.0f}",
+        "unit_phrase": "minutes",
+        "required": false
+      },
+      "required_min": {
+        "kind": "minutes",
+        "fmt": "{:.0f}",
+        "unit_phrase": "minutes",
+        "required": false
+      },
+      "o2_minutes_remaining": {
+        "kind": "minutes",
+        "fmt": "{:.0f}",
+        "unit_phrase": "minutes",
+        "required": false
+      },
+      "place_name": {
+        "kind": "text",
+        "fmt": "{}",
+        "unit_phrase": null,
+        "required": true
+      },
+      "status_word": {
+        "kind": "text",
+        "fmt": "{}",
+        "unit_phrase": null,
+        "required": true
+      },
+      "recipient_name": {
+        "kind": "text",
+        "fmt": "{}",
+        "unit_phrase": null,
+        "required": true
+      },
+      "urgency": {
+        "kind": "text",
+        "fmt": "{}",
+        "unit_phrase": null,
+        "required": true
+      },
+      "status": {
+        "kind": "text",
+        "fmt": "{}",
+        "unit_phrase": null,
+        "required": false
+      }
+    }
+  },
+  "_comment_live_llm": "Live LLM adapter (router/llm_generator.py, router/demo_live.py). The whole 'live_llm' section is PLACEHOLDER pending user sign-off: which local runtime, URL, model name, timeout cap, and request options. Overridable per run by env (NOVA_LLM_RUNTIME, NOVA_LLM_BASE_URL, NOVA_LLM_MODEL, NOVA_LLM_CONSTRAIN, NOVA_LLM_API_KEY) and by demo_live flags. 'runtime' only changes extra request fields: llama-server -> chat_template_kwargs enable_thinking=false + json_schema|grammar; ollama -> response_format json_schema + reasoning_effort none (unverified); mlx -> no constraint, no seed, thinking-off is launch-time; openai -> response_format json_schema. 'model' is the name the runtime knows (llama-server ignores it; ollama qwen3.5:4b; mlx mlx-community/Qwen3.5-4B-4bit). The per-request deadline is generation.deadline_ms; request_timeout_cap_s can only shorten it. Never run against a real Qwen yet.",
+  "live_llm": {
+    "status": "PLACEHOLDER - pending user sign-off (every value; never run against a real model: runtime, URL, model name, constraint mode and thinking-off fields are unverified)",
+    "runtime": "gemini",
+    "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
+    "model": "gemini-3.5-flash-lite",
+    "fallback_model": "gemini-3.1-flash-lite",
+    "gemini_reasoning_effort": "minimal",
+    "request_timeout_cap_s": 3,
+    "health_timeout_s": 3,
+    "temperature": 0,
+    "constrain": "none",
+    "disable_thinking": true,
+    "extra_body": {}
+  },
+  "_comment_demo_places": "Demo-only map rows for the FIXTURE datasource (router/datasource.py FixtureDatasource merges them; PostgresDatasource ignores them, so on a real DB these places fail closed with tool_error until the DB has the rows). Coordinates are fabricated; the astronaut starts at (0, 0), so BASE2 is 1000 m and TOWER 500 m away. A code or alias that collides with SEED_LOCATIONS / data_source.place_aliases raises.",
+  "demo_places": {
+    "status": "PLACEHOLDER - pending user sign-off (fabricated coordinates for 'base 2' and the comms tower; schema.sql and data_source untouched)",
+    "locations": [
+      {
+        "code": "BASE2",
+        "name": "Base 2",
+        "x_m": -800,
+        "z_m": 600
+      },
+      {
+        "code": "TOWER",
+        "name": "Comms Tower",
+        "x_m": 300,
+        "z_m": 400
+      }
+    ],
+    "place_aliases": {
+      "base_2": "BASE2",
+      "comms_tower": "TOWER"
+    }
+  },
+  "_comment_distance_templates": "Spoken when a navigation tool turn's utterance asks 'how far' / 'distance to' / 'distance from' (turn.py DISTANCE_PHRASES). Same navigation tool call and tool_result as 'take me to X'; only the line differs, and every number still comes from the tool_result (the feasibility suffix is appended as usual).",
+  "distance_templates": {
+    "status": "PLACEHOLDER - pending user sign-off (wording; every number must come from the navigation tool_result)",
+    "navigation_distance": "{place_name} is about {distance_m:.0f} meters away, roughly {eta_min:.0f} minutes on foot."
+  },
+  "execute_immediately": {
+    "status": "PLACEHOLDER: unmeasured mid-band threshold; owner must choose",
+    "enabled": true,
+    "min_confidence": 0.75,
+    "tools": ["safety", "navigation", "map", "data", "o2"],
+    "reasons": ["no_arbiter", "arbiter_error"]
+  },
+  "clarification": {
+    "status": "PLACEHOLDER pending human sign-off; explicitly approved offered-choice dispatch only",
+    "version": "bounded-choice-v1",
+    "expiry_turns": 2,
+    "ttl_s": 120,
+    "cancel": [
+      "cancel",
+      "never mind",
+      "nevermind",
+      "stop",
+      "disregard"
+    ],
+    "ordinals": [
+      "first",
+      "second",
+      "third"
+    ],
+    "names": {
+      "call_navigation": [
+        "navigation",
+        "navigate"
+      ],
+      "call_safety": [
+        "a safety check",
+        "safety check",
+        "safety",
+        "generic health check"
+      ],
+      "call_map": [
+        "map",
+        "the map"
+      ],
+      "call_o2": [
+        "oxygen",
+        "oxygen status",
+        "your oxygen status"
+      ],
+      "call_data": [
+        "data",
+        "sensor readout",
+        "a sensor readout"
+      ]
+    },
+    "disregard": "No action taken. Please make a new request.",
+    "executed_cancel": "Okay. That report already completed; no further action taken.",
+    "reask": "Please select an offered option, or cancel. No action taken.",
+    "max_options": 2,
+    "menu": "Please choose: {options}.",
+    "menu_destination_note": "Generic health checks do not assess a destination trip.",
+    "assessment": "For {place_name}, the estimated straight-line distance is {distance_m:.0f} meters and walking time is {eta_min:.0f} minutes. This is an estimate, not movement or an optimized route.",
+    "guidance": "Navigation information for {place_name}: estimated straight-line distance {distance_m:.0f} meters, walking time {eta_min:.0f} minutes. Not a hazard clearance.",
+    "unavailable": " Oxygen budget assessment is unavailable; this is not trip clearance.",
+    "assessment_phrases": [
+      "can i make",
+      "can we make",
+      "will i make",
+      "can i reach",
+      "can we reach",
+      "enough oxygen",
+      "enough air",
+      "enough tank",
+      "would the tank cover",
+      "will the tank cover",
+      "what will my oxygen be",
+      "if i can make",
+      "will oxygen",
+      "can i get"
+    ],
+    "selected_safety": "The generic oxygen and pressure check reports {status_word} for those checks only. This is not clearance for the destination trip.",
+    "new_intent_prefixes": [
+      "tell me",
+      "check my",
+      "what is",
+      "how much",
+      "take me",
+      "go to",
+      "navigate to",
+      "show me",
+      "can i",
+      "can we"
+    ],
+    "ambiguous_words": [
+      "both",
+      "and",
+      "or",
+      "either",
+      "yes"
+    ]
+  },
+  "_comment_reference_data": "Constants for router/reference_data.py ONLY. Nothing in turn.py/tools.py reads this block; no spoken output uses it. Every value is a PLACEHOLDER the owner must sign off.",
+  "reference_data": {
+    "status": "PLACEHOLDER - owner must sign off",
+    "radiation": {
+      "quality_factor": 3.0,
+      "quality_factor_note": "APPROXIMATION of the Mars-surface GCR quality factor Q (MSL RAD surface values are roughly 0.21 mGy/day absorbed vs 0.64 mSv/day dose equivalent, Q about 3.05). usv_per_h = tissue_ugy_per_day * Q / 24. Only the tissue-equivalent column is converted; the silicon and uncorrected columns are NOT converted.",
+      "converted_column": "tissue_ugy_per_day"
+    },
+    "o2": {
+      "tank_capacity_l": 400.0,
+      "tank_capacity_note": "UNSIGNED-OFF round demo number, litres of O2 at STPD. Not a suit specification and not a physiological claim; the owner must replace it with the real suit tank figure.",
+      "multiplier_reference": ["EVA suit", "EVA surface geology"]
+    },
+    "spoken_qualifiers": {
+      "reference-observed-extended": "extended reference value",
+      "reference-simulated": "simulated reference value"
+    }
   }
 }

@@ -1,56 +1,104 @@
-"""One assistant turn: alert poll -> router -> slot check -> at most one fake tool call -> template -> number verifier.
+"""Handle a request from alert checks through the final verified reply.
 
-    TurnHandler(router, alert_source, registry, llm_fn=..., arbiter_fn=...).handle("take me home") -> result dict
-
-Order inside `handle` (the order is the contract; tests pin it):
- 1. `alert_source()` is polled FIRST and returns the sim snapshot ({"o2_pct": ..., "bpm": ...}). Any field past a
-    CRITICAL threshold in turn_policy.json speaks a fixed template line and returns: the router, the arbiter and the
-    LLM are never called, for every class (tool, mid-band, low-confidence, OOD). Critical lines are verified against
-    the snapshot. A raising alert_source propagates (a silent failure would hide an alert).
- 2. `Pipeline.handle(text)` routes (pipeline_config.json gate: tau_hi 0.90 / tau_lo 0.50, arbiter in the mid band).
- 3. Required slots are validated against the registry's fixed schema. Navigation/map without a resolved place
-    -> a deterministic slot question, no tool call; two candidate places -> "which place" question.
- 4. At most one tool call through the ToolRegistry (max 8 tools, 1 call per turn, schema-checked).
- 5. The spoken line is a template (turn_policy.json) filled from the tool_result. Low confidence and OOD get a
-    template reply. Only call_llm / NO_TOOL use the injectable `llm_fn(text, prompt_policy)` (default: a stub).
- 6. Every spoken line passes `verifier.verify_numbers` against its source (tool_result, sim snapshot for alerts, empty
-    for LLM output). A blocked line is replaced by the policy's safe fallback; the original is kept in `blocked_text`.
-
-Follow-up additions (all values PLACEHOLDER in turn_policy.json):
- * Return-to-home feasibility: after an ok navigation tool_result, `assess_feasibility` computes outbound / return /
-   required minutes (distance / walking speed, plus a reserve) against the sim's O2 minutes remaining, adds the numbers
-   to `tool_result["data"]["feasibility"]` and speaks one outcome line (comfortable / tight / cannot_return /
-   cannot_reach) after the route line. It only reports; it never refuses the route (the safety loop owns go/no-go).
- * Refill-call offer: tight / cannot_return / cannot_reach also speak an offer and store `self.pending_confirmation`
-   (per session, expires after `confirmation.expiry_turns` turns). On the next turn - after the alert poll, before
-   the router - a deterministic yes/no matcher answers it: yes -> ONE send_message call (urgency from the feasibility
-   outcome, never the LLM; recomputed from THIS turn's snapshot - if no refill is needed any more nothing is sent and
-   a fixed line is spoken), no -> ack, anything else -> pending cleared and the turn routes normally. A critical
-   alert clears it too.
- * LLM scope (decided by router class + retrieval score + risk terms, never by the LLM): NO_TOOL text containing a
-   risk term gets a template, no LLM call; otherwise the stub answers ungrounded and is number-verified. call_llm is
-   grounded only: `retriever(text) -> [{"text","score"}]`; none above `retrieval_min_score` -> "no document" template,
-   no LLM call; else the LLM gets the passages and the verifier also accepts numbers found in them.
-
-Result keys: text, route ("alert"|"tool"|"slot_question"|"clarify"|"llm"|"ood"|"low_confidence"|"risk_diverted"|
-"no_document"|"confirmed_yes"|"confirmed_no"|"refill_not_needed"), pipeline (the Pipeline.handle dict or None), alerts, tool_call
-({"name","args"} or None), tool_result, tool_calls (0 or 1), llm_called, spoken, verifier, blocked_text,
-pending_confirmation (the offer stored by THIS turn, or None), tool_error / llm_error (only when the tool or the LLM
-raised: templates.tool_error is spoken, nothing is retried; an alert_source failure still propagates), passages (grounded call_llm only), tts_error (only when
-`tts_fn` raised; `tts_fn(spoken, route)` is called once per turn with the verified/substituted line, after everything else).
-All wording lives in turn_policy.json and is PLACEHOLDER pending user sign-off.
+Critical alerts take priority. Required slots are checked before a tool runs.
+Each turn can call at most one tool. All spoken numbers must match their source.
+Pending place choices and refill confirmations expire and clear on critical alerts.
+The LLM cannot select tools or grant trip clearance.
+Response wording and demo limits stay in turn_policy.json.
+Alerts speak first; read-only requests continue without generation or offers.
+The opt-in demo scene offers a simulated print and manual display.
 """
 import json
 import math
 import re
+import time
+from string import Formatter
+from dataclasses import replace
 from pathlib import Path
 
+from .generation import (NUMBER_VIOLATIONS, FillerGenerator, LegacyLLMAdapter, attribute_passage_numbers, build_request,
+                         render_prompt, risk_terms_in, run_generation, validate_generation_policy)
+from .clarification import normalized, select_choice
+from .demo_scene import PRINTER_SOURCE, match_demo_scene, printable_fault, validate_demo_scene
+from .fast_replies import match_fast_reply, validate_fast_replies
+from .vision import match_vision, validate_vision, vision_mode
+from .location import match_location, match_return_to_start, describe_location, UNAVAILABLE as LOCATION_UNAVAILABLE
 from .pipeline import Pipeline, load_config
+from .places import resolve_destination
+from .retrieval import find_section
 from .tools import default_registry
 from .verifier import verify_numbers
 
+DISTANCE_PHRASES = ("how far", "distance to", "distance from")  # response-mode metadata; never selects a tool
 HERE = Path(__file__).parent
 POLICY_PATH = HERE / "turn_policy.json"
+
+
+def _contains_phrase(text, phrases):
+    """Match whole normalized phrases, not substrings such as 'trip' in 'strips'."""
+    return any(re.search(r"\b" + re.escape(phrase) + r"\b", text) for phrase in phrases)
+
+
+def _mask_non_requesting_travel_spans(context, speaking):
+    # Mask only explicit non-requesting spans, not the whole turn. Both travel and
+    # destination checks need the remainder so masked negation cannot hide a later request.
+    text = normalized(context)
+    for phrase in sorted(speaking["non_request_travel_phrases"], key=len, reverse=True):
+        text = re.sub(r"\b" + re.escape(phrase) + r"\b", " ", text)
+    return text
+
+
+def _unsupported_navigation_scope(context, policy):
+    """Veto unsupported trip budgets/readings; never authorize or select a tool."""
+    cfg = policy["navigation_scope"]
+    text = _mask_non_requesting_travel_spans(context, policy["llm_scope"]["speaking_scope"])
+    destination = resolve_destination(text)["status"] != "none"
+    travel = destination or _contains_phrase(text, cfg["trip_phrases"])
+    budget = (_contains_phrase(text, cfg["unsupported_resources"])
+              and _contains_phrase(text, cfg["budget_phrases"]) and travel)
+    projection = (_contains_phrase(text, cfg["arrival_phrases"])
+                  or (destination and _contains_phrase(text, cfg["projection_phrases"])))
+    reading = _contains_phrase(text, cfg["unsupported_readings"])
+    # A second explicit request is unsupported even when it asks for a current
+    # reading. Do not turn incidental mentions (e.g. a heart rate sensor) into vetoes.
+    oxygen_trip = (travel and _contains_phrase(text, ("oxygen", "air"))
+                   and (_contains_phrase(text, cfg["budget_phrases"]) or projection))
+    mixed_request = False
+    if oxygen_trip:
+        for clause in re.split(r"\b(?:and|also|but)\b|[;?]", text):
+            if (re.match(r"\s*(?:what\s+(?:is|are|will|would)|how\s+(?:is|are|much)|"
+                         r"check\b|read\b|show\b|tell\b)", clause)
+                    and _contains_phrase(clause, cfg["unsupported_readings"] + cfg["unsupported_resources"])):
+                mixed_request = True
+                break
+    return budget or (reading and projection) or mixed_request
+
+
+INTERIM_KINDS = frozenset({"chitchat", "general_explanation", "grounded_answer"})
+
+
+def _allow_general_numbers(text, source):
+    """Allow numbers in general answers that passed the risk filter."""
+    return {"ok": True, "spoken": [], "unsupported": []}
+
+
+READ_ONLY_TOOLS = frozenset({"safety", "navigation", "map", "data", "o2"})
+
+
+def validate_execute_immediately(section, config=None):
+    """Only read-only reports may bypass the mid-band intent menu."""
+    if not isinstance(section, dict) or type(section.get("enabled")) is not bool:
+        raise ValueError("execute_immediately.enabled must be a boolean")
+    confidence = section.get("min_confidence")
+    if type(confidence) not in (int, float) or not 0 < confidence <= 1:
+        raise ValueError("execute_immediately.min_confidence must be in (0, 1]")
+    if config is not None and not config["tau_lo"] <= confidence < config["tau_hi"]:
+        raise ValueError("execute_immediately.min_confidence must be >= tau_lo and < tau_hi")
+    for key, allowed in (("tools", READ_ONLY_TOOLS), ("reasons", {"no_arbiter", "arbiter_error"})):
+        values = section.get(key)
+        if (not isinstance(values, list) or not values
+                or any(not isinstance(v, str) or v not in allowed for v in values)):
+            raise ValueError(f"execute_immediately.{key} contains unsupported values")
 
 
 def load_policy(path=POLICY_PATH):
@@ -65,6 +113,55 @@ def load_policy(path=POLICY_PATH):
     for tier, flags in policy["severity_tiers"].items():
         if isinstance(flags, dict) and flags.get("preempts_router") and flags.get("uses_llm"):
             raise ValueError(f"{path}: severity tier {tier!r} preempts the router, so it cannot use the LLM")
+    try:
+        config = load_config()
+    except OSError:
+        config = None
+    validate_execute_immediately(policy.get("execute_immediately"), config)
+    clarification = policy["clarification"]
+    clarification.setdefault("max_options", 2)
+    if type(clarification["max_options"]) is not int or clarification["max_options"] < 1:
+        raise ValueError(f"{path}: clarification.max_options must be a positive integer")
+    for key in ("menu", "menu_destination_note", "executed_cancel"):
+        if not isinstance(clarification.get(key), str) or not clarification[key].strip():
+            raise ValueError(f"{path}: clarification.{key} must be a non-empty string")
+    concise = policy["feasibility"].get("concise")
+    required = {"comfortable", "comfortable_home", "tight", "tight_home", "cannot_return",
+                "cannot_reach", "cannot_reach_home", "unavailable"}
+    fields = {"place_name", "outbound_min", "return_min", "trip_min", "reserve_min",
+              "required_min", "o2_minutes_remaining", "margin_min"}
+    if not isinstance(concise, dict) or set(concise) != required:
+        raise ValueError(f"{path}: feasibility.concise needs all outcome lines")
+    for key, line in concise.items():
+        try:
+            if not isinstance(line, str) or not line.strip():
+                raise ValueError("empty line")
+            parsed = list(Formatter().parse(line))
+            if any(field is not None and (field not in fields or spec or conversion)
+                   for _, field, spec, conversion in parsed):
+                raise ValueError("unsupported placeholder")
+        except (ValueError, TypeError) as exc:
+            raise ValueError(f"{path}: invalid feasibility.concise.{key}") from exc
+    phrases = policy["confirmation"].get("accept_as_order")
+    if (not isinstance(phrases, list) or not phrases
+            or any(not isinstance(p, str) or not p.strip() for p in phrases)):
+        raise ValueError(f"{path}: confirmation.accept_as_order needs non-empty phrases")
+    ack = policy["confirmation"].get("decline_proceed_spoken")
+    try:
+        if not isinstance(ack, str) or not ack.strip():
+            raise ValueError("empty acknowledgement")
+        if any(field is not None and (field != "place_name" or spec or conversion)
+               for _, field, spec, conversion in Formatter().parse(ack)):
+            raise ValueError("unsupported placeholder")
+    except (ValueError, TypeError) as exc:
+        raise ValueError(f"{path}: invalid confirmation.decline_proceed_spoken") from exc
+    validate_generation_policy(policy.get("generation"), path)
+    if "demo_scene" in policy:
+        validate_demo_scene(policy["demo_scene"], path)
+    if "fast_replies" in policy:
+        validate_fast_replies(policy["fast_replies"], path)
+    if "vision" in policy:
+        validate_vision(policy["vision"], path)
     return policy
 
 
@@ -94,7 +191,7 @@ def assess_feasibility(nav_data, snapshot, policy):
 
     outbound = ceil(distance / speed); return = the same distance back from the destination (0 when the destination
     is a home place); required = outbound + return + reserve. O2 minutes remaining = snapshot["minutes_remaining"],
-    else o2_pct * o2_minutes_per_pct_fallback; None when neither exists (nothing is spoken, never a guess).
+    else o2_pct * o2_minutes_per_pct_fallback; None when neither exists (explicit unavailable, never clearance).
     Outcome: cannot_reach (remaining < outbound) | cannot_return (remaining < outbound + return) |
     tight (remaining < required) | comfortable. Rounding is conservative (ceil legs, floor remaining)."""
     cfg = policy["feasibility"]
@@ -103,6 +200,9 @@ def assess_feasibility(nav_data, snapshot, policy):
     elif "o2_pct" in snapshot:
         remaining = snapshot["o2_pct"] * cfg["o2_minutes_per_pct_fallback"]
     else:
+        return None
+    if (isinstance(remaining, bool) or not isinstance(remaining, (int, float))
+            or not math.isfinite(remaining) or remaining < 0):
         return None
     is_home = nav_data["place"] in cfg["home_places"]
     outbound = math.ceil(nav_data["distance_m"] / cfg["walking_speed_m_per_min"] - 1e-9)
@@ -123,7 +223,7 @@ def assess_feasibility(nav_data, snapshot, policy):
 
 
 def match_confirmation(text, policy):
-    """-> "yes" | "no" | None. Every word must be a yes/no phrase word or filler; both kinds at once is None."""
+    """-> "yes" | "no" | "decline_proceed" | None. Every word must be a yes/no phrase word or filler; both kinds at once is None."""
     cfg = policy["confirmation"]
 
     def words(phrase):
@@ -137,6 +237,8 @@ def match_confirmation(text, policy):
     no = [words(p) for p in cfg["no_phrases"]]
     vocabulary = {w for phrase in yes + no for w in phrase} | {w for f in cfg["filler_words"] for w in words(f)}
     tokens = words(text)
+    if tokens and any(tokens == words(p) for p in cfg["accept_as_order"]):
+        return "decline_proceed"
     if not tokens or any(t not in vocabulary for t in tokens):
         return None
     said_yes, said_no = any(contains(tokens, p) for p in yes), any(contains(tokens, p) for p in no)
@@ -145,29 +247,88 @@ def match_confirmation(text, policy):
 
 class TurnHandler:
     def __init__(self, router, alert_source, registry=None, llm_fn=stub_llm, arbiter_fn=None, policy=None,
-                 pipeline_config=None, verifier=verify_numbers, retriever=None, tts_fn=None):
+                 pipeline_config=None, verifier=verify_numbers, retriever=None, tts_fn=None, generator=None, clock=time.monotonic,
+                 interim_fn=None, tool_classifier_fn=None):
+        self.interim_fn = interim_fn  # interim_fn(line, "llm_interim") speaks the short wait line before a slow generation; None = silent
         self.retriever = retriever
+        self.last_generation_request = None  # the GenerationRequest object of the latest request (not part of the result dict)
+        self.history = []  # (user_text, spoken) of spoken LLM turns; only used when generation.history_turns > 0
         self.tts_fn = tts_fn  # tts_fn(text, route) speaks the final line aloud; None = no speech
+        self.clock = clock
+        self.pending_clarification = None
         self.turn_index = 0
+        self.last_executed = None
         self.pending_confirmation = None  # per-session state: {"kind","turn","place","place_name","distance_m","outcome","feasibility"}
         self.alert_source = alert_source
         self.registry = default_registry() if registry is None else registry
         self.llm_fn = llm_fn
         self.policy = load_policy() if policy is None else policy
+        if generator is not None:
+            self.generator = generator
+        elif llm_fn is stub_llm:
+            self.generator = FillerGenerator()
+        else:
+            self.generator = LegacyLLMAdapter(llm_fn)  # old llm_fn(text, prompt_policy, passages=None) -> str
         self.verifier = verifier
         self.pipeline = Pipeline(router, config=load_config() if pipeline_config is None else pipeline_config,
-                                 llm_fn=lambda text, prompt_policy: None, arbiter_fn=arbiter_fn)
+                                 llm_fn=lambda text, prompt_policy: None, arbiter_fn=arbiter_fn,
+                                 tool_classifier_fn=tool_classifier_fn)
+
+        validate_execute_immediately(self.policy.get("execute_immediately"), self.pipeline.config)
 
     def handle(self, text):
-        """Run one turn (`_run_turn`), then speak `result["spoken"]` once through `tts_fn` on every route.
-        A TTS failure never changes the turn: it is recorded as result["tts_error"] ("ExcType: message")."""
-        result = self._run_turn(text)
+        """Deliver independently verified lines in order; spoken joins them with a space for older clients.
+        Alert callbacks run before routing. Playback cannot interrupt an already playing line."""
+        self.last_generation_request = None
+        end_after_reply = re.search(r"\bthank you\b", normalized(text)) is not None
+        request = text
+        if end_after_reply:
+            request = re.sub(r"\bthank\W+you\b", "", text, flags=re.IGNORECASE)
+            request = re.sub(r"^\W*(?:hey\s+)?nova\b\W*", "", request, flags=re.IGNORECASE).strip(" ,.!?")
+            if normalized(request) in {"", "nova", "okay for your help"} or (
+                    normalized(request) == "yes" and self.pending_confirmation is None and self.pending_clarification is None):
+                request = "thank you"
+        result = self._run_turn(request)
+        if end_after_reply:
+            result["text"] = text
+            result["end_session"] = True
+            self.pending_clarification = self.pending_confirmation = None
+            result["pending_confirmation"] = None
+        # Generation already re-polls before accepting its answer. Non-LLM paths must do so too.
+        if not result["llm_called"]:
+            snapshot = self.alert_source()
+            alerts = evaluate_alerts(snapshot, self.policy)
+            critical = self._critical_alert_line(alerts)
+            if critical and critical != result.get("alert_line"):
+                self.pending_clarification = self.pending_confirmation = None
+                result["pending_confirmation"] = None
+                result["alerts"] = alerts
+                delivered_alerts = [result["alert_line"]] if result.get("alert_line") else []
+                self._speak(result, "alert", critical, snapshot)
+                result["alert_line"] = result["spoken"]
+                result["alert_verifier"] = result["verifier"]
+                self._deliver(result, result["spoken"], "alert")
+                result["lines"] = delivered_alerts + [result["spoken"]]
+                result["spoken"] = " ".join(result["lines"])
+                return result
+        answer = result["spoken"]
+        if result["route"] == "alert":  # alert appeared during generation; it replaces the answer
+            result["alert_line"] = answer
+            result["alert_verifier"] = result["verifier"]
+            result["lines"] = [answer]
+            self._deliver(result, answer, "alert")
+        else:
+            result["lines"] = ([result["alert_line"]] if result.get("alert_line") else []) + [answer]
+            self._deliver(result, answer, result["route"])
+        result["spoken"] = " ".join(result["lines"])
+        return result
+
+    def _deliver(self, result, line, route):
         if self.tts_fn is not None:
             try:
-                self.tts_fn(result["spoken"], result["route"])
+                self.tts_fn(line, route)
             except Exception as exc:
                 result["tts_error"] = f"{type(exc).__name__}: {exc}"[:300]
-        return result
 
     def _run_turn(self, text):
         self.registry.begin_turn()
@@ -176,53 +337,225 @@ class TurnHandler:
         alerts = evaluate_alerts(snapshot, self.policy)
         result = {"text": text, "route": None, "pipeline": None, "alerts": alerts, "tool_call": None,
                   "tool_result": None, "tool_calls": 0, "llm_called": False, "pending_confirmation": None}
-        tiers = self.policy["severity_tiers"]
-        critical = [a for a in alerts if tiers[a["severity"]]["preempts_router"]]
         pending, self.pending_confirmation = self.pending_confirmation, None  # cleared by every turn; re-set by an offer
+        critical = self._critical_alert_line(alerts)
         if critical:
-            lines = [self.policy["alert_lines"][a["field"]].format(value=a["value"]) for a in critical]
-            return self._speak(result, "alert", " ".join(lines), snapshot)
+            self.pending_clarification = None
+            pending = None
+            alert = self._speak({}, "alert", critical, snapshot)
+            result["alert_line"] = alert["spoken"]
+            result["alert_verifier"] = alert["verifier"]
+            self._deliver(result, alert["spoken"], "alert")
+
+        session_end = self.policy["session_end"]
+        if normalized(text) in {normalized(p) for p in session_end["phrases"]}:
+            self.pending_clarification = None
+            result["end_session"] = True
+            return self._speak(result, "session_end", session_end["line"], {})
+
+        if normalized(text) in self.policy['clarification']['cancel']:
+            self.pending_clarification = None
+            executed, self.last_executed = self.last_executed, None
+            if (executed is not None
+                    and self.turn_index - executed["turn"] <= self.policy["clarification"]["expiry_turns"]):
+                result["cancelled"] = executed["tool"]
+                return self._speak(result, "cancelled", self.policy["clarification"]["executed_cancel"], {})
+            return self._speak(result, 'clarify', self.policy['clarification']['disregard'], {})
+
+        if self.pending_clarification is not None:
+            return self._continue_clarification(result, snapshot)
 
         if pending is not None and self.turn_index - pending["turn"] <= self.policy["confirmation"]["expiry_turns"]:
             answer = match_confirmation(text, self.policy)
             if answer is not None:
                 return self._confirmation_turn(result, pending, answer, snapshot)
 
-        out = result["pipeline"] = self.pipeline.handle(text)
-        if out["route"] == "tool":
+        if match_demo_scene(text, self.policy):  # off by default; same position and whole-utterance rule as the fast replies
+            return self._scene_turn(result, snapshot)
+
+        fast = match_fast_reply(text, self.policy)  # whole utterance only; after alert, clarification and confirmation answers
+        if fast is not None:
+            result["fast_intent"] = fast[0]
+            return self._speak(result, "fast_reply", fast[1], {})
+
+        if match_return_to_start(text):
+            out = result["pipeline"] = {"route": "tool", "tool": "return_to_start", "args": {},
+                                        "label": "call_return_to_start", "confidence": 1.0, "gate": "return_to_start_phrase"}
             return self._tool_turn(result, out, snapshot)
+
+        if match_location(text):
+            out = result["pipeline"] = {"route": "tool", "tool": "get_current_location", "args": {},
+                                        "label": "call_location", "confidence": 1.0, "gate": "location_phrase"}
+            return self._tool_turn(result, out, snapshot)
+
+        if match_vision(text, self.policy) is not None:  # same position rule; the image request itself runs in _tool_turn
+            out = result["pipeline"] = {"route": "tool", "tool": "vision", "args": {}, "label": "call_vision", "confidence": 1.0,
+                                        "gate": "vision_phrase"}
+            return self._tool_turn(result, out, snapshot)
+
+        out = result["pipeline"] = self.pipeline.handle(text, second_layer=False) if result.get("alert_line") and self.pipeline.tool_classifier_fn else self.pipeline.handle(text)
+        execute = self.policy["execute_immediately"]
+        tool_cfg = self.pipeline.config["tool_labels"].get(out["label"])
+        immediate = (execute["enabled"] and out["route"] == "clarify"
+                     and out.get("reason") in execute["reasons"]
+                     and out["confidence"] >= execute["min_confidence"]
+                     and tool_cfg is not None and tool_cfg["tool"] in execute["tools"])
+        if immediate:
+            out = result["pipeline"] = self.pipeline._tool(
+                text, out["label"], out["confidence"], tool_cfg, "turn_exec")
+        if out["route"] == "tool":
+            result = self._tool_turn(result, out, snapshot)
+            if immediate and result["tool_calls"] == 1:
+                result["executed_immediately"] = True
+            return result
         if out["route"] == "clarify":
             return self._clarify_turn(result, out)
+        cfg = self.policy['clarification']
+        fragments = set(cfg['ordinals']) | {'1', '2', '3', 'option 1', 'option 2', 'option 3', 'both'}
+        fragments.update(name for names in cfg['names'].values() for name in names)
+        if normalized(text) in fragments:
+            return self._speak(result, 'clarify', cfg['disregard'], {})
+        general = self.policy["llm_scope"].get("general_fallback", False)
         if out["reason"] == "OOD":
+            if general:
+                return self._general_answer(result, text)
             return self._speak(result, "ood", self.policy["templates"]["ood"], {})
         if out["reason"] == "low_confidence":
+            if general and len(normalized(text).split()) >= 3:  # a real sentence the router could not place, not a mumble
+                return self._general_answer(result, text)
             return self._speak(result, "low_confidence", self.policy["templates"]["low_confidence"], {})
         return self._llm_turn(result, text, out)
 
+    def _critical_alert_line(self, alerts):
+        """-> the spoken line for every alert whose tier preempts the router, or None."""
+        tiers = self.policy["severity_tiers"]
+        critical = [a for a in alerts if tiers[a["severity"]]["preempts_router"]]
+        return " ".join(self.policy["alert_lines"][a["field"]].format(value=a["value"]) for a in critical) if critical else None
+
     def _llm_turn(self, result, text, out):
         """Scope is decided here by router class (reason), risk terms and retrieval score; never by the LLM."""
+        if result.get("alert_line"):
+            return self._speak(result, "alert_active_deferred", self.policy["templates"]["alert_active_deferred"], {})
         scope = self.policy["llm_scope"]
+        speaking = scope["speaking_scope"]
+        # Restrict only already-authorized LLM turns; never select a tool or bypass router gates.
+        normalized = " ".join(re.findall(r"[a-z0-9']+", text.lower()))
+        if risk_terms_in(text, speaking["repair_terms"] + speaking["consequential_terms"]):
+            # Manual reading/procedure execution is not built. Offer contact, without sending or arming confirmation.
+            return self._speak(result, "repair_offer", speaking["repair_offer"], {})
         if out["reason"] == "NO_TOOL":
-            lowered = " ".join(re.findall(r"[a-z0-9']+", text.lower()))
-            if any(re.search(rf"\b{re.escape(term)}", lowered) for term in scope["risk_terms"]):
-                return self._speak(result, "risk_diverted", scope["risk_diverted"], {})
-            return self._llm_reply(result, {}, text, out["prompt_policy"])
-        passages = self._retrieve(text, scope)  # call_llm: grounded only
+            if risk_terms_in(text, scope["risk_terms"]):
+                return self._speak(result, "risk_diverted", speaking["repair_offer"], {})
+            if normalized in speaking["greetings"]:
+                return self._speak(result, "greeting", speaking["greeting"], {})
+            return self._llm_reply(result, "chitchat", text, out["prompt_policy"])
+        passages = self._retrieve(text, scope)
         if not passages:
+            if (not risk_terms_in(text, scope["risk_terms"])
+                    and any((normalized + " ").startswith(prefix) for prefix in speaking["general_prefixes"])):
+                return self._llm_reply(result, "general_explanation", text, out["prompt_policy"])
+            if risk_terms_in(text, scope["risk_terms"]):
+                return self._speak(result, "risk_diverted", speaking["repair_offer"], {})
+            if scope.get("general_fallback", False):  # risk terms were already diverted above
+                return self._general_answer(result, text)
             return self._speak(result, "no_document", scope["no_document"], {})
         result["passages"] = passages
-        texts = [p["text"] for p in passages]
-        return self._llm_reply(result, texts, text, out["prompt_policy"], passages=texts)
+        return self._llm_reply(result, "grounded_answer", text, out["prompt_policy"], passages=passages)
 
-    def _llm_reply(self, result, source, text, prompt_policy, **kwargs):
-        """The one LLM call. A raising llm_fn is recorded as result["llm_error"] and the fixed tool_error line is spoken."""
+    def _general_answer(self, result, text):
+        """llm_scope.general_fallback: a question the router could not place gets a short Gemini answer, unless it touches
+        safety or repair (risk, repair or consequential terms), which keeps the fixed contact offer."""
+        scope = self.policy["llm_scope"]
+        speaking = scope["speaking_scope"]
+        if risk_terms_in(text, speaking["repair_terms"] + speaking["consequential_terms"] + scope["risk_terms"]):
+            return self._speak(result, "repair_offer", speaking["repair_offer"], {})
+        return self._llm_reply(result, "general_explanation", text, self.pipeline.config["llm_labels"]["call_llm"], general=True)
+
+    def _llm_reply(self, result, kind, text, prompt_policy, passages=(), general=False):
+        """The one generation: build_request -> generator (retry/fallback in run_generation) -> _speak.
+        A raising generator is recorded as result["llm_error"] and the fixed tool_error line is spoken, never retried.
+        Failed generations keep the model's text in blocked_text and speak (through _speak, so the replacement is verified too) templates.verifier_blocked (grounded answers, and
+        any chitchat rejected for a number) or generation.neutral_chitchat (other chitchat rejections). The final verifier source is the same as before: the retrieved passages
+        under passage_numbers="digits", nothing otherwise."""
+        if result.get("alert_line"):
+            return self._speak(result, "alert_active_deferred", self.policy["templates"]["alert_active_deferred"], {})
+        gen, templates = self.policy["generation"], self.policy["templates"]
         result["llm_called"] = True
+        keep = gen["history_turns"]
+        req = build_request(turn_id=self.turn_index, kind=kind, route="llm", user_text=text, policy=self.policy,
+                            passages=passages, history=self.history[-keep:] if keep else (), prompt_policy=prompt_policy)
+        source = [p.text for p in req.passages] if req.passage_numbers == "digits" else {}
+        verifier = self.verifier
+        if general:  # general_fallback, no safety/risk terms: ordinary facts ("two moons") may be spoken; no readings exist here
+            req = replace(req, style=replace(req.style, no_digits_in_prose=False))
+            verifier = _allow_general_numbers
+        self.last_generation_request = req
+        interim = gen.get("interim")
+        if interim and interim["enabled"] and kind in INTERIM_KINDS:
+            self._speak_interim(result, interim["line"])
+        outcome = run_generation(req, self.generator, self.policy, gen["neutral_chitchat"], error_text=templates["tool_error"],
+                                 verifier=verifier)
+        if outcome.status == "fallback" and (kind == "grounded_answer" or NUMBER_VIOLATIONS & set(outcome.violations)):
+            outcome = replace(outcome, text=templates["verifier_blocked"])  # number problems keep the old blocked line
+        prefixed = False
+        if outcome.status == "ok":
+            attributed, prefixed = attribute_passage_numbers(req, outcome.text, gen)
+            outcome = replace(outcome, text=attributed)
+        result["generation"] = {"mode": "generated", "request": req.summary(), "prompt": render_prompt(req),
+                                "status": outcome.status, "attempts": outcome.attempts, "violations": list(outcome.violations),
+                                "attempt_log": list(outcome.attempt_log), "raw": outcome.raw, "text": outcome.text,
+                                "refusal": outcome.refusal, "passage_numbers": req.passage_numbers,
+                                "configured_passage_numbers": req.configured_passage_numbers,
+                                "passage_override_reason": req.passage_override_reason, "attribution_prefixed": prefixed}
+        snapshot = self.alert_source()  # a critical alert that appeared while the model was generating preempts its answer
+        alerts = evaluate_alerts(snapshot, self.policy)
+        critical = self._critical_alert_line(alerts)
+        if critical:
+            result["alerts"] = alerts
+            self.pending_clarification = None
+            return self._speak(result, "alert", critical, snapshot)
+        if outcome.status == "error":
+            result["llm_error"] = outcome.error
+            return self._speak(result, "llm", outcome.text, {})
+        if outcome.status == "fallback":
+            failed = outcome.blocked_text
+            verdict = outcome.verdict
+            if verdict is None:
+                try:
+                    verdict = verifier(failed, source)
+                except Exception:
+                    verdict = None
+            if verdict is None or verdict["ok"]:  # rejected for a non-number reason: still a blocked line
+                verdict = {"ok": False, "spoken": (verdict or {}).get("spoken", []), "unsupported": []}
+            rejected = verdict
+            result = self._speak(result, "llm", outcome.text, source, verifier)  # the replacement is a spoken line: final gate too
+            replacement_verdict = result["verifier"]
+            if result["blocked_text"] is not None:  # even the fixed replacement was refused by the verifier
+                result["generation"]["replacement_blocked_text"] = result["blocked_text"]
+            else:
+                result["verifier"] = rejected  # as before: the verdict that rejected the model text
+            result["generation"]["replacement_verifier"] = replacement_verdict
+            result["blocked_text"] = failed
+            return result
+        result = self._speak(result, "llm", outcome.text, source, verifier)
+        if keep and result["blocked_text"] is None:
+            self.history.append((text, result["spoken"]))
+            del self.history[:-keep]  # only the last `keep` turns can ever be sent; do not retain older utterances
+        return result
+
+    def _speak_interim(self, result, line):
+        """Speak the fixed wait line through interim_fn (never counted as the turn's answer). Failures only set result keys."""
+        if self.interim_fn is None:
+            return
+        verdict = self.verifier(line, {})
+        if not verdict["ok"]:
+            result["interim_error"] = "blocked by verifier"
+            return
         try:
-            reply = self.llm_fn(text, prompt_policy, **kwargs)
+            self.interim_fn(line, "llm_interim")
+            result["interim"] = line
         except Exception as exc:
-            result["llm_error"] = f"{type(exc).__name__}: {exc}"[:300]
-            return self._speak(result, "llm", self.policy["templates"]["tool_error"], {})
-        return self._speak(result, "llm", reply, source)
+            result["interim_error"] = f"{type(exc).__name__}: {exc}"[:300]
 
     def _retrieve(self, text, scope):
         """Passages scoring >= retrieval_min_score, best first, at most retrieval_top_k. No retriever, None, an error or
@@ -246,7 +579,12 @@ class TurnHandler:
     def _confirmation_turn(self, result, pending, answer, snapshot):
         """yes -> feasibility is recomputed from THIS turn's snapshot (the offer's numbers may be stale); the message and
         urgency come from the fresh outcome. If no refill is needed any more, nothing is sent and a fixed line is spoken."""
+        if pending.get("kind") == "print_offer":
+            return self._print_turn(result, pending, "no" if answer == "decline_proceed" else answer)
         confirmation = self.policy["confirmation"]
+        if answer == "decline_proceed":
+            result["accepted_as_order"] = True
+            return self._speak(result, "confirmed_no", confirmation["decline_proceed_spoken"].format(**pending), pending)
         if answer == "no":
             return self._speak(result, "confirmed_no", confirmation["no_spoken"], {})
         send = self.policy["send_message"]
@@ -254,14 +592,60 @@ class TurnHandler:
         if feasibility is None or feasibility["outcome"] not in send["urgency_by_outcome"]:
             return self._speak(result, "refill_not_needed", confirmation["no_longer_needed"], {})
         message = send["message"].format(place_name=pending["place_name"], **feasibility)
-        if not self.verifier(message, feasibility)["ok"]:  # a message with an untraceable number is never sent
+        if not self.verifier(message, {"place_name": pending["place_name"], "feasibility": feasibility})["ok"]:  # a message with an untraceable number is never sent
             return self._block(result, "confirmed_yes", message)
         args = {"recipient": pending["place"], "urgency": send["urgency_by_outcome"][feasibility["outcome"]],
                 "message": message}
         tool_result = self._call_tool(result, "send_message", args)
         if tool_result is None or not tool_result["ok"]:
             return self._speak(result, "confirmed_yes", self.policy["templates"]["tool_error"], {})
+        self._expose_request(result, "confirmation", "confirmed_yes", "", "send_message", tool_result)
         return self._speak(result, "confirmed_yes", confirmation["yes_spoken"].format(**tool_result["data"]), tool_result)
+
+    def _scene_turn(self, result, snapshot):
+        """Demo "what is this": a fixed line from the rover-diagnostics fixture (snapshot["rover_faults"]); no router, tool, LLM
+        or retrieval. A damaged printable part arms the print_offer confirmation; no fault speaks the no-fault line, no offer."""
+        scene = self.policy["demo_scene"]
+        result["demo_scene"] = True
+        fault = printable_fault(snapshot)
+        if fault is None:
+            return self._speak(result, "scene", scene["no_fault_line"], {})
+        offer = {"kind": "print_offer", "turn": self.turn_index, "part": fault["print_part"], "part_label": fault["label"],
+                 "query": fault["part"].replace("_", " ")}
+        if result.get("alert_line"):
+            return self._speak(result, "scene", scene["alert_result_line"].format(part_label=fault["label"]), snapshot)
+        line = scene["scene_line"].format(part_label=fault["label"], print_part=fault["print_part"])
+        self._speak(result, "scene", line, PRINTER_SOURCE)
+        if result["blocked_text"] is None:  # a blocked line offers nothing
+            self.pending_confirmation = offer
+            result["pending_confirmation"] = dict(offer)
+        return result
+
+    def _print_turn(self, result, pending, answer):
+        """yes -> exactly one queue_print call (args from the stored offer), display = the wheel page found by retrieval; no -> nothing queued."""
+        scene = self.policy["demo_scene"]
+        result["demo_scene"] = True
+        if answer == "no":
+            return self._speak(result, "print_declined", scene["declined_line"], {})
+        tool_result = self._call_tool(result, "queue_print", {"part": pending["part"]})
+        if tool_result is None or not tool_result["ok"]:
+            return self._speak(result, "print_confirmed", self.policy["templates"]["tool_error"], {})
+        section = find_section(self.retriever, pending["query"]) if self.retriever is not None else None
+        if section is not None:
+            result["display"] = {"doc_id": section["id"].split(":")[0], "section_id": section["id"], "title": section["title"],
+                                 "asset": section["source"], "source": section["source"]}
+        return self._speak(result, "print_confirmed", scene["queued_line"], tool_result)
+
+    def _expose_request(self, result, kind, route, prompt_policy, tool, tool_result):
+        """Tool and confirmation turns speak their template (the LLM is not called, llm_called stays False), but the
+        structured request and rendered prompt are still built so the "model space" can see them."""
+        try:
+            req = build_request(turn_id=self.turn_index, kind=kind, route=route, user_text=result["text"], policy=self.policy,
+                                tool=tool, tool_result=tool_result, prompt_policy=prompt_policy)
+            self.last_generation_request = req
+            result["generation"] = {"mode": "template_only", "request": req.summary(), "prompt": render_prompt(req)}
+        except Exception as exc:  # exposing the request must never change what is spoken
+            result["generation"] = {"mode": "template_only", "error": f"{type(exc).__name__}: {exc}"[:300]}
 
     def _call_tool(self, result, name, args):
         """The one registry call of the turn. A raising tool is recorded as result["tool_error"] and returns None
@@ -272,6 +656,10 @@ class TurnHandler:
         except Exception as exc:
             result["tool_error"] = f"{type(exc).__name__}: {exc}"[:300]
             tool_result = None
+        if name in READ_ONLY_TOOLS and tool_result is not None and tool_result.get("ok"):
+            self.last_executed = {"tool": name, "turn": self.turn_index}
+        else:
+            self.last_executed = None
         result["tool_result"] = tool_result
         result["tool_calls"] = self.registry.calls_this_turn
         assert result["tool_calls"] <= 1, "more than one tool call in a turn"
@@ -281,16 +669,120 @@ class TurnHandler:
         question = self.policy["slot_questions"][tool][missing[0]]
         return self._speak(result, "slot_question", question, {})
 
+    def _continue_clarification(self, result, snapshot):
+        pending = self.pending_clarification
+        self.pending_clarification = None
+        cfg = self.policy['clarification']
+        if (self.turn_index - pending['turn'] > cfg['expiry_turns']
+                or self.clock() - pending['time'] > cfg['ttl_s']):
+            return self._speak(result, 'clarify', cfg['disregard'], {})
+        answer = select_choice(result['text'], pending['choices'], cfg)
+        if answer == 'cancel':
+            return self._speak(result, 'clarify', cfg['disregard'], {})
+        if answer is not None:
+            original = pending['original_text']
+            if pending['kind'] == 'intent':
+                out = self.pipeline._tool(original, answer, pending['out']['confidence'],
+                                          self.pipeline.config['tool_labels'][answer], 'explicit_offered_choice')
+            else:
+                place_text = answer.replace('_', ' ')
+                out = self.pipeline._tool(place_text, pending['out']['label'], pending['out']['confidence'],
+                                          self.pipeline.config['tool_labels'][pending['out']['label']], 'explicit_offered_choice')
+            if out.get('gate') == 'explicit_offered_choice':
+                out['original_router_confidence'] = out['confidence']
+                out['confidence_label'] = pending['out']['label']
+            result['pipeline'] = out
+            result['clarification_selection'] = {'identity': answer, 'original_text': original,
+                                               'offered': pending['choices'], 'version': pending['version']}
+            result['context_text'] = original
+            if out['route'] == 'tool':
+                return self._tool_turn(result, out, snapshot)
+            return self._clarify_turn(result, out)
+        if pending['kind'] == 'slot':
+            resolution = resolve_destination(result['text'])
+            if resolution['status'] == 'resolved':
+                out = self.pipeline._tool(result['text'], pending['out']['label'], pending['out']['confidence'],
+                                          self.pipeline.config['tool_labels'][pending['out']['label']], 'retained_slot')
+                result['pipeline'] = out
+                result['context_text'] = pending['original_text']
+                return self._tool_turn(result, out, snapshot)
+        # A complete new, BERT-authorized tool intent interrupts; menu fragments never reach chitchat.
+        answer_text = normalized(result['text'])
+        if (any(answer_text.startswith(prefix + ' ') for prefix in cfg['new_intent_prefixes'])
+                and not set(answer_text.split()) & set(cfg['ambiguous_words'])):
+            out = self.pipeline.handle(result['text'])
+            if out['route'] == 'tool':
+                result['pipeline'] = out
+                return self._tool_turn(result, out, snapshot)
+        if self.turn_index - pending['turn'] < cfg['expiry_turns']:
+            self.pending_clarification = pending
+        return self._speak(result, 'clarify', cfg['reask'] if self.pending_clarification else cfg['disregard'], {})
+
     def _clarify_turn(self, result, out):
+        if result.get("alert_line"):
+            return self._speak(result, "clarify", self.policy["templates"]["alert_active_deferred"], {})
+        context = result.get("context_text", result["text"])
+        if out.get("tool") == "navigation" and _unsupported_navigation_scope(context, self.policy):
+            self.pending_clarification = None
+            return self._speak(result, "clarify", self.policy["navigation_scope"]["clarification"], {})
+        cfg = self.policy['clarification']
+        kind = 'slot' if out['reason'] == 'missing_slot' else 'place' if out['reason'] == 'ambiguous_place' else 'intent'
+        if kind == 'intent':
+            # Pipeline options follow the router's descending-confidence topk order.
+            out['options'] = out['options'][:cfg.get('max_options', 2)]
+        self.pending_confirmation = None
+        self.pending_clarification = {'kind': kind, 'original_text': result.get('context_text', result['text']),
+                                      'choices': list(out['options']), 'out': out.copy(), 'turn': self.turn_index,
+                                      'time': self.clock(), 'version': cfg['version'],
+                                      'place_resolution': resolve_destination(result.get('context_text', result['text']),
+                                                                              threshold=self.pipeline.place_threshold)}
         if out["reason"] == "missing_slot":
             return self._slot_question(result, out["tool"], out["missing"])
         if out["reason"] == "ambiguous_place":
             options = " or ".join(o.replace("_", " ") for o in out["options"])
-            return self._speak(result, "slot_question", self.policy["slot_questions"]["ambiguous_place"].format(options=options), {})
-        return self._speak(result, "clarify", out["question"], {})
+            return self._speak(result, "slot_question", self.policy["slot_questions"]["ambiguous_place"].format(options=options), out["options"])
+        names = [self.pipeline.config['tool_labels'][o]['spoken'] for o in out['options']]
+        line = cfg['menu'].format(options=' or '.join(names))
+        speaking = self.policy['llm_scope']['speaking_scope']
+        requesting_context = _mask_non_requesting_travel_spans(context, speaking)
+        if 'call_safety' in out['options'] and (
+                resolve_destination(context)['status'] != 'none'
+                or resolve_destination(requesting_context)['status'] != 'none'
+                or _contains_phrase(requesting_context, speaking['travel_phrases'])):
+            line += ' ' + cfg['menu_destination_note']
+        return self._speak(result, "clarify", line, {})
 
     def _tool_turn(self, result, out, snapshot):
         tool, args = out["tool"], out["args"]
+        if result.get("alert_line") and tool not in READ_ONLY_TOOLS and tool not in ("get_current_location", "return_to_start"):
+            return self._speak(result, "alert_active_deferred", self.policy["templates"]["alert_active_deferred"], {})
+        speaking = self.policy["llm_scope"]["speaking_scope"]
+        context = result.get("context_text", result["text"])
+        if tool == "return_to_start":
+            if tool not in self.registry.names():
+                return self._speak(result, "tool", "Returning to start needs the Unity voice connection.", {})
+            reply = self._call_tool(result, tool, {})
+            line = "Returning you to the rover inspection position." if reply is not None and reply["ok"] else "I couldn't request the return to start."
+            return self._speak(result, "tool", line, {})
+        if tool == "get_current_location":
+            if tool not in self.registry.names():
+                return self._speak(result, "tool", LOCATION_UNAVAILABLE, {})
+            reply = self._call_tool(result, tool, {"question": context})
+            data = reply["data"] if reply is not None and reply["ok"] else {}
+            return self._speak(result, "tool", describe_location(data, context), data)
+        if tool == "vision":
+            return self._vision_turn(result, context)
+        selected_safety = tool == "safety" and "clarification_selection" in result
+        # Retained-slot/explicit-choice dispatch must apply the same veto as a first turn.
+        scope_context = context if context == result["text"] else context + " " + result["text"]
+        if tool == "navigation" and _unsupported_navigation_scope(scope_context, self.policy):
+            return self._speak(result, "clarify", self.policy["navigation_scope"]["clarification"], {})
+        if tool == "safety" and not selected_safety:
+            requesting_context = _mask_non_requesting_travel_spans(context, speaking)
+            if (resolve_destination(context)["status"] != "none"
+                    or resolve_destination(requesting_context)["status"] != "none"
+                    or _contains_phrase(requesting_context, speaking["travel_phrases"])):
+                return self._speak(result, "destination_safety", speaking["destination_safety"], {})
         missing = [slot for slot in self.registry.schema(tool)["required"] if slot not in args]
         if missing:
             return self._slot_question(result, tool, missing)
@@ -300,40 +792,88 @@ class TurnHandler:
             return self._speak(result, "tool", templates["tool_error"], {})
         offer = None
         try:
-            spoken = templates[tool].format(**tool_result["data"])
             if tool == "navigation":
-                tool_result, suffix, offer = self._navigation_feasibility(tool_result, snapshot)
+                mode = 'assessment' if _contains_phrase(normalized(context), self.policy['clarification']['assessment_phrases']) else 'guidance'
+                tool_result['data']['response_mode'] = 'distance' if any(p in normalized(context) for p in DISTANCE_PHRASES) else mode
+                arrived = self._apply_live_distance(tool_result["data"])
+                if arrived is not None:  # standing at it: no minutes, no oxygen check, no route
+                    self._expose_request(result, "tool_result", "tool", "", tool, tool_result)
+                    return self._speak(result, "tool", arrived, tool_result)
+                tool_result, spoken, offer = self._navigation_feasibility(tool_result, snapshot, allow_offer=not result.get("alert_line"))
                 result["tool_result"] = tool_result
-                spoken += suffix
+            else:
+                template = self.policy['clarification']['selected_safety'] if selected_safety else templates[tool]
+                spoken = template.format(**tool_result["data"])
         except (KeyError, IndexError, ValueError):  # a template that does not fit the tool_result is never spoken
             return self._block(result, "tool", f"[template {tool!r} does not fit tool_result]")
+        self._expose_request(result, "tool_result", "tool", "", tool, tool_result)
         result = self._speak(result, "tool", spoken, tool_result)
         if offer is not None and result["blocked_text"] is None:  # an offer that was not spoken is not pending
             self.pending_confirmation = offer
             result["pending_confirmation"] = dict(offer)
         return result
 
-    def _navigation_feasibility(self, tool_result, snapshot):
-        """-> (tool_result with data["feasibility"] added, text to append to the route line, refill-call offer or None).
-        Unchanged tool_result and no text when there is no O2 data. No offer for a home place or a comfortable trip."""
+    def _vision_turn(self, result, text):
+        """Request a capture and speak the answer using verified target facts."""
+        cfg = self.policy["vision"]
+        if "vision" not in self.registry.names():
+            return self._speak(result, "vision", cfg["unavailable_line"], {})
+        mode = vision_mode(text, self.policy) if result["pipeline"].get("gate") != "vision_phrase" else match_vision(text, self.policy)
+        self._speak_interim(result, cfg["interim_line"])
+        tool_result = self._call_tool(result, "vision", {"question": text, "mode": mode})
+        if tool_result is None:
+            return self._speak(result, "vision", cfg["error_line"], {})
+        data = tool_result["data"]
+        if not tool_result["ok"]:
+            return self._speak(result, "vision", data["line"], {})
+        result["vision"] = {"mode": mode, "target_name": data["target_name"], "uncertain": data["uncertain"]}
+        if data.get("display"):
+            result["display"] = data["display"]
+        return self._speak(result, "vision", data["answer"], data["target"] or {})
+
+    def _apply_live_distance(self, data):
+        """Use the live Unity distance when available and report arrival when close enough."""
+        cfg = self.policy.get("live_distance")
+        landmark = (cfg or {}).get("places", {}).get(data.get("place"))
+        fn = getattr(self, "place_distance_fn", None)
+        if landmark is None or fn is None:
+            return None
+        try:
+            distance = fn(landmark)
+        except Exception:
+            distance = None
+        if not isinstance(distance, (int, float)) or isinstance(distance, bool) or not math.isfinite(distance) or distance < 0:
+            return None
+        data["distance_m"], data["distance_source"] = round(distance), "unity"
+        data["eta_min"] = math.ceil(distance / self.policy["feasibility"]["walking_speed_m_per_min"] - 1e-9)
+        if distance <= cfg["arrived_m"]:
+            data["arrived"] = True
+            return cfg["arrived_line"].format(place_name=data["place_name"])
+        return None
+
+    def _navigation_feasibility(self, tool_result, snapshot, allow_offer=True):
+        """-> (tool_result with data["feasibility"] added, concise result line, refill-call offer or None).
+        Explicit unavailable when there is no O2 data. No offer for a home place, comfortable trip or tight margin."""
         feasibility = assess_feasibility(tool_result["data"], snapshot, self.policy)
         if feasibility is None:
-            return tool_result, "", None
+            tool_result = {**tool_result, "data": {**tool_result["data"], "feasibility": {"outcome": "unavailable"}}}
+            return tool_result, self.policy["feasibility"]["concise"]["unavailable"].format(place_name=tool_result["data"]["place_name"]), None
+        feasibility["margin_min"] = feasibility["o2_minutes_remaining"] - feasibility["required_min"]
         data = tool_result["data"]
         tool_result = {**tool_result, "data": {**data, "feasibility": feasibility}}
         key = feasibility["outcome"] + ("_home" if feasibility["is_home"] else "")
-        lines = self.policy["feasibility"]["lines"]
-        suffix = " " + lines.get(key, lines[feasibility["outcome"]]).format(**feasibility)
+        lines = self.policy["feasibility"]["concise"]
+        suffix = lines.get(key, lines[feasibility["outcome"]]).format(place_name=data["place_name"], **feasibility)
         offer = None
-        if feasibility["outcome"] in self.policy["send_message"]["urgency_by_outcome"] and not feasibility["is_home"]:  # no refill call to the home base itself
+        if allow_offer and feasibility["outcome"] in self.policy["send_message"]["urgency_by_outcome"] and not feasibility["is_home"]:  # no refill call to the home base itself
             offer = {"kind": "refill_call", "turn": self.turn_index, "place": data["place"], "place_name": data["place_name"],
                      "distance_m": data["distance_m"], "outcome": feasibility["outcome"], "feasibility": feasibility}
-            suffix += " " + self.policy["confirmation"]["offer"].format(place_name=offer["place_name"])
+            suffix += " " + self.policy["confirmation"]["offer"].format(recipient_label=offer["place_name"])
         return tool_result, suffix, offer
 
-    def _speak(self, result, route, line, source):
+    def _speak(self, result, route, line, source, verifier=None):
         result["route"] = route
-        verdict = self.verifier(line, source)
+        verdict = (verifier or self.verifier)(line, source)
         if not verdict["ok"]:
             return self._block(result, route, line, verdict)
         result.update(spoken=line, verifier=verdict, blocked_text=None)

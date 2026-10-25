@@ -9,18 +9,10 @@ using UnityEngine.InputSystem;
 #endif
 using Debug = UnityEngine.Debug;
 
-// NOVA helmet minimap (Stage 4).
-//
-// Add it with Tools > Nova > Minimap > Add Minimap To Scene and press Play.
-// It builds its own small round map and follows whichever camera is active:
-//   - Quest rig: docks into the bottom-right of the Helmet HUD (same visor material, always on top)
-//   - desktop rig (no Helmet HUD): drawn flat in the bottom-left corner of the screen
-//   - the ground is a shaded-relief picture drawn from the real Jezero terrain heights
-//   - every MapMarker in the scene (and any pins from the API) is drawn as a colored dot
-//   - the white arrow in the middle is you; the map turns so "up" is where you are looking
-//   - markers that are too far away stick to the rim, so you can still see which way home is
-//
-// No prefabs or scene wiring needed, so it won't conflict with teammates editing the scene.
+// Add with Tools > Nova > Minimap > Add Minimap To Scene.
+// Uses the helmet HUD on Quest and a screen overlay on desktop.
+// Terrain heights provide the relief map. Markers show locations and distant pins stay at the rim.
+// The center arrow shows the player. The map can follow the view or keep north up.
 public class MarsMinimap : MonoBehaviour
 {
     [Header("Astronaut")]
@@ -65,13 +57,18 @@ public class MarsMinimap : MonoBehaviour
     [Tooltip("M = show/hide, [ and ] = zoom, N = heading-up / north-up.")]
     public bool keyboardShortcuts = true;
 
-    // ---------- read by other scripts (MinimapApiLink, the AI hooks) ----------
+    // Values read by other scripts
     public Vector2 PlayerXZ { get; private set; }
     public float HeadingDeg { get; private set; }   // 0..360, 0 = north (+z), 90 = east (+x)
     public float ViewMeters => zoomLevelsMeters[Mathf.Clamp(zoomIndex, 0, zoomLevelsMeters.Length - 1)];
     public bool Visible => canvasGO != null && canvasGO.activeSelf;
     public bool DockedInHelmetHud { get; private set; }
     public bool Holographic { get; private set; }
+    // Used by MinimapNavigationPanel: the picked destination, and where things are drawn.
+    public string SelectedCode { get; set; }
+    public RectTransform Content => content;
+    public Material UiMaterial => uiMaterial;
+    public RectTransform MarkerRect(string code) => views.TryGetValue(code, out var v) ? v.root : null;
 
     const float PX = 512f;      // the map circle is 512 units wide inside `content`, then scaled to fit
     const float IconPx = 26f;
@@ -88,7 +85,7 @@ public class MarsMinimap : MonoBehaviour
     CanvasGroup presentationGroup;
     Coroutine transition;
     Vector3 presentationScale = Vector3.one;
-    RectTransform rotator, zoneLayer, markerLayer, arrow, north;
+    RectTransform rotator, zoneLayer, routeLayer, markerLayer, arrow, north;
     RawImage terrainImage;
     Image frame;
     Text infoText;
@@ -125,6 +122,15 @@ public class MarsMinimap : MonoBehaviour
     readonly HashSet<string> seenCodes = new HashSet<string>();
     readonly List<string> unusedCodes = new List<string>();
 
+    // Active navigation route (same points as the trail on the ground)
+    NavigationRoute drawnRoute;
+    readonly List<Vector2> routeXZ = new List<Vector2>();
+    readonly List<Image> routeSegments = new List<Image>();
+    readonly List<float> routeAlong = new List<float>();
+    static readonly Color RouteColor = new Color(0.25f, 0.9f, 1f, 0.95f);
+    static readonly Color RoutePreviewColor = new Color(0.25f, 0.9f, 1f, 0.5f);
+    static readonly Color RouteWalkedColor = new Color(0.7f, 0.7f, 0.7f, 0.35f);
+
     static readonly Color32 NoDataColor = new Color32(22, 20, 24, 255);
     static readonly Color[] Ramp = {
         new Color(0.20f, 0.09f, 0.06f),   // low: dark rust
@@ -135,23 +141,28 @@ public class MarsMinimap : MonoBehaviour
     };
     static readonly Vector3 SunDir = new Vector3(-0.5f, 0.5f, 0.7071f);   // from the north-west, 45 degrees up
 
-    // =====================================================================
-    // Public controls (for gestures, voice, or the AI's "show me the minimap")
-    // =====================================================================
+    // Map controls for other scripts
     public void Show(bool on) { if (canvasGO != null) canvasGO.SetActive(on); }
     public void ZoomIn() => SetZoomIndex(zoomIndex - 1);
     public void ZoomOut() => SetZoomIndex(zoomIndex + 1);
     public void SetZoomIndex(int index) => zoomIndex = Mathf.Clamp(index, 0, zoomLevelsMeters.Length - 1);
     public void SetHeadingUp(bool on) => headingUp = on;
 
-    // Pulse the rim for a few seconds (e.g. when the AI says "here is your map").
+    // Briefly pulse the map rim.
     public void Highlight(float seconds = 4f)
     {
         Show(true);
         highlightUntil = Time.unscaledTime + seconds;
     }
 
-    // Extra pins that are not scene objects (from GET /map, vision detections...).
+    public void FocusLocation(Vector3 position)
+    {
+        Highlight();
+        float neededDiameter = Vector2.Distance(PlayerXZ, new Vector2(position.x, position.z)) * 2.4f;
+        while (zoomIndex < zoomLevelsMeters.Length - 1 && ViewMeters < neededDiameter) ZoomOut();
+    }
+
+    // Add pins from external data.
     // A scene MapMarker with the same code always wins.
     public void SetExternalPins(IEnumerable<MapPoint> pins)
     {
@@ -162,9 +173,7 @@ public class MarsMinimap : MonoBehaviour
                 externalPins[p.code] = p;
     }
 
-    // =====================================================================
     // Unity lifecycle
-    // =====================================================================
     void Start()
     {
         if (zoomLevelsMeters == null || zoomLevelsMeters.Length == 0) zoomLevelsMeters = new[] { 1000f };
@@ -199,7 +208,7 @@ public class MarsMinimap : MonoBehaviour
     {
         if (canvasGO == null) return;
 
-        // Follow the active camera. ExplorerRigs turns on either the desktop rig or the Quest rig at startup.
+        // Follow the camera selected by ExplorerRigs.
         if (head == null || !head.gameObject.activeInHierarchy)
             head = Camera.main != null ? Camera.main.transform : null;
         if (head == null) return;
@@ -207,7 +216,7 @@ public class MarsMinimap : MonoBehaviour
         if (!DockedInHelmetHud && !Holographic) ApplyScreenLayout();
         HandleKeys();
 
-        // Always track the astronaut, even while the map is hidden (the API link reads these).
+        // Update the player position even when hidden because the API reads it.
         Vector3 p = head.position;
         PlayerXZ = new Vector2(p.x, p.z);
         HeadingDeg = ComputeHeading(head);
@@ -223,6 +232,7 @@ public class MarsMinimap : MonoBehaviour
         float a = rot * Mathf.Deg2Rad;
         north.anchoredPosition = new Vector2(-Mathf.Sin(a), Mathf.Cos(a)) * (PX * 0.5f + 24f);
 
+        UpdateRoute();
         UpdateMarkers(rot);
         UpdateFrame();
         if (Time.unscaledTime >= nextInfo)
@@ -245,7 +255,7 @@ public class MarsMinimap : MonoBehaviour
         {
             canvas.renderMode = RenderMode.WorldSpace;
             canvas.overrideSorting = false;
-            // Inside another canvas our Canvas becomes a nested one and follows the HUD's world-space canvas.
+            // Use the HUD world-space canvas when docked.
             root.SetParent(hud.transform, false);       // HelmetHUD sits on the HUD's Canvas
             root.anchorMin = Vector2.zero;
             root.anchorMax = Vector2.one;
@@ -261,8 +271,7 @@ public class MarsMinimap : MonoBehaviour
         }
         else
         {
-            // Desktop: a flat screen overlay. A panel floating in 3D at the edge of a wide desktop
-            // camera gets stretched into a tilted oval, so draw it on the screen instead.
+            // Use a desktop screen overlay to keep the round map from stretching at the view edge.
             root.SetParent(transform, false);
             root.localScale = Vector3.one;
             root.localRotation = Quaternion.identity;
@@ -339,7 +348,7 @@ public class MarsMinimap : MonoBehaviour
         if (content != null) content.localScale = presentationScale;
     }
 
-    // Reuse the HUD's "Nova/Visor UI" material: always drawn on top of terrain, and it supports the round mask.
+    // Reuse the visor material to draw over terrain and support the round mask.
     static Material FindVisorMaterial(HelmetHUD hud)
     {
         foreach (var g in hud.GetComponentsInChildren<Graphic>(true))
@@ -356,9 +365,8 @@ public class MarsMinimap : MonoBehaviour
         foreach (var g in canvasGO.GetComponentsInChildren<Graphic>(true)) g.material = m;
     }
 
-    // Bottom-left corner of the screen. Runs every frame so Inspector tweaks show up live.
-    // Text on a screen canvas is drawn at the canvas's scale, not the object's scale, so shrinking
-    // `content` made the labels blurry. Instead the CanvasScaler does all the shrinking.
+    // Update desktop placement each frame so Inspector changes appear immediately.
+    // Scale through CanvasScaler to keep text sharp.
     void ApplyScreenLayout()
     {
         float s = screenDiameter / PX;   // 1 canvas unit = s pixels on a 1080p-tall window
@@ -368,7 +376,7 @@ public class MarsMinimap : MonoBehaviour
         content.anchoredPosition = screenMargin / s + content.sizeDelta * 0.5f;
     }
 
-    // Compass heading of where the astronaut is looking, flattened onto the ground.
+    // Read heading from the horizontal viewing direction.
     static float ComputeHeading(Transform t)
     {
         Vector3 f = t.forward;
@@ -393,9 +401,7 @@ public class MarsMinimap : MonoBehaviour
 #endif
     }
 
-    // =====================================================================
-    // Building the HUD (done in code so there is nothing to wire up)
-    // =====================================================================
+    // Build the HUD at runtime
     void BuildHud()
     {
         uiLayer = LayerMask.NameToLayer("UI");
@@ -411,7 +417,7 @@ public class MarsMinimap : MonoBehaviour
         var canvas = canvasGO.GetComponent<Canvas>();
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
         canvas.sortingOrder = 10;
-        // Keeps the map the same share of the window at any resolution (ignored when nested in the HUD).
+        // Scale with the window on desktop. The helmet HUD handles its own scale.
         scaler = canvasGO.GetComponent<CanvasScaler>();
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
         scaler.referenceResolution = new Vector2(1920f, 1080f);
@@ -426,7 +432,7 @@ public class MarsMinimap : MonoBehaviour
 
         frame = NewImage("Rim", root, ringSprite, PX + 18f);
 
-        // The mask is a dark disc: it is the background and cuts everything inside into a circle.
+        // Use a dark circle as the background and clip the map to it.
         var mask = NewImage("Mask", root, discSprite, PX);
         mask.color = new Color(0.05f, 0.04f, 0.04f, 0.85f);
         mask.gameObject.AddComponent<Mask>().showMaskGraphic = true;
@@ -440,6 +446,7 @@ public class MarsMinimap : MonoBehaviour
         terrainImage.enabled = false;
 
         zoneLayer = NewRect("Zones", rotator, new Vector2(PX, PX));
+        routeLayer = NewRect("Route", rotator, new Vector2(PX, PX));
         markerLayer = NewRect("Markers", rotator, new Vector2(PX, PX));
 
         var arrowImg = NewImage("You", root, arrowSprite, 38f);
@@ -521,7 +528,7 @@ public class MarsMinimap : MonoBehaviour
         float view = ViewMeters;
         string text = $"{FormatDistance(view)} view  |  grid {FormatDistance(NiceStep(view / 5f))}";
 
-        // Nearest oxygen refill: the one number an astronaut always wants on the map.
+        // Show the distance to the nearest oxygen refill.
         MapPoint best = null;
         float bestDist = float.MaxValue;
         foreach (var pt in points)
@@ -540,9 +547,7 @@ public class MarsMinimap : MonoBehaviour
         return $"{meters / 1000f:0.#} km";
     }
 
-    // =====================================================================
     // Markers
-    // =====================================================================
     void UpdateMarkers(float rot)
     {
         points.Clear();
@@ -554,6 +559,14 @@ public class MarsMinimap : MonoBehaviour
         }
         foreach (var kv in externalPins)
             if (seenCodes.Add(kv.Key)) points.Add(kv.Value);
+        // Show navigation destinations even without a scene marker.
+        var nav = RouteNavigator.Current;
+        if (nav != null)
+            foreach (var destination in nav.Destinations)
+                if (seenCodes.Add(destination.code)) points.Add(destination);
+        string active = nav != null && nav.MapRoute != null ? nav.MapRoute.destinationId : null;
+        string waypoint = nav != null && nav.Waypoint != null ? nav.Waypoint.code : null;
+        float pulse = 1f + 0.15f * Mathf.Sin(Time.unscaledTime * 6f);
 
         foreach (var v in views.Values) v.used = false;
 
@@ -574,13 +587,17 @@ public class MarsMinimap : MonoBehaviour
             Color c = MinimapStyle.ColorFor(pt.location_type, pt.hazard_level);
             v.root.anchoredPosition = local;
             v.root.localRotation = upright;
-            v.root.localScale = Vector3.one * (onRim ? 0.75f : 1f);
-            v.icon.color = c;
+            // Pulse selected and active targets.
+            bool highlighted = pt.code == SelectedCode || pt.code == active || pt.code == waypoint;
+            v.root.localScale = Vector3.one * (onRim ? 0.75f : 1f) * (highlighted ? 1.4f * pulse : 1f);
+            if (pt.code == waypoint) c = new Color(.2f, .9f, 1);
+            v.icon.color = highlighted ? Color.Lerp(c, Color.white, 0.35f) : c;
             string label = onRim ? pt.code : (string.IsNullOrEmpty(pt.name) ? pt.code : pt.name);
+            if (pt.code == waypoint) label += $"  {Vector2.Distance(PlayerXZ, new Vector2(pt.x_m, pt.z_m)):0} m";
             if (v.label.text != label) v.label.text = label;
             v.label.color = c;
 
-            // Zone circle (hazard areas, habitat footprint...) in true scale.
+            // Draw zone circles at their real size.
             float zonePx = Mathf.Max(0f, pt.radius_m) * 2f * pxPerMeter;
             bool showZone = !onRim && zonePx > IconPx * 1.2f;
             if (v.zone.enabled != showZone) v.zone.enabled = showZone;
@@ -604,6 +621,60 @@ public class MarsMinimap : MonoBehaviour
         }
     }
 
+    // Rebuild line segments when the route changes. Only reposition them each frame.
+    void UpdateRoute()
+    {
+        // Preview and stopped routes are drawn faint; while navigating the walked part goes grey.
+        var nav = RouteNavigator.Current;
+        var route = nav != null ? nav.MapRoute : null;
+        if (route != drawnRoute)
+        {
+            drawnRoute = route;
+            routeXZ.Clear();
+            routeAlong.Clear();
+            if (route != null && route.IsBuilt)
+            {
+                // Sample every few meters to keep the map line lightweight.
+                foreach (var p in route.points)
+                {
+                    var xz = new Vector2(p.x, p.z);
+                    if (routeXZ.Count == 0 || Vector2.Distance(routeXZ[routeXZ.Count - 1], xz) >= 4f) routeXZ.Add(xz);
+                }
+                var end = route.points[route.points.Length - 1];
+                routeXZ[routeXZ.Count - 1] = new Vector2(end.x, end.z);
+                routeAlong.Add(0f);
+                for (int i = 1; i < routeXZ.Count; i++) routeAlong.Add(routeAlong[i - 1] + Vector2.Distance(routeXZ[i - 1], routeXZ[i]));
+            }
+            while (routeSegments.Count < routeXZ.Count - 1)
+            {
+                var segment = NewImage("Route Segment", routeLayer, null, 1f);
+                segment.color = RouteColor;
+                routeSegments.Add(segment);
+            }
+            for (int i = 0; i < routeSegments.Count; i++)
+                routeSegments[i].enabled = i < routeXZ.Count - 1;
+        }
+        if (routeXZ.Count < 2) return;
+
+        bool navigating = nav.Navigating;
+        float walked = navigating ? nav.TraveledMeters : -1f;
+        float pxPerMeter = PX / ViewMeters;
+        Vector2 a = (routeXZ[0] - PlayerXZ) * pxPerMeter;
+        for (int i = 1; i < routeXZ.Count; i++)
+        {
+            Vector2 b = (routeXZ[i] - PlayerXZ) * pxPerMeter;
+            Vector2 d = b - a;
+            var image = routeSegments[i - 1];
+            Color color = !navigating ? RoutePreviewColor : routeAlong[i] <= walked ? RouteWalkedColor : RouteColor;
+            if (image.color != color) image.color = color;
+            var rt = image.rectTransform;
+            rt.anchoredPosition = (a + b) * 0.5f;
+            rt.sizeDelta = new Vector2(d.magnitude + 3f, 6f);   // a little overlap hides the joints
+            rt.localRotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg);
+            a = b;
+        }
+    }
+
     MarkerView GetView(string code)
     {
         if (views.TryGetValue(code, out var v)) return v;
@@ -618,9 +689,7 @@ public class MarsMinimap : MonoBehaviour
         return v;
     }
 
-    // =====================================================================
     // Terrain relief picture
-    // =====================================================================
     void ScanTerrains()
     {
         nextTerrainScan = Time.unscaledTime + 2f;
@@ -640,7 +709,7 @@ public class MarsMinimap : MonoBehaviour
         if (list.Count == 0) { minY = 0f; maxY = 1f; }
         else if (terrains.Length == 0) Debug.Log($"[Minimap] Found {list.Count} terrain tiles, elevation {minY:0} to {maxY:0} m.");
         terrainsChanged = list.Count != terrains.Length;
-        // Prefer finer terrain where footprints overlap (HiRISE replaces holes in CTX).
+        // Use the finer terrain where HiRISE and CTX overlap.
         list.Sort((a, b) => (a.sx * a.sz / (a.data.heightmapResolution * a.data.heightmapResolution)).CompareTo(
             b.sx * b.sz / (b.data.heightmapResolution * b.data.heightmapResolution)));
         terrains = list.ToArray();
@@ -661,7 +730,7 @@ public class MarsMinimap : MonoBehaviour
 
         if (hasFront)
         {
-            // Show the part of the texture around the player. Works even while a new one is being drawn.
+            // Keep showing the current texture while the next one is built.
             float w = view / frontCover;
             Vector2 min = (PlayerXZ - frontCenter) / frontCover + new Vector2(0.5f - w * 0.5f, 0.5f - w * 0.5f);
             terrainImage.uvRect = new Rect(min.x, min.y, w, w);
@@ -669,7 +738,7 @@ public class MarsMinimap : MonoBehaviour
         if (terrainImage.enabled != hasFront) terrainImage.enabled = hasFront;
     }
 
-    // Draws the relief a few rows per frame (time-boxed by buildBudgetMs), then swaps it in.
+    // Build relief rows within buildBudgetMs each frame then swap textures.
     IEnumerator BuildTexture(Vector2 center, float cover)
     {
         terrainsChanged = false;
@@ -740,7 +809,7 @@ public class MarsMinimap : MonoBehaviour
             if (clock.Elapsed.TotalMilliseconds > buildBudgetMs) { yield return null; clock.Restart(); }
         }
 
-        // Upload into the hidden texture, then swap it in.
+        // Upload to the spare texture before displaying it.
         if (back == null || back.width != n)
         {
             if (back != null) Destroy(back);
@@ -792,7 +861,7 @@ public class MarsMinimap : MonoBehaviour
         return Color.Lerp(Ramp[i], Ramp[i + 1], t - i);
     }
 
-    // 1, 2, 5, 10, 20, 50... the first "round" number at or above raw.
+    // Round up to a 1, 2 or 5 step for readable scale labels.
     static float NiceStep(float raw)
     {
         float p = Mathf.Pow(10f, Mathf.Floor(Mathf.Log10(Mathf.Max(raw, 0.01f))));
@@ -801,7 +870,7 @@ public class MarsMinimap : MonoBehaviour
     }
 }
 
-// Small sprites drawn in code, so the minimap needs no image assets.
+// Generate map sprites without separate image assets.
 static class MinimapSprites
 {
     public static Sprite Disc(int size) =>

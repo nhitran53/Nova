@@ -223,3 +223,22 @@ def test_avoid_and_dont_alone_leave_no_destination():
         result = resolve_destination(text)
         assert result["status"] == "none" and result["place"] is None
         assert [(e["place_id"], e["role"]) for e in result["excluded"]] == [("crater", "negated")]
+
+
+@pytest.mark.parametrize("text", ["how far am I from tower", "how far am i from the tower", "distance from tower"])
+def test_distance_cue_with_only_an_origin_place_resolves_that_place(text):
+    result = resolve_destination(text)
+    assert result["status"] == "resolved" and result["place"]["place_id"] == "comms_tower"
+    assert ids(result["candidates"]) == ["comms_tower"] and result["excluded"] == []
+
+
+def test_distance_cue_does_not_change_an_explicit_origin_and_destination():
+    result = resolve_destination("go from the rover to the airlock")
+    assert result["place"]["place_id"] == "airlock"
+    assert [(e["place_id"], e["role"]) for e in result["excluded"]] == [("rover", "origin")]
+
+
+@pytest.mark.parametrize("text", ["how far from tower, not home", "distance from tower not the airlock",
+                                  "how far is it, don't go to the tower", "go from tower"])
+def test_distance_cue_with_a_negated_place_or_no_cue_still_gives_none(text):
+    assert resolve_destination(text)["status"] == "none"

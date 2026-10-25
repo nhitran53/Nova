@@ -48,3 +48,6 @@ Thumbs.db
 __pycache__/
 /Assets/JezeroTerrain/Generated/
 /Assets/JezeroTerrain/Generated.meta
+
+# Local rover authoring file
+/Data/Source/Perseverance/

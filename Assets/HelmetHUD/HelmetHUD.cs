@@ -42,6 +42,12 @@ public class HelmetHUD : MonoBehaviour
     Vector3 horizontalForward = Vector3.forward;
     float diagnosticUntil;
     int displayedHeading = -1;
+    string assistantMessage = "";
+    float orbPulseSpeed = 1.4f, orbPulseAmount = 0.035f;
+    Graphic orbGraphic;
+    TMP_Text waypointText;
+    VoiceSessionClient voice;
+    string statusAlert = "";
 
     public float Heading { get; private set; }
 
@@ -60,7 +66,7 @@ public class HelmetHUD : MonoBehaviour
         GetComponent<Canvas>().worldCamera = viewCamera;
         ApplyLayout();
         UpdateCompass();
-        // The camera gets a fresher head pose right before rendering, so read it then.
+        // Read the latest head pose just before rendering.
         Application.onBeforeRender += UpdateCompass;
         telemetry.Changed += Refresh;
         Refresh(telemetry.Current);
@@ -74,13 +80,27 @@ public class HelmetHUD : MonoBehaviour
 
     void LateUpdate()
     {
+        if (waypointText == null && RouteNavigator.Current != null && RouteNavigator.Current.Waypoint != null)
+        {
+            float width = Mathf.Clamp(compassWidth, 240, 640);
+            UpdateWaypoint(width, width / Mathf.Clamp(compassSpan, 45, 160));
+         }
+        if (voice == null) voice = FindFirstObjectByType<VoiceSessionClient>();
+        string nextAlert = voice != null ? voice.Alert : "";
+        if (nextAlert != statusAlert)
+        {
+            statusAlert = nextAlert;
+            Refresh(telemetry.Current);
+        }
         if (diagnosticUntil > 0 && Time.unscaledTime >= diagnosticUntil)
         {
-            subtitle.gameObject.SetActive(false);
+            // Restore the reply after the gesture message.
+            subtitle.text = assistantMessage;
+            subtitle.gameObject.SetActive(!string.IsNullOrWhiteSpace(assistantMessage));
             diagnosticUntil = 0;
         }
-        float pulse = Mathf.Sin(Time.unscaledTime * 1.4f);
-        orb.localScale = Vector3.one * (1 + pulse * 0.035f);
+        float pulse = Mathf.Sin(Time.unscaledTime * orbPulseSpeed);
+        orb.localScale = Vector3.one * (1 + pulse * orbPulseAmount);
         orb.anchoredPosition = new Vector2(0, 28 + pulse * 2);
     }
 
@@ -118,19 +138,67 @@ public class HelmetHUD : MonoBehaviour
         float width = Mathf.Clamp(compassWidth, 240, 640);
         float pixelsPerDegree = width / Mathf.Clamp(compassSpan, 45, 160);
         compassViewport.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, width);
-        // The 180-degree wrap happens outside the clipped ribbon, never at north.
+        // Wrap outside the visible ribbon so north scrolls smoothly.
         for (int i = 0; i < compassLabels.Length; i++)
             compassLabels[i].anchoredPosition = new Vector2(Mathf.DeltaAngle(Heading, i * 45) * pixelsPerDegree, 4);
         for (int i = 0; i < compassTicks.Length; i++)
             compassTicks[i].anchoredPosition = new Vector2(Mathf.DeltaAngle(Heading, i * 15) * pixelsPerDegree, -17);
+        UpdateWaypoint(width, pixelsPerDegree);
+    }
+
+    void UpdateWaypoint(float width, float pixelsPerDegree)
+    {
+        var nav = RouteNavigator.Current;
+        var target = nav != null ? nav.Waypoint : null;
+        if (target == null)
+        {
+            if (waypointText != null) waypointText.gameObject.SetActive(false);
+            return;
+        }
+        if (waypointText == null)
+        {
+            var rect = new GameObject("Compass Waypoint", typeof(RectTransform)).GetComponent<RectTransform>();
+            rect.gameObject.layer = gameObject.layer;
+            rect.SetParent(compassRoot, false);
+            rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(.5f, .5f);
+            rect.sizeDelta = new Vector2(150, 28);
+            waypointText = rect.gameObject.AddComponent<TextMeshProUGUI>();
+            waypointText.font = headingText.font;
+            waypointText.fontSharedMaterial = headingText.fontSharedMaterial;
+            waypointText.fontSize = 18;
+            waypointText.alignment = TextAlignmentOptions.Center;
+            waypointText.raycastTarget = false;
+            waypointText.color = Cyan;
+        }
+        waypointText.gameObject.SetActive(true);
+        var to = Vector3.ProjectOnPlane(target.transform.position - viewCamera.transform.position, Vector3.up);
+        float angle = to.sqrMagnitude > .0001f ? Vector3.SignedAngle(horizontalForward, to, Vector3.up) : 0;
+        float limit = width * .5f - 75;
+        float offset = angle * pixelsPerDegree;
+        waypointText.rectTransform.anchoredPosition = new Vector2(Mathf.Clamp(offset, -limit, limit), -46);
+        string targetName = string.IsNullOrWhiteSpace(target.displayName) ? target.code : target.displayName;
+        string label = offset < -limit ? $"< {targetName}" :
+            offset > limit ? $"{targetName} >" : $"| {targetName}";
+        if (waypointText.text != label) waypointText.text = label;
     }
 
     public void SetAssistant(string status, string message)
     {
         diagnosticUntil = 0;
+        assistantMessage = message ?? "";
         assistantStatus.text = status;
-        subtitle.text = message;
-        subtitle.gameObject.SetActive(!string.IsNullOrWhiteSpace(message));
+        subtitle.text = assistantMessage;
+        subtitle.gameObject.SetActive(!string.IsNullOrWhiteSpace(assistantMessage));
+    }
+
+    // Update the orb color and pulse for the voice state.
+    public void SetAssistantStyle(Color tint, float pulseSpeed = 1.4f, float pulseAmount = 0.035f)
+    {
+        if (orbGraphic == null) orbGraphic = orb.GetComponent<Graphic>();
+        if (orbGraphic != null) orbGraphic.color = tint;
+        assistantStatus.color = tint;
+        orbPulseSpeed = pulseSpeed;
+        orbPulseAmount = pulseAmount;
     }
 
     public void ReportPinch(string message)
@@ -142,6 +210,16 @@ public class HelmetHUD : MonoBehaviour
 
     void Refresh(SuitReadings value)
     {
+        if (!telemetry.HasData)
+        {
+            SetValue(oxygen, "<size=60%>O2</size>  --", SuitAlert.Warning);
+            warningRoot.gameObject.SetActive(true);
+            alert.text = "TELEMETRY UNAVAILABLE";
+            alert.color = statusLine.color = Amber;
+            ApplyStatusAlert();
+            return;
+        }
+        statusLine.color = Cyan;
         states[0] = Low(value.oxygenPercent, 30, 15);
         states[1] = Band(value.heartRate, 50, 110, 40, 140);
         states[2] = Band(value.pressureKpa, 28, 35, 25, 40);
@@ -155,11 +233,25 @@ public class HelmetHUD : MonoBehaviour
             if (states[i] > states[highest]) highest = i;
         var state = states[highest];
         warningRoot.gameObject.SetActive(state == SuitAlert.Critical);
-        if (state != SuitAlert.Critical) return;
+        if (state != SuitAlert.Critical)
+        {
+            ApplyStatusAlert();
+            return;
+        }
         string detail = highest == 3 ? $"  {value.batteryPercent:0}%" :
             highest == 4 ? $"  {value.radiationMicrosieverts:0.00} uSv/h" : "";
         alert.text = $"{state.ToString().ToUpperInvariant()} / {MetricNames[highest]}{detail}";
         alert.color = statusLine.color = ColorFor(state);
+        ApplyStatusAlert();
+    }
+
+    // Router alerts take precedence; clearing restores the current telemetry warning.
+    void ApplyStatusAlert()
+    {
+        if (string.IsNullOrWhiteSpace(statusAlert)) return;
+        warningRoot.gameObject.SetActive(true);
+        alert.text = statusAlert;
+        alert.color = statusLine.color = Red;
     }
 
     static void SetValue(TMP_Text text, string value, SuitAlert state)

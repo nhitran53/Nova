@@ -91,12 +91,15 @@ def test_report_override_does_not_change_dev_only_suggestion(tmp_path, monkeypat
     dev = probs_for([("call_navigation", 0.91, "NO_TOOL")])
     test = probs_for([("call_navigation", 0.99, "NO_TOOL")])
     monkeypatch.setattr(report_gate, "Router", FakeRouter)
-    monkeypatch.setattr(report_gate, "split_probs", lambda router, data_dir, split, labels:
+    monkeypatch.setattr(report_gate, "split_probs", lambda router, data_dir, split, labels, batch_size=4:
                         (*(dev if split == "dev" else test), ["example"]))
     report_gate.main(["--checkpoint", "/tmp/fake-v2", "--report-dir", str(tmp_path), "--tau-hi", "0.9"])
     import json
-    report = json.loads((tmp_path / "fake-v2_gate.json").read_text())
+    report = json.loads((tmp_path / "fake-v2_gate_dev_test.json").read_text())
     assert report["dev_chosen_tau_hi"] == 0.92  # not the test choice (none) or the override
     assert report["scored_tau_hi"] == 0.9
     assert report["test_at_chosen"]["action_hcw"] == 1
-    assert "Suggested tau_hi = 0.92 (dev only)" in capsys.readouterr().out
+    assert report["legacy_dev_selection"] is True
+    assert report["current_tau_hi"] == 0.9
+    assert report["offline_proposed_tau_hi"] == 0.92
+    assert "Suggested tau_hi = 0.92 (dev only; offline, no policy change)" in capsys.readouterr().out

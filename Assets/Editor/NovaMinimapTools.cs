@@ -16,8 +16,8 @@ public static class NovaMinimapTools
 {
     const string Menu = "Tools/Nova/Minimap/";
 
-    // The minimap lives on its own object, not on a camera: ExplorerRigs switches between the desktop
-    // and Quest rigs, and the minimap follows whichever camera is active (docking into the Helmet HUD on Quest).
+    // Keep the minimap on its own object so it can follow either active rig.
+    // On Quest it docks into the helmet HUD.
     [MenuItem(Menu + "Add Minimap To Scene")]
     static void AddMinimap()
     {

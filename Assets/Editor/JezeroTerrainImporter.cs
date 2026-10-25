@@ -10,6 +10,42 @@ public static class JezeroTerrainImporter
     const string Folder = "Assets/JezeroTerrain/Generated";
     const string PrefabPath = Folder + "/Jezero Terrain.prefab";
 
+    [MenuItem("Tools/Jezero/Update Georeference")]
+    public static void UpdateGeoreference()
+    {
+        var map = JsonUtility.FromJson<Map>(File.ReadAllText(Folder + "/terrain.json"));
+        ValidateFiles(map);
+        if (File.Exists(DetailFolder + "/terrain.json")) ReadHiRise(map);
+        var root = PrefabUtility.LoadPrefabContents(PrefabPath);
+        try
+        {
+            foreach (var tile in map.tiles)
+            {
+                var terrain = root.transform.Find($"Tile {tile.x}, {tile.z}");
+                var expected = new Vector3(tile.x * map.tileWidth, map.baseElevation, tile.z * map.tileLength);
+                if (terrain == null || terrain.localPosition != expected || terrain.localRotation != Quaternion.identity ||
+                    terrain.localScale != Vector3.one || terrain.GetComponent<Terrain>().terrainData.size !=
+                    new Vector3(map.tileWidth, map.heightRange, map.tileLength))
+                    throw new InvalidDataException("Terrain geometry does not match its georeferencing.");
+            }
+            ApplyGeoreference(root);
+            PrefabUtility.SaveAsPrefabAsset(root, PrefabPath);
+        }
+        finally { PrefabUtility.UnloadPrefabContents(root); }
+        Debug.Log("Jezero georeferencing updated. The scene placement was preserved.");
+    }
+
+    static void ApplyGeoreference(GameObject root)
+    {
+        string json = File.ReadAllText(Folder + "/terrain.json");
+        var metadata = JsonUtility.FromJson<JezeroGeoreference.Metadata>(json);
+        if (metadata == null || !metadata.Valid)
+            throw new InvalidDataException("Unsupported terrain coordinate metadata.");
+        var reference = root.GetComponent<JezeroGeoreference>();
+        if (reference == null) reference = root.AddComponent<JezeroGeoreference>();
+        reference.metadata = metadata;
+    }
+
     [Serializable]
     class Tile
     {
@@ -86,6 +122,7 @@ public static class JezeroTerrainImporter
         var terrains = new Terrain[map.columns, map.rows];
         try
         {
+            ApplyGeoreference(root);
             foreach (var tile in map.tiles)
             {
                 var heights = ReadHeights(tile, map.resolution);
@@ -292,7 +329,7 @@ public static class JezeroTerrainImporter
                     float h = reader.ReadUInt16() / 65535f;
                     float cx = map.ctxCellX + x / (map.resolution - 1f) * map.ctxCells;
                     float cz = map.ctxCellZ + z / (map.resolution - 1f) * map.ctxCells;
-                    // Match Unity's stored CTX heights in the collar, including its import quantization.
+                    // Match the stored CTX heights along the patch edge to avoid seams.
                     float sourceY = ctx.baseElevation + Sample(coarse, cx, cz) * ctx.heightRange;
                     float unityY = ctx.baseElevation + original.GetInterpolatedHeight(cx / 1024, cz / 1024);
                     heights[z, x] = h + (unityY - sourceY) * (1 - CollarWeight(x, z, map)) / map.heightRange;

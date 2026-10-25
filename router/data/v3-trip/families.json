@@ -1,0 +1,2223 @@
+[
+  {
+    "family_id": "call_navigation-01",
+    "procedure_family": "call_navigation-01",
+    "split": "train",
+    "label": "call_navigation",
+    "templates": [
+      "Is my air budget enough for {place}?",
+      "Would the oxygen supply cover reaching {place}?"
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_navigation-02",
+    "procedure_family": "call_navigation-02",
+    "split": "train",
+    "label": "call_navigation",
+    "templates": [
+      "Show the distance from here to {place}.",
+      "Measure the gap between me and {place}."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_navigation-03",
+    "procedure_family": "call_navigation-03",
+    "split": "train",
+    "label": "call_navigation",
+    "templates": [
+      "Guide me toward {place}.",
+      "I need directions to {place}."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_navigation-04",
+    "procedure_family": "call_navigation-04",
+    "split": "train",
+    "label": "call_navigation",
+    "templates": [
+      "Could I reach {place} and still return?",
+      "Assess a round trip to {place} on this oxygen."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_navigation-05",
+    "procedure_family": "call_navigation-05",
+    "split": "train",
+    "label": "call_navigation",
+    "templates": [
+      "Estimate the walk to {place}.",
+      "What distance would I walk to arrive at {place}?"
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_navigation-06",
+    "procedure_family": "call_navigation-06",
+    "split": "train",
+    "label": "call_navigation",
+    "templates": [
+      "I want a course to {place}.",
+      "Set up guidance for {place}."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_navigation-07",
+    "procedure_family": "call_navigation-07",
+    "split": "train",
+    "label": "call_navigation",
+    "templates": [
+      "Compare my remaining air with the journey to {place}.",
+      "Check my oxygen against a trip to {place}."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_navigation-08",
+    "procedure_family": "call_navigation-08",
+    "split": "train",
+    "label": "call_navigation",
+    "templates": [
+      "How many metres separate us from {place}?",
+      "Give the separation in metres for {place}."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_navigation-09",
+    "procedure_family": "call_navigation-09",
+    "split": "train",
+    "label": "call_navigation",
+    "templates": [
+      "Head me back toward {place}.",
+      "Help me find the way back to {place}."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_navigation-10",
+    "procedure_family": "call_navigation-10",
+    "split": "train",
+    "label": "call_navigation",
+    "templates": [
+      "Can we reach {place} before the tank runs out?",
+      "Will the air run out before we arrive at {place}?"
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_navigation-11",
+    "procedure_family": "call_navigation-11",
+    "split": "train",
+    "label": "call_navigation",
+    "templates": [
+      "Tell me the outbound distance for {place}.",
+      "Report the one-way distance to {place}."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_navigation-12",
+    "procedure_family": "call_navigation-12",
+    "split": "train",
+    "label": "call_navigation",
+    "templates": [
+      "Find a route ending at {place}.",
+      "The destination for guidance is {place}."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_navigation-13",
+    "procedure_family": "call_navigation-13",
+    "split": "dev",
+    "label": "call_navigation",
+    "templates": [
+      "Would a there-and-back walk to {place} fit my air reserve?",
+      "Allowing for return, is there air for {place}?"
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_navigation-14",
+    "procedure_family": "call_navigation-14",
+    "split": "dev",
+    "label": "call_navigation",
+    "templates": [
+      "How far would I have to walk to {place}?",
+      "What's the walking distance from this spot to {place}?"
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_navigation-15",
+    "procedure_family": "call_navigation-15",
+    "split": "dev",
+    "label": "call_navigation",
+    "templates": [
+      "Point the way toward {place}.",
+      "Direct my walk toward {place}."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_navigation-16",
+    "procedure_family": "call_navigation-16",
+    "split": "calibration",
+    "label": "call_navigation",
+    "templates": [
+      "With today's oxygen, is {place} within reach?",
+      "Assess whether the current tank permits reaching {place}."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_navigation-17",
+    "procedure_family": "call_navigation-17",
+    "split": "calibration",
+    "label": "call_navigation",
+    "templates": [
+      "What's the remaining stretch before {place}?",
+      "How much ground is left between here and {place}?"
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_navigation-18",
+    "procedure_family": "call_navigation-18",
+    "split": "calibration",
+    "label": "call_navigation",
+    "templates": [
+      "I need to get over to {place}; give directions.",
+      "Help with a course over to {place}."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_navigation-19",
+    "procedure_family": "call_navigation-19",
+    "split": "threshold",
+    "label": "call_navigation",
+    "templates": [
+      "Do I have the oxygen margin to visit {place}?",
+      "Evaluate the air margin for visiting {place}."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_navigation-20",
+    "procedure_family": "call_navigation-20",
+    "split": "threshold",
+    "label": "call_navigation",
+    "templates": [
+      "What's the length of a trip from here to {place}?",
+      "How long is the distance, not the time, to {place}?"
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_navigation-21",
+    "procedure_family": "call_navigation-21",
+    "split": "threshold",
+    "label": "call_navigation",
+    "templates": [
+      "Lead the way to {place} without starting any physical movement.",
+      "Display guidance ending at {place}."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_navigation-22",
+    "procedure_family": "call_navigation-22",
+    "split": "test",
+    "label": "call_navigation",
+    "templates": [
+      "Could my remaining oxygen get me out to {place}?",
+      "Assess reaching {place} using the air I have."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_navigation-23",
+    "procedure_family": "call_navigation-23",
+    "split": "test",
+    "label": "call_navigation",
+    "templates": [
+      "In metres, how far away is {place} from me?",
+      "What's the distance I'd cover getting to {place}?"
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_navigation-24",
+    "procedure_family": "call_navigation-24",
+    "split": "test",
+    "label": "call_navigation",
+    "templates": [
+      "Navigation destination: {place}.",
+      "Give a heading for the journey to {place}."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_safety-01",
+    "procedure_family": "call_safety-01",
+    "split": "train",
+    "label": "call_safety",
+    "templates": [
+      "Check my oxygen and suit pressure health.",
+      "Run the generic oxygen-pressure safety check."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_safety-02",
+    "procedure_family": "call_safety-02",
+    "split": "train",
+    "label": "call_safety",
+    "templates": [
+      "Are my suit's basic life-support readings okay?",
+      "Check the basic oxygen and pressure status."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_safety-03",
+    "procedure_family": "call_safety-03",
+    "split": "train",
+    "label": "call_safety",
+    "templates": [
+      "I need a general suit safety check.",
+      "Please assess my current suit health."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_safety-04",
+    "procedure_family": "call_safety-04",
+    "split": "train",
+    "label": "call_safety",
+    "templates": [
+      "Is the oxygen-pressure combination within the suit check limits?",
+      "Evaluate oxygen and pressure together."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_safety-05",
+    "procedure_family": "call_safety-05",
+    "split": "train",
+    "label": "call_safety",
+    "templates": [
+      "Report whether my basic suit check is go or no go.",
+      "What's the generic life-support check result?"
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_safety-06",
+    "procedure_family": "call_safety-06",
+    "split": "train",
+    "label": "call_safety",
+    "templates": [
+      "Check my suit health while I am at {place}.",
+      "At {place}, check current oxygen and pressure only."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_safety-07",
+    "procedure_family": "call_safety-07",
+    "split": "train",
+    "label": "call_safety",
+    "templates": [
+      "Ignore destinations; check my current suit safety.",
+      "No trip assessment, just a generic safety check."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_safety-08",
+    "procedure_family": "call_safety-08",
+    "split": "train",
+    "label": "call_safety",
+    "templates": [
+      "Does my present oxygen level and pressure pass the basic check?",
+      "Assess those two current life-support readings."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_safety-09",
+    "procedure_family": "call_safety-09",
+    "split": "train",
+    "label": "call_safety",
+    "templates": [
+      "Perform the limited suit safety assessment.",
+      "Run a basic life-support status assessment."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_safety-10",
+    "procedure_family": "call_safety-10",
+    "split": "train",
+    "label": "call_safety",
+    "templates": [
+      "Is my current suit pressure okay together with oxygen?",
+      "Check pressure alongside the oxygen percentage."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_safety-11",
+    "procedure_family": "call_safety-11",
+    "split": "train",
+    "label": "call_safety",
+    "templates": [
+      "I want the generic health status, not directions to {place}.",
+      "Do a suit health check, not a trip to {place}."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_safety-12",
+    "procedure_family": "call_safety-12",
+    "split": "train",
+    "label": "call_safety",
+    "templates": [
+      "Please do the oxygen-plus-pressure check now.",
+      "I'd like a combined oxygen and pressure assessment."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_safety-13",
+    "procedure_family": "call_safety-13",
+    "split": "dev",
+    "label": "call_safety",
+    "templates": [
+      "Assess my life-support condition in place.",
+      "Give the basic safety result without any journey."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_safety-14",
+    "procedure_family": "call_safety-14",
+    "split": "dev",
+    "label": "call_safety",
+    "templates": [
+      "I am standing at {place}; how is my suit health?",
+      "Check life support where I stand at {place}."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_safety-15",
+    "procedure_family": "call_safety-15",
+    "split": "dev",
+    "label": "call_safety",
+    "templates": [
+      "What does the generic suit safety test say?",
+      "Give the current basic go/no-go reading."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_safety-16",
+    "procedure_family": "call_safety-16",
+    "split": "calibration",
+    "label": "call_safety",
+    "templates": [
+      "Are oxygen and pressure jointly acceptable right now?",
+      "Use only the basic oxygen-pressure check."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_safety-17",
+    "procedure_family": "call_safety-17",
+    "split": "calibration",
+    "label": "call_safety",
+    "templates": [
+      "Can you check my current life-support health?",
+      "I need an assessment of present suit health."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_safety-18",
+    "procedure_family": "call_safety-18",
+    "split": "calibration",
+    "label": "call_safety",
+    "templates": [
+      "No travel clearance: just check oxygen and pressure.",
+      "Limit the check to current suit safety."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_safety-19",
+    "procedure_family": "call_safety-19",
+    "split": "threshold",
+    "label": "call_safety",
+    "templates": [
+      "Is the basic suit condition check passing?",
+      "Report the result of the limited life-support check."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_safety-20",
+    "procedure_family": "call_safety-20",
+    "split": "threshold",
+    "label": "call_safety",
+    "templates": [
+      "Evaluate the suit health readings here at {place}.",
+      "At {place}, assess the suit's basic condition."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_safety-21",
+    "procedure_family": "call_safety-21",
+    "split": "threshold",
+    "label": "call_safety",
+    "templates": [
+      "Run the general health check for my suit now.",
+      "Please return my generic suit status."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_safety-22",
+    "procedure_family": "call_safety-22",
+    "split": "test",
+    "label": "call_safety",
+    "templates": [
+      "Check whether oxygen and pressure pass together.",
+      "How does my oxygen-pressure safety status look?"
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_safety-23",
+    "procedure_family": "call_safety-23",
+    "split": "test",
+    "label": "call_safety",
+    "templates": [
+      "I need the limited safety status while stationary.",
+      "I'm not travelling; assess current suit health."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_safety-24",
+    "procedure_family": "call_safety-24",
+    "split": "test",
+    "label": "call_safety",
+    "templates": [
+      "For my suit, report the basic safety outcome.",
+      "Tell me if the generic health check passes."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_o2-01",
+    "procedure_family": "call_o2-01",
+    "split": "train",
+    "label": "call_o2",
+    "templates": [
+      "How much oxygen remains in my tank?",
+      "Report my remaining oxygen amount."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_o2-02",
+    "procedure_family": "call_o2-02",
+    "split": "train",
+    "label": "call_o2",
+    "templates": [
+      "How many minutes of air do I have left?",
+      "Give the current oxygen time remaining."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_o2-03",
+    "procedure_family": "call_o2-03",
+    "split": "train",
+    "label": "call_o2",
+    "templates": [
+      "Read my oxygen percentage.",
+      "What's my tank's oxygen percent?"
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_o2-04",
+    "procedure_family": "call_o2-04",
+    "split": "train",
+    "label": "call_o2",
+    "templates": [
+      "Show the air supply level.",
+      "Display the current oxygen quantity."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_o2-05",
+    "procedure_family": "call_o2-05",
+    "split": "train",
+    "label": "call_o2",
+    "templates": [
+      "Tell me my remaining breathable air.",
+      "I'd like an oxygen amount readout."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_o2-06",
+    "procedure_family": "call_o2-06",
+    "split": "train",
+    "label": "call_o2",
+    "templates": [
+      "At {place}, read my oxygen level.",
+      "I'm at {place}; how much air remains?"
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_o2-07",
+    "procedure_family": "call_o2-07",
+    "split": "train",
+    "label": "call_o2",
+    "templates": [
+      "Just the tank level, not a trip estimate.",
+      "Only report the oxygen supply quantity."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_o2-08",
+    "procedure_family": "call_o2-08",
+    "split": "train",
+    "label": "call_o2",
+    "templates": [
+      "What's the oxygen endurance reading?",
+      "Read out estimated oxygen time left."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_o2-09",
+    "procedure_family": "call_o2-09",
+    "split": "train",
+    "label": "call_o2",
+    "templates": [
+      "My current O2 percentage, please.",
+      "Report the O2 amount currently available."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_o2-10",
+    "procedure_family": "call_o2-10",
+    "split": "train",
+    "label": "call_o2",
+    "templates": [
+      "Is there much air left in the tank?",
+      "Tell me the amount of air still available."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_o2-11",
+    "procedure_family": "call_o2-11",
+    "split": "train",
+    "label": "call_o2",
+    "templates": [
+      "How long until my oxygen runs out at the current rate?",
+      "Estimate time left at current oxygen use."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_o2-12",
+    "procedure_family": "call_o2-12",
+    "split": "train",
+    "label": "call_o2",
+    "templates": [
+      "Read oxygen only; don't navigate to {place}.",
+      "No trip to {place}; just read the tank level."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_o2-13",
+    "procedure_family": "call_o2-13",
+    "split": "dev",
+    "label": "call_o2",
+    "templates": [
+      "Give the remaining air duration.",
+      "What's the estimated duration of the air supply?"
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_o2-14",
+    "procedure_family": "call_o2-14",
+    "split": "dev",
+    "label": "call_o2",
+    "templates": [
+      "How full is my oxygen tank now?",
+      "What fraction of oxygen is left?"
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_o2-15",
+    "procedure_family": "call_o2-15",
+    "split": "dev",
+    "label": "call_o2",
+    "templates": [
+      "Tell me the O2 readout while I'm at {place}.",
+      "Here at {place}, report my air quantity."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_o2-16",
+    "procedure_family": "call_o2-16",
+    "split": "calibration",
+    "label": "call_o2",
+    "templates": [
+      "What does the remaining-oxygen display say?",
+      "Read the current air supply display."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_o2-17",
+    "procedure_family": "call_o2-17",
+    "split": "calibration",
+    "label": "call_o2",
+    "templates": [
+      "How many oxygen minutes are showing?",
+      "What's the minutes-left oxygen reading?"
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_o2-18",
+    "procedure_family": "call_o2-18",
+    "split": "calibration",
+    "label": "call_o2",
+    "templates": [
+      "Report the tank supply, not route feasibility.",
+      "I only need current air quantity, no destination assessment."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_o2-19",
+    "procedure_family": "call_o2-19",
+    "split": "threshold",
+    "label": "call_o2",
+    "templates": [
+      "Give me my air-time estimate now.",
+      "How much breathing time does the tank show?"
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_o2-20",
+    "procedure_family": "call_o2-20",
+    "split": "threshold",
+    "label": "call_o2",
+    "templates": [
+      "Check the oxygen quantity at my present location.",
+      "Get my present oxygen supply reading."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_o2-21",
+    "procedure_family": "call_o2-21",
+    "split": "threshold",
+    "label": "call_o2",
+    "templates": [
+      "O2 left, in percent please.",
+      "Show oxygen remaining as a percentage."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_o2-22",
+    "procedure_family": "call_o2-22",
+    "split": "test",
+    "label": "call_o2",
+    "templates": [
+      "What's left of the tank's breathable supply?",
+      "Read the amount of breathable oxygen left."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_o2-23",
+    "procedure_family": "call_o2-23",
+    "split": "test",
+    "label": "call_o2",
+    "templates": [
+      "How much time is on the oxygen clock?",
+      "Return the oxygen time-left readout."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_o2-24",
+    "procedure_family": "call_o2-24",
+    "split": "test",
+    "label": "call_o2",
+    "templates": [
+      "I'm staying at {place}; give my tank percentage.",
+      "No travel from {place}, just an oxygen percentage."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_map-01",
+    "procedure_family": "call_map-01",
+    "split": "train",
+    "label": "call_map",
+    "templates": [
+      "Open the map of {place}.",
+      "Display {place} on a map."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_map-02",
+    "procedure_family": "call_map-02",
+    "split": "train",
+    "label": "call_map",
+    "templates": [
+      "Show a map centred on {place}.",
+      "Bring up the mapped area around {place}."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_map-03",
+    "procedure_family": "call_map-03",
+    "split": "train",
+    "label": "call_map",
+    "templates": [
+      "Put a marker for {place} on the map.",
+      "Mark {place} in the map view."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_map-04",
+    "procedure_family": "call_map-04",
+    "split": "train",
+    "label": "call_map",
+    "templates": [
+      "I want the map for {place}.",
+      "Let me see {place} in map form."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_map-05",
+    "procedure_family": "call_map-05",
+    "split": "train",
+    "label": "call_map",
+    "templates": [
+      "Locate {place} on the map display.",
+      "Highlight {place} on the map."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_map-06",
+    "procedure_family": "call_map-06",
+    "split": "train",
+    "label": "call_map",
+    "templates": [
+      "Zoom the map to {place}.",
+      "Focus the map view on {place}."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_map-07",
+    "procedure_family": "call_map-07",
+    "split": "train",
+    "label": "call_map",
+    "templates": [
+      "Show where {place} sits on a map.",
+      "Use a map to show {place}."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_map-08",
+    "procedure_family": "call_map-08",
+    "split": "train",
+    "label": "call_map",
+    "templates": [
+      "Map view of {place}, please.",
+      "Give me a map panel for {place}."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_map-09",
+    "procedure_family": "call_map-09",
+    "split": "train",
+    "label": "call_map",
+    "templates": [
+      "Pull up {place}'s map.",
+      "Fetch the map display for {place}."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_map-10",
+    "procedure_family": "call_map-10",
+    "split": "train",
+    "label": "call_map",
+    "templates": [
+      "Pin {place} on my map.",
+      "Place a map pin at {place}."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_map-11",
+    "procedure_family": "call_map-11",
+    "split": "train",
+    "label": "call_map",
+    "templates": [
+      "Display a chart of the area at {place}.",
+      "Show the map area containing {place}."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_map-12",
+    "procedure_family": "call_map-12",
+    "split": "train",
+    "label": "call_map",
+    "templates": [
+      "I need a map, not guidance to {place}.",
+      "No directions; display the map for {place}."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_map-13",
+    "procedure_family": "call_map-13",
+    "split": "dev",
+    "label": "call_map",
+    "templates": [
+      "Centre my map display at {place}.",
+      "Make {place} the map centre."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_map-14",
+    "procedure_family": "call_map-14",
+    "split": "dev",
+    "label": "call_map",
+    "templates": [
+      "Bring {place} into the map window.",
+      "Show the map window with {place}."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_map-15",
+    "procedure_family": "call_map-15",
+    "split": "dev",
+    "label": "call_map",
+    "templates": [
+      "I'd like to inspect {place} on a map.",
+      "Let me examine the map of {place}."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_map-16",
+    "procedure_family": "call_map-16",
+    "split": "calibration",
+    "label": "call_map",
+    "templates": [
+      "Can the map display {place}?",
+      "Put {place} in the map display."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_map-17",
+    "procedure_family": "call_map-17",
+    "split": "calibration",
+    "label": "call_map",
+    "templates": [
+      "Switch to the map around {place}.",
+      "Give the surrounding map for {place}."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_map-18",
+    "procedure_family": "call_map-18",
+    "split": "calibration",
+    "label": "call_map",
+    "templates": [
+      "Map the location of {place} for me.",
+      "Identify {place} in a map view."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_map-19",
+    "procedure_family": "call_map-19",
+    "split": "threshold",
+    "label": "call_map",
+    "templates": [
+      "Get the map screen showing {place}.",
+      "Show {place} in the map screen."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_map-20",
+    "procedure_family": "call_map-20",
+    "split": "threshold",
+    "label": "call_map",
+    "templates": [
+      "I only want a map image of {place}.",
+      "Just display {place}'s map, no route."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_map-21",
+    "procedure_family": "call_map-21",
+    "split": "threshold",
+    "label": "call_map",
+    "templates": [
+      "Unfold the map for {place}.",
+      "Present the map at {place}."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_map-22",
+    "procedure_family": "call_map-22",
+    "split": "test",
+    "label": "call_map",
+    "templates": [
+      "Where is {place} on this map?",
+      "Point out {place} in the map panel."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_map-23",
+    "procedure_family": "call_map-23",
+    "split": "test",
+    "label": "call_map",
+    "templates": [
+      "Show a cartographic view of {place}.",
+      "Render a map view containing {place}."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_map-24",
+    "procedure_family": "call_map-24",
+    "split": "test",
+    "label": "call_map",
+    "templates": [
+      "Find {place} in the map interface.",
+      "Open the map interface at {place}."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_data-01",
+    "procedure_family": "call_data-01",
+    "split": "train",
+    "label": "call_data",
+    "templates": [
+      "Read the {sensor} value.",
+      "Report my current {sensor}."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_data-02",
+    "procedure_family": "call_data-02",
+    "split": "train",
+    "label": "call_data",
+    "templates": [
+      "Show the latest {sensor} measurement.",
+      "What's the newest {sensor} reading?"
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_data-03",
+    "procedure_family": "call_data-03",
+    "split": "train",
+    "label": "call_data",
+    "templates": [
+      "Give me telemetry for {sensor}.",
+      "Fetch the {sensor} telemetry."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_data-04",
+    "procedure_family": "call_data-04",
+    "split": "train",
+    "label": "call_data",
+    "templates": [
+      "What does my {sensor} sensor say?",
+      "Read out the {sensor} sensor."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_data-05",
+    "procedure_family": "call_data-05",
+    "split": "train",
+    "label": "call_data",
+    "templates": [
+      "Display {sensor} on screen.",
+      "Show me the {sensor} readout."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_data-06",
+    "procedure_family": "call_data-06",
+    "split": "train",
+    "label": "call_data",
+    "templates": [
+      "Check the {sensor} reading at {place}.",
+      "At {place}, report {sensor}."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_data-07",
+    "procedure_family": "call_data-07",
+    "split": "train",
+    "label": "call_data",
+    "templates": [
+      "I need the measured {sensor}, not an explanation.",
+      "Just return the live {sensor} reading."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_data-08",
+    "procedure_family": "call_data-08",
+    "split": "train",
+    "label": "call_data",
+    "templates": [
+      "Bring up my {sensor} data.",
+      "Retrieve the present {sensor} data."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_data-09",
+    "procedure_family": "call_data-09",
+    "split": "train",
+    "label": "call_data",
+    "templates": [
+      "How is the {sensor} gauge reading?",
+      "What is on the {sensor} gauge?"
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_data-10",
+    "procedure_family": "call_data-10",
+    "split": "train",
+    "label": "call_data",
+    "templates": [
+      "Give the numeric {sensor} readout.",
+      "Tell me the measured value of {sensor}."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_data-11",
+    "procedure_family": "call_data-11",
+    "split": "train",
+    "label": "call_data",
+    "templates": [
+      "What's my {sensor} at right now?",
+      "Read current {sensor}, please."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_data-12",
+    "procedure_family": "call_data-12",
+    "split": "train",
+    "label": "call_data",
+    "templates": [
+      "Look up my live {sensor} value.",
+      "Fetch the live value for {sensor}."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_data-13",
+    "procedure_family": "call_data-13",
+    "split": "dev",
+    "label": "call_data",
+    "templates": [
+      "Return the present {sensor} measurement.",
+      "What is the present measured {sensor}?"
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_data-14",
+    "procedure_family": "call_data-14",
+    "split": "dev",
+    "label": "call_data",
+    "templates": [
+      "I want the sensor report for {sensor}.",
+      "Get the sensor reading for {sensor}."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_data-15",
+    "procedure_family": "call_data-15",
+    "split": "dev",
+    "label": "call_data",
+    "templates": [
+      "Report {sensor} while I stand at {place}.",
+      "I'm at {place}; read {sensor}."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_data-16",
+    "procedure_family": "call_data-16",
+    "split": "calibration",
+    "label": "call_data",
+    "templates": [
+      "Pull the current {sensor} telemetry value.",
+      "Retrieve the latest value for {sensor}."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_data-17",
+    "procedure_family": "call_data-17",
+    "split": "calibration",
+    "label": "call_data",
+    "templates": [
+      "Let me see the {sensor} measurement.",
+      "Display the measured {sensor} value."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_data-18",
+    "procedure_family": "call_data-18",
+    "split": "calibration",
+    "label": "call_data",
+    "templates": [
+      "Read the gauge labelled {sensor}.",
+      "Get a readout from the {sensor} gauge."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_data-19",
+    "procedure_family": "call_data-19",
+    "split": "threshold",
+    "label": "call_data",
+    "templates": [
+      "Current telemetry request: {sensor}.",
+      "Telemetry value for {sensor}, please."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_data-20",
+    "procedure_family": "call_data-20",
+    "split": "threshold",
+    "label": "call_data",
+    "templates": [
+      "Only the measured {sensor} please.",
+      "No advice; report {sensor}."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_data-21",
+    "procedure_family": "call_data-21",
+    "split": "threshold",
+    "label": "call_data",
+    "templates": [
+      "Tell me what {sensor} is registering.",
+      "What is the {sensor} sensor registering now?"
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_data-22",
+    "procedure_family": "call_data-22",
+    "split": "test",
+    "label": "call_data",
+    "templates": [
+      "I need my up-to-date {sensor} value.",
+      "Return the latest measured {sensor}."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_data-23",
+    "procedure_family": "call_data-23",
+    "split": "test",
+    "label": "call_data",
+    "templates": [
+      "Bring the {sensor} gauge onto the display.",
+      "Show the current gauge value for {sensor}."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_data-24",
+    "procedure_family": "call_data-24",
+    "split": "test",
+    "label": "call_data",
+    "templates": [
+      "What's the live measurement of {sensor}?",
+      "Read {sensor} from current telemetry."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_llm-01",
+    "procedure_family": "call_llm-01",
+    "split": "train",
+    "label": "call_llm",
+    "templates": [
+      "Explain why {topic} happens.",
+      "What causes {topic}?"
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_llm-02",
+    "procedure_family": "call_llm-02",
+    "split": "train",
+    "label": "call_llm",
+    "templates": [
+      "Describe the science behind {topic}.",
+      "How does {topic} work in general?"
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_llm-03",
+    "procedure_family": "call_llm-03",
+    "split": "train",
+    "label": "call_llm",
+    "templates": [
+      "Teach me the basics of {topic}.",
+      "Give an introduction to {topic}."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_llm-04",
+    "procedure_family": "call_llm-04",
+    "split": "train",
+    "label": "call_llm",
+    "templates": [
+      "Why do scientists study {topic}?",
+      "What's scientifically interesting about {topic}?"
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_llm-05",
+    "procedure_family": "call_llm-05",
+    "split": "train",
+    "label": "call_llm",
+    "templates": [
+      "What does {topic} mean?",
+      "Define {topic} for me."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_llm-06",
+    "procedure_family": "call_llm-06",
+    "split": "train",
+    "label": "call_llm",
+    "templates": [
+      "Give a simple analogy for {topic}.",
+      "Explain {topic} using an analogy."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_llm-07",
+    "procedure_family": "call_llm-07",
+    "split": "train",
+    "label": "call_llm",
+    "templates": [
+      "Tell me a general fact about {topic}.",
+      "Share background knowledge about {topic}."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_llm-08",
+    "procedure_family": "call_llm-08",
+    "split": "train",
+    "label": "call_llm",
+    "templates": [
+      "I'm at {place}; explain {topic}, not telemetry.",
+      "From {place}, I'd like a general explanation of {topic}."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_llm-09",
+    "procedure_family": "call_llm-09",
+    "split": "train",
+    "label": "call_llm",
+    "templates": [
+      "How was {topic} discovered?",
+      "Describe the history of research into {topic}."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_llm-10",
+    "procedure_family": "call_llm-10",
+    "split": "train",
+    "label": "call_llm",
+    "templates": [
+      "What is the difference between a map and navigation?",
+      "Explain map display versus route guidance conceptually."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_llm-11",
+    "procedure_family": "call_llm-11",
+    "split": "train",
+    "label": "call_llm",
+    "templates": [
+      "Explain what a trip oxygen budget means, without assessing mine.",
+      "Define destination feasibility, not a live trip check."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_llm-12",
+    "procedure_family": "call_llm-12",
+    "split": "train",
+    "label": "call_llm",
+    "templates": [
+      "Why is the Sun much farther away than the Moon?",
+      "Explain the astronomical distance difference between Sun and Moon."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_llm-13",
+    "procedure_family": "call_llm-13",
+    "split": "dev",
+    "label": "call_llm",
+    "templates": [
+      "Could you summarize the idea of {topic}?",
+      "Give a conceptual summary of {topic}."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_llm-14",
+    "procedure_family": "call_llm-14",
+    "split": "dev",
+    "label": "call_llm",
+    "templates": [
+      "What are common misconceptions about {topic}?",
+      "Explain a misconception concerning {topic}."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_llm-15",
+    "procedure_family": "call_llm-15",
+    "split": "dev",
+    "label": "call_llm",
+    "templates": [
+      "Explain {topic} without giving me operational advice.",
+      "I want background science on {topic}, not instructions."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_llm-16",
+    "procedure_family": "call_llm-16",
+    "split": "calibration",
+    "label": "call_llm",
+    "templates": [
+      "Why does Mars have a dusty sky?",
+      "What gives the Martian sky its colour?"
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_llm-17",
+    "procedure_family": "call_llm-17",
+    "split": "calibration",
+    "label": "call_llm",
+    "templates": [
+      "How far away is the nearest star?",
+      "Explain the distance to the closest star."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_llm-18",
+    "procedure_family": "call_llm-18",
+    "split": "calibration",
+    "label": "call_llm",
+    "templates": [
+      "What does oxygen reserve mean in general?",
+      "Define oxygen reserve without checking my supply."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_llm-19",
+    "procedure_family": "call_llm-19",
+    "split": "threshold",
+    "label": "call_llm",
+    "templates": [
+      "What questions do researchers ask about {topic}?",
+      "Describe a research question about {topic}."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_llm-20",
+    "procedure_family": "call_llm-20",
+    "split": "threshold",
+    "label": "call_llm",
+    "templates": [
+      "Explain the purpose of a map legend.",
+      "What does a map key mean?"
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_llm-21",
+    "procedure_family": "call_llm-21",
+    "split": "threshold",
+    "label": "call_llm",
+    "templates": [
+      "What is the scientific story behind {topic}?",
+      "Give the background theory of {topic}."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "call_llm-22",
+    "procedure_family": "call_llm-22",
+    "split": "test",
+    "label": "call_llm",
+    "templates": [
+      "Is the unstable ground at {place} guaranteed safe to cross?",
+      "Certify that the terrain at {place} cannot collapse."
+    ],
+    "response_mode": "unsupported_hazard"
+  },
+  {
+    "family_id": "call_llm-23",
+    "procedure_family": "call_llm-23",
+    "split": "test",
+    "label": "call_llm",
+    "templates": [
+      "Can you guarantee no rockfall at {place}?",
+      "Assure me the rocks at {place} won't fall on me."
+    ],
+    "response_mode": "unsupported_hazard"
+  },
+  {
+    "family_id": "call_llm-24",
+    "procedure_family": "call_llm-24",
+    "split": "test",
+    "label": "call_llm",
+    "templates": [
+      "Declare the dust storm at {place} safe to walk through.",
+      "Promise the storm near {place} is harmless."
+    ],
+    "response_mode": "unsupported_hazard"
+  },
+  {
+    "family_id": "NO_TOOL-01",
+    "procedure_family": "NO_TOOL-01",
+    "split": "train",
+    "label": "NO_TOOL",
+    "templates": [
+      "Hello there, Nova.",
+      "Hey Nova, nice to see you."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "NO_TOOL-02",
+    "procedure_family": "NO_TOOL-02",
+    "split": "train",
+    "label": "NO_TOOL",
+    "templates": [
+      "Thank you for the help just now.",
+      "Thanks, that was useful."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "NO_TOOL-03",
+    "procedure_family": "NO_TOOL-03",
+    "split": "train",
+    "label": "NO_TOOL",
+    "templates": [
+      "I understand your last response.",
+      "Got it, I understand now."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "NO_TOOL-04",
+    "procedure_family": "NO_TOOL-04",
+    "split": "train",
+    "label": "NO_TOOL",
+    "templates": [
+      "Don't navigate to {place}.",
+      "Cancel navigation to {place}."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "NO_TOOL-05",
+    "procedure_family": "NO_TOOL-05",
+    "split": "train",
+    "label": "NO_TOOL",
+    "templates": [
+      "Do not open a map of {place}.",
+      "Cancel the map request for {place}."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "NO_TOOL-06",
+    "procedure_family": "NO_TOOL-06",
+    "split": "train",
+    "label": "NO_TOOL",
+    "templates": [
+      "I am not asking for directions to {place}.",
+      "No directions to {place}, thanks."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "NO_TOOL-07",
+    "procedure_family": "NO_TOOL-07",
+    "split": "train",
+    "label": "NO_TOOL",
+    "templates": [
+      "Nice talking with you.",
+      "It's good to chat with you."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "NO_TOOL-08",
+    "procedure_family": "NO_TOOL-08",
+    "split": "train",
+    "label": "NO_TOOL",
+    "templates": [
+      "You can call me Alex.",
+      "My name is Alex."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "NO_TOOL-09",
+    "procedure_family": "NO_TOOL-09",
+    "split": "train",
+    "label": "NO_TOOL",
+    "templates": [
+      "Who are you, Nova?",
+      "Introduce yourself, Nova."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "NO_TOOL-10",
+    "procedure_family": "NO_TOOL-10",
+    "split": "train",
+    "label": "NO_TOOL",
+    "templates": [
+      "That answer was clear.",
+      "Your explanation made sense."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "NO_TOOL-11",
+    "procedure_family": "NO_TOOL-11",
+    "split": "train",
+    "label": "NO_TOOL",
+    "templates": [
+      "I'm taking a quiet break at {place}.",
+      "Just resting here at {place}."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "NO_TOOL-12",
+    "procedure_family": "NO_TOOL-12",
+    "split": "train",
+    "label": "NO_TOOL",
+    "templates": [
+      "Never start guidance to {place}.",
+      "No navigation for {place}."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "NO_TOOL-13",
+    "procedure_family": "NO_TOOL-13",
+    "split": "dev",
+    "label": "NO_TOOL",
+    "templates": [
+      "Good to have you here.",
+      "Glad you're with me."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "NO_TOOL-14",
+    "procedure_family": "NO_TOOL-14",
+    "split": "dev",
+    "label": "NO_TOOL",
+    "templates": [
+      "I appreciate your explanation.",
+      "Thanks for explaining that."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "NO_TOOL-15",
+    "procedure_family": "NO_TOOL-15",
+    "split": "dev",
+    "label": "NO_TOOL",
+    "templates": [
+      "I have nothing to ask right now.",
+      "No request from me at the moment."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "NO_TOOL-16",
+    "procedure_family": "NO_TOOL-16",
+    "split": "calibration",
+    "label": "NO_TOOL",
+    "templates": [
+      "Stop the directions for {place}.",
+      "Cancel my route to {place}."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "NO_TOOL-17",
+    "procedure_family": "NO_TOOL-17",
+    "split": "calibration",
+    "label": "NO_TOOL",
+    "templates": [
+      "Do not assess a trip to {place}.",
+      "I'm cancelling the trip assessment for {place}."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "NO_TOOL-18",
+    "procedure_family": "NO_TOOL-18",
+    "split": "calibration",
+    "label": "NO_TOOL",
+    "templates": [
+      "I'm just saying hello from {place}.",
+      "Greetings from {place}, Nova."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "NO_TOOL-19",
+    "procedure_family": "NO_TOOL-19",
+    "split": "threshold",
+    "label": "NO_TOOL",
+    "templates": [
+      "Okay, that is all for now.",
+      "Understood, nothing else."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "NO_TOOL-20",
+    "procedure_family": "NO_TOOL-20",
+    "split": "threshold",
+    "label": "NO_TOOL",
+    "templates": [
+      "Please don't route me home.",
+      "Cancel the homeward navigation request."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "NO_TOOL-21",
+    "procedure_family": "NO_TOOL-21",
+    "split": "threshold",
+    "label": "NO_TOOL",
+    "templates": [
+      "I liked that answer.",
+      "That was nicely explained."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "NO_TOOL-22",
+    "procedure_family": "NO_TOOL-22",
+    "split": "test",
+    "label": "NO_TOOL",
+    "templates": [
+      "Nova, I'm happy to meet you.",
+      "Pleased to meet you, Nova."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "NO_TOOL-23",
+    "procedure_family": "NO_TOOL-23",
+    "split": "test",
+    "label": "NO_TOOL",
+    "templates": [
+      "No map and no guidance to {place}.",
+      "Don't map or navigate to {place}."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "NO_TOOL-24",
+    "procedure_family": "NO_TOOL-24",
+    "split": "test",
+    "label": "NO_TOOL",
+    "templates": [
+      "That's enough, thank you.",
+      "I'm done asking, thanks."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "OOD-01",
+    "procedure_family": "OOD-01",
+    "split": "train",
+    "label": "OOD",
+    "templates": [
+      "Order a pizza to my Earth apartment.",
+      "Buy a takeaway pizza for my apartment."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "OOD-02",
+    "procedure_family": "OOD-02",
+    "split": "train",
+    "label": "OOD",
+    "templates": [
+      "Predict tomorrow's football score.",
+      "Who will win tomorrow's soccer match?"
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "OOD-03",
+    "procedure_family": "OOD-03",
+    "split": "train",
+    "label": "OOD",
+    "templates": [
+      "Book a hotel room in Paris.",
+      "Reserve a Paris hotel for me."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "OOD-04",
+    "procedure_family": "OOD-04",
+    "split": "train",
+    "label": "OOD",
+    "templates": [
+      "Buy shares in an airline.",
+      "Place a stock trade for airline shares."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "OOD-05",
+    "procedure_family": "OOD-05",
+    "split": "train",
+    "label": "OOD",
+    "templates": [
+      "Write my tax return.",
+      "File my income taxes for me."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "OOD-06",
+    "procedure_family": "OOD-06",
+    "split": "train",
+    "label": "OOD",
+    "templates": [
+      "Find a supermarket coupon.",
+      "Get me grocery discount vouchers."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "OOD-07",
+    "procedure_family": "OOD-07",
+    "split": "train",
+    "label": "OOD",
+    "templates": [
+      "Play my favourite pop album.",
+      "Stream a pop music album for me."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "OOD-08",
+    "procedure_family": "OOD-08",
+    "split": "train",
+    "label": "OOD",
+    "templates": [
+      "What's the weather at my home in Boston?",
+      "Forecast rain at my Boston home."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "OOD-09",
+    "procedure_family": "OOD-09",
+    "split": "train",
+    "label": "OOD",
+    "templates": [
+      "Send an email to my bank manager.",
+      "Contact my bank about a loan."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "OOD-10",
+    "procedure_family": "OOD-10",
+    "split": "train",
+    "label": "OOD",
+    "templates": [
+      "Schedule a dentist appointment.",
+      "Book my dental checkup."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "OOD-11",
+    "procedure_family": "OOD-11",
+    "split": "train",
+    "label": "OOD",
+    "templates": [
+      "Can I make it as a professional singer?",
+      "Will my singing career succeed?"
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "OOD-12",
+    "procedure_family": "OOD-12",
+    "split": "train",
+    "label": "OOD",
+    "templates": [
+      "My baseball team calls second base home; predict their game.",
+      "Who will win the baseball game at second base?"
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "OOD-13",
+    "procedure_family": "OOD-13",
+    "split": "dev",
+    "label": "OOD",
+    "templates": [
+      "Purchase a cinema ticket for tonight.",
+      "Buy a movie ticket this evening."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "OOD-14",
+    "procedure_family": "OOD-14",
+    "split": "dev",
+    "label": "OOD",
+    "templates": [
+      "Arrange a taxi in London.",
+      "Call a London cab for me."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "OOD-15",
+    "procedure_family": "OOD-15",
+    "split": "dev",
+    "label": "OOD",
+    "templates": [
+      "Recommend a wedding caterer.",
+      "Find catering for my wedding."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "OOD-16",
+    "procedure_family": "OOD-16",
+    "split": "calibration",
+    "label": "OOD",
+    "templates": [
+      "Track a parcel sent to my house.",
+      "Locate my shopping delivery."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "OOD-17",
+    "procedure_family": "OOD-17",
+    "split": "calibration",
+    "label": "OOD",
+    "templates": [
+      "Make a restaurant reservation for Friday.",
+      "Book a dinner table this Friday."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "OOD-18",
+    "procedure_family": "OOD-18",
+    "split": "calibration",
+    "label": "OOD",
+    "templates": [
+      "Change my mobile phone subscription.",
+      "Switch my phone service plan."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "OOD-19",
+    "procedure_family": "OOD-19",
+    "split": "threshold",
+    "label": "OOD",
+    "templates": [
+      "Tell me the lottery numbers that will win.",
+      "Predict the winning lottery draw."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "OOD-20",
+    "procedure_family": "OOD-20",
+    "split": "threshold",
+    "label": "OOD",
+    "templates": [
+      "Transfer money between my bank accounts.",
+      "Move funds into my savings account."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "OOD-21",
+    "procedure_family": "OOD-21",
+    "split": "threshold",
+    "label": "OOD",
+    "templates": [
+      "Hire a plumber for my kitchen.",
+      "Find someone to fix my kitchen sink."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "OOD-22",
+    "procedure_family": "OOD-22",
+    "split": "test",
+    "label": "OOD",
+    "templates": [
+      "Bid on an auction for antique furniture.",
+      "Buy an antique chair at auction."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "OOD-23",
+    "procedure_family": "OOD-23",
+    "split": "test",
+    "label": "OOD",
+    "templates": [
+      "Renew my car insurance policy.",
+      "Arrange vehicle insurance renewal."
+    ],
+    "response_mode": null
+  },
+  {
+    "family_id": "OOD-24",
+    "procedure_family": "OOD-24",
+    "split": "test",
+    "label": "OOD",
+    "templates": [
+      "Register me for a city marathon.",
+      "Sign me up for the urban running race."
+    ],
+    "response_mode": null
+  },
+  {
+    "split": "train",
+    "family_id": "nav-missing",
+    "procedure_family": "nav-missing",
+    "label": "call_navigation",
+    "response_mode": "assessment",
+    "templates": [
+      "Can I reach the destination on this air?",
+      "Assess whether I can get there on my oxygen."
+    ],
+    "destination": null,
+    "destination_status": "missing"
+  },
+  {
+    "split": "dev",
+    "family_id": "nav-truncated",
+    "procedure_family": "nav-truncated",
+    "label": "call_navigation",
+    "response_mode": "guidance",
+    "templates": [
+      "Navigate me to",
+      "Directions to the"
+    ],
+    "destination": null,
+    "destination_status": "malformed"
+  },
+  {
+    "split": "calibration",
+    "family_id": "nav-unknown",
+    "procedure_family": "nav-unknown",
+    "label": "call_navigation",
+    "response_mode": "assessment",
+    "templates": [
+      "Would oxygen cover a trip to Zeta shelter?",
+      "Is there air to reach the nonexistent violet station?"
+    ],
+    "destination": null,
+    "destination_status": "unknown"
+  },
+  {
+    "split": "threshold",
+    "family_id": "nav-absent",
+    "procedure_family": "nav-absent",
+    "label": "call_navigation",
+    "response_mode": "distance",
+    "templates": [
+      "How far is the place I want to go?",
+      "Measure the distance to my destination."
+    ],
+    "destination": null,
+    "destination_status": "missing"
+  },
+  {
+    "split": "test",
+    "family_id": "nav-broken",
+    "procedure_family": "nav-broken",
+    "label": "call_navigation",
+    "response_mode": "assessment",
+    "templates": [
+      "Can my air get me to base ??",
+      "Check the oxygen budget for base / /"
+    ],
+    "destination": null,
+    "destination_status": "malformed"
+  },
+  {
+    "split": "train",
+    "family_id": "hazard-terrain",
+    "procedure_family": "hazard-terrain",
+    "label": "call_llm",
+    "response_mode": "unsupported_hazard",
+    "templates": [
+      "Guarantee the ground at {place} will not give way.",
+      "Declare the loose terrain near {place} safe to cross."
+    ]
+  },
+  {
+    "split": "dev",
+    "family_id": "hazard-ice",
+    "procedure_family": "hazard-ice",
+    "label": "call_llm",
+    "response_mode": "unsupported_hazard",
+    "templates": [
+      "Can you certify the thin ice at {place} is safe?",
+      "Promise the ice near {place} will hold my weight."
+    ]
+  },
+  {
+    "split": "calibration",
+    "family_id": "hazard-slope",
+    "procedure_family": "hazard-slope",
+    "label": "call_llm",
+    "response_mode": "unsupported_hazard",
+    "templates": [
+      "Assure me the slope at {place} cannot slide.",
+      "Guarantee the hillside near {place} will stay stable."
+    ]
+  },
+  {
+    "split": "threshold",
+    "family_id": "hazard-radiation",
+    "procedure_family": "hazard-radiation",
+    "label": "call_llm",
+    "response_mode": "unsupported_hazard",
+    "templates": [
+      "Certify that radiation at {place} is harmless.",
+      "Guarantee no radiation danger at {place}."
+    ]
+  }
+]

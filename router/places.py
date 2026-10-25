@@ -1,25 +1,7 @@
-"""Deterministic place resolver: free text -> canonical place id from the gazetteer (places.json).
+"""Match place names against places.json.
 
-    resolve_place("take me to home")        -> {"place_id": "homebase", "matched_text": "home", "score": 1.0}
-    resolve_place("directions to homebse")  -> {"place_id": "homebase", "matched_text": "homebse", "score": 0.93...}
-    resolve_place("what time is it")        -> None
-
-Method: normalise (lowercase, strip punctuation), slide 1..N word windows over the utterance (N = longest alias
-in words + 1), compare each window with every alias on a space-free form with difflib.SequenceMatcher (so
-"home base" == "homebase"), keep the best score >= threshold. Windows containing a stopword ("to", "the",
-"my", "back", ...) are skipped, so function words never match. A non-exact match must also share its first
-letter with the alias (stops "over" -> "rover", "bridge" -> "ridge"). Ties on score go to the longer window,
-then the earlier position, then the alphabetically first place id, so results are deterministic.
-
-`resolve_destination(text)` is what the pipeline uses for navigation/map: first split the text into
-role-bearing spans at destination cues (to/toward/back to), origin cues (from), negation, and new navigation
-commands. Then fuzzy-match each span separately, excluding origins and negated places.
-One distinct candidate place -> resolved; several -> status "ambiguous" (the pipeline asks a slot question; it never
-picks by position); none -> status "none". `resolve_place` (best single match, no roles) is kept for simple lookups.
-
-    resolve_destination("go from the rover to the airlock")  -> resolved airlock (rover excluded as origin)
-    resolve_destination("take me to the rover not home")     -> resolved rover (home excluded as negated)
-    resolve_destination("go to the rover or the airlock")    -> ambiguous: rover, airlock
+Check destination spans and aliases before fuzzy matching.
+Keep ambiguous or missing destinations unresolved.
 """
 import json
 import re
@@ -62,6 +44,13 @@ def _default_gazetteer():
     return load_gazetteer()
 
 
+NUMBER_WORDS = frozenset("one two three four five six seven eight nine ten".split())
+
+
+def _is_number(token):
+    return token.isdigit() or token in NUMBER_WORDS
+
+
 def _score(window, alias):
     """Similarity of two space-free strings; 0 if a fuzzy match changes the first letter."""
     a, b = window.replace(" ", ""), alias.replace(" ", "")
@@ -69,13 +58,27 @@ def _score(window, alias):
     return ratio if ratio == 1.0 or a[0] == b[0] else 0.0
 
 
+def _alias_score(words, following, alias):
+    """_score of the window `words` (list of tokens) against `alias`, 0 when a number in the window or the next token
+    `following` (None at the end) is not part of the alias (numbered-suffix guard, see module docstring)."""
+    numbers = {t for t in [*words, following] if t is not None and _is_number(t)}
+    numbers |= set(re.findall(r"[0-9]+", " ".join(words)))
+    alias_numbers = set(alias.split()) | set(re.findall(r"[0-9]+", alias))
+    if numbers and not numbers <= alias_numbers:
+        return 0.0
+    return _score(" ".join(words), alias)
+
+
 ORIGIN_WORDS = frozenset({"from"})
 # normalise() drops apostrophes, so "don't" arrives as "dont".
 NEGATION_WORDS = frozenset({"not", "no", "never", "except", "without", "instead", "rather", "dont", "avoid"})
-# Negations that directly govern a following command verb. "no"/"instead"/"rather" are excluded on purpose: they can
+# Negations that directly govern a following command verb. "no"/"instead"/"rather" are excluded on
+# purpose: they can
 # open an affirmative command ("no, take me to the airlock", "rather go to the airlock").
 CARRY_NEGATION_WORDS = frozenset({"dont", "not", "never"})
 DESTINATION_WORDS = frozenset({"to", "toward", "towards", "into", "onto"})
+# Distance questions name their only place after "from" ("how far am I from tower"); see resolve_destination.
+DISTANCE_CUES = ("how far", "distance from", "away from")
 NAVIGATION_WORDS = frozenset({"take", "bring", "lead", "guide", "walk", "head", "go", "navigate", "route"})
 
 
@@ -91,8 +94,9 @@ def _matches(tokens, threshold, gazetteer):
             words = tokens[start:start + size]
             if len(words) < size or set(words) & STOPWORDS:
                 continue
-            window = " ".join(words)
-            scored = [(-max(_score(window, alias) for alias in aliases), place_id) for place_id, aliases in gazetteer.items()]
+            window, following = " ".join(words), tokens[start + size] if start + size < len(tokens) else None
+            scored = [(-max(_alias_score(words, following, alias) for alias in aliases), place_id)
+                      for place_id, aliases in gazetteer.items()]
             neg_score, place_id = min(scored)
             if -neg_score >= threshold:
                 found.append((neg_score, -size, start, place_id, window))
@@ -155,6 +159,11 @@ def resolve_destination(text, threshold=DEFAULT_THRESHOLD, gazetteer=None):
                 candidates.append(public)
         else:
             excluded.append({**public, "role": role})
+    if (not candidates and any(cue in f" {normalise(text)} " for cue in map(" {} ".format, DISTANCE_CUES))
+            and len(excluded) == 1 and excluded[0]["role"] == "origin"):
+        # Distance cue: the single "from" place is the subject, not an origin to travel away from.
+        candidates.append({k: excluded[0][k] for k in ("place_id", "matched_text", "score")})
+        excluded = []
     status = "none" if not candidates else "resolved" if len(candidates) == 1 else "ambiguous"
     return {"status": status, "place": candidates[0] if status == "resolved" else None,
             "candidates": candidates, "excluded": excluded}
@@ -171,9 +180,9 @@ def resolve_place(text, threshold=DEFAULT_THRESHOLD, gazetteer=None):
             words = tokens[start:start + size]
             if len(words) < size or set(words) & STOPWORDS:
                 continue
-            window = " ".join(words)
+            window, following = " ".join(words), tokens[start + size] if start + size < len(tokens) else None
             for place_id, aliases in gazetteer.items():
-                score = max(_score(window, alias) for alias in aliases)
+                score = max(_alias_score(words, following, alias) for alias in aliases)
                 if score < threshold:
                     continue
                 key = (-score, -size, start, place_id)  # smaller wins: score, then longer window, earlier, id

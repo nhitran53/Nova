@@ -52,11 +52,35 @@ public class PinchToggle : MonoBehaviour
     {
         var flags = device != null ? (MetaAimFlags)device.aimFlags.ReadValue() : MetaAimFlags.None;
         bool tracked = device != null && device.added && device.isTracked.isPressed;
-        // Valid describes the aim ray, which is not required to read the native pinch button.
+        // The pinch button works even when the aim ray is not valid.
         bool valid = tracked && (flags & MetaAimFlags.Computed) != 0 &&
             (flags & (MetaAimFlags.SystemGesture | MetaAimFlags.MenuPressed)) == 0;
         string reason = device == null ? "NO AIM DEVICE" : !tracked ? "NOT TRACKED" :
             (flags & (MetaAimFlags.SystemGesture | MetaAimFlags.MenuPressed)) != 0 ? "SYSTEM GESTURE" : "NO AIM DATA";
+        // Ignore pinch input while the right fist or walking blocks it.
+        if (valid && FistLocomotion.BlocksPinch(hand == Hand.Right))
+        {
+            valid = false;
+            reason = FistLocomotion.Walking ? "WALKING" : "FIST";
+        }
+        // Pause pinches while touching map or wrist controls.
+        else if (valid && (MinimapNavigationPanel.FingerNearMap || WristComputer.FingerNearControls))
+        {
+            valid = false;
+            reason = WristComputer.FingerNearControls ? "WRIST TOUCH" : "MAP TOUCH";
+        }
+        // Let the manual handle pinches over its page.
+        else if (valid && NovaManualViewer.HandOnManual)
+        {
+            valid = false;
+            reason = "MANUAL";
+        }
+        // Keep the telephone pose separate from pinches.
+        else if (valid && TelephoneGestureDetector.AnyActive)
+        {
+            valid = false;
+            reason = "TELEPHONE";
+        }
         ProcessInput(valid, valid && device.indexPressed.isPressed, Time.unscaledTime, reason);
     }
 

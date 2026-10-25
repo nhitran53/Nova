@@ -1,10 +1,4 @@
-"""ONNX INT8 export interface (NOT IMPLEMENTED).
-
-TODO when implemented:
-  - export the fine-tuned model dir to ONNX (dynamic batch/seq axes)
-  - dynamic INT8 quantisation (onnxruntime.quantization)
-  - check parity vs the torch Router on a held-out set (argmax agreement, max prob delta)
-  - copy labels + router_meta.json (incl. temperature) next to the .onnx file
+"""Placeholder for ONNX export. Export is not implemented.
 """
 import argparse
 import sys

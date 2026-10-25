@@ -1,20 +1,21 @@
-"""Tool registry with fixed schemas, plus FAKE tools over a fabricated sim state (no real tool integration yet).
+"""Expose fixed tool schemas to the turn handler.
 
-Hard rules enforced here: at most MAX_TOOLS (8) registered tools, and at most ONE tool call per turn
-(`begin_turn()` resets the counter; a second `call()` in the same turn raises OneCallPerTurnError).
-Schemas are fixed at registration: `{"required": [...], "properties": {arg: type}}`. `call()` rejects unknown tools,
-unknown or missing args and wrong types before the tool runs.
-
-Tool results are `{"tool": name, "ok": bool, "data": {...}}`; every number the assistant speaks must come from `data`.
-All sim numbers below are fabricated demo values, not real suit telemetry.
+Each turn can call one registered tool.
+Use the supplied datasource or the built-in simulated state.
 """
-MAX_TOOLS = 8
+import itertools
+import math
+
+MAX_TOOLS = 10
+DEMO_ROVER_FAULTS = [{"part": "left_front_wheel", "label": "left front tire", "status": "damaged", "print_part": "wheel"}]  # PLACEHOLDER demo fixture
+PRINTABLE_PARTS = ("wheel",)
 PLACE_DISTANCES_M = {  # fabricated: (distance in meters, walking minutes)
     "homebase": (120, 2), "habitat": (150, 3), "airlock": (80, 1), "rover": (200, 4), "lander": (900, 15),
     "landing_pad": (850, 14), "landing_site": (1200, 20), "crater": (600, 10), "crater_rim": (650, 11),
     "ridge": (500, 9), "outpost": (1500, 25), "greenhouse": (140, 3), "supply_depot": (300, 5),
     "sample_depot": (350, 6), "comms_tower": (400, 7), "solar_farm": (700, 12), "ice_shelf": (2000, 33),
     "lava_tube": (1800, 30), "dune_field": (1100, 18), "quarry": (950, 16), "east_outcrop": (1300, 22),
+    "base_2": (1000, 17), "shuttle": (166, 3),
 }
 
 
@@ -79,24 +80,46 @@ class ToolRegistry:
 class SimState:
     """Fabricated suit/vitals readings. `snapshot()` doubles as the alert source; tests and the demo mutate fields."""
 
-    def __init__(self, **overrides):
+    def __init__(self, rover_faults=None, **overrides):
+        self.rover_faults = [dict(f) for f in rover_faults or ()]  # rover diagnostics fixture; empty = no "rover_faults" key in the snapshot
         self.values = {"o2_pct": 87.5, "minutes_remaining": 212, "bpm": 72, "radiation_usv_h": 0.34, "temp_c": 21.5,
                        "suit_pressure_kpa": 29.6}
         self.values.update(overrides)
 
     def snapshot(self):
-        return dict(self.values)
+        snapshot = dict(self.values)
+        if self.rover_faults:
+            snapshot["rover_faults"] = [dict(f) for f in self.rover_faults]
+        return snapshot
 
 
-def default_registry(sim=None):
-    """Six fake tools (safety, navigation, map, data, o2, send_message) over `sim`; leaves room for two more."""
+def default_registry(sim=None, datasource=None, vision=None, location=None, return_to_start=False):
+    """Seven base tools plus optional Unity vision and live location tools.
+
+    Default: FAKE tools over `sim` (SimState, fabricated places). With `datasource`: same names, schemas and result keys,
+    but readings, places and messages come from the datasource (it raises DataUnavailableError rather than guess)."""
+    registry = _default_registry(sim, datasource)
+    if vision is not None:
+        registry.register("vision", {"required": ["question", "mode"], "properties": {"question": str, "mode": str}}, vision)
+    if location is not None:
+        registry.register("get_current_location", {"required": ["question"], "properties": {"question": str}}, location)
+    if return_to_start:
+        registry.register("return_to_start", {"required": [], "properties": {}},
+                          lambda: {"tool": "return_to_start", "ok": True, "data": {"requested": True}})
+    return registry
+
+
+def _default_registry(sim, datasource):
+    if datasource is not None:
+        if sim is not None:
+            raise ValueError("pass either sim or datasource, not both")
+        return _datasource_registry(datasource)
     sim = SimState() if sim is None else sim
     registry = ToolRegistry()
 
     def safety():
         s = sim.snapshot()
-        go = s["o2_pct"] >= 16.0 and 20.0 <= s["suit_pressure_kpa"] <= 40.0
-        return {"tool": "safety", "ok": True, "data": {"status_word": "go" if go else "no go"}}
+        return _safety_result(s)
 
     def place_result(tool, place):
         if place not in PLACE_DISTANCES_M:
@@ -119,6 +142,18 @@ def default_registry(sim=None):
                 "data": {"recipient": recipient, "recipient_name": recipient.replace("_", " "), "urgency": urgency,
                          "status": "queued"}}
 
+    _register_six(registry, safety, place_result, data, o2, send_message)
+    _register_queue_print(registry)
+    return registry
+
+
+def _safety_result(s):
+    """go iff o2_pct >= 16.0 and 20 <= suit_pressure_kpa <= 40 (the safety loop owns go/no-go; shared by both registries)."""
+    go = s["o2_pct"] >= 16.0 and 20.0 <= s["suit_pressure_kpa"] <= 40.0
+    return {"tool": "safety", "ok": True, "data": {"status_word": "go" if go else "no go"}}
+
+
+def _register_six(registry, safety, place_result, data, o2, send_message):
     registry.register("safety", {"required": [], "properties": {}}, safety)
     registry.register("navigation", {"required": ["place"], "properties": {"place": str}},
                       lambda place: place_result("navigation", place))
@@ -128,4 +163,54 @@ def default_registry(sim=None):
     registry.register("o2", {"required": [], "properties": {}}, o2)
     registry.register("send_message", {"required": ["recipient", "urgency", "message"],
                                        "properties": {"recipient": str, "urgency": str, "message": str}}, send_message)
+
+
+def _register_queue_print(registry):
+    """Seventh tool: a SIMULATED 3D-print job queue for the demo scene (no printer, no hardware, nothing leaves the process)."""
+    jobs = itertools.count(1)
+
+    def queue_print(part):
+        if part not in PRINTABLE_PARTS:
+            return {"tool": "queue_print", "ok": False, "data": {"error": "unknown part", "simulated": True, "demo": True}}
+        return {"tool": "queue_print", "ok": True,
+                "data": {"job_id": f"demo-print-{next(jobs)}", "part": part, "status": "queued", "simulated": True, "demo": True}}
+
+    registry.register("queue_print", {"required": ["part"], "properties": {"part": str}}, queue_print)
+
+
+def _datasource_registry(datasource):
+    from .datasource import load_walking_speed_m_per_min
+    registry = ToolRegistry()
+
+    def safety():
+        s = datasource.snapshot()
+        return _safety_result(s)
+
+    def place_result(tool, place):
+        found = datasource.place(place)
+        if found is None:
+            return {"tool": tool, "ok": False, "data": {"error": "unknown place"}}
+        eta_min = math.ceil(found["distance_m"] / load_walking_speed_m_per_min() - 1e-9)  # same speed as assess_feasibility
+        return {"tool": tool, "ok": True, "data": {"place": place, "place_name": place.replace("_", " "),
+                                                   "distance_m": found["distance_m"], "eta_min": eta_min,
+                                                   **(datasource.hazard_tool_data() if hasattr(datasource, "hazard_tool_data") else {})}}
+
+    def data():
+        s = datasource.snapshot()
+        return {"tool": "data", "ok": True, "data": {k: s[k] for k in ("bpm", "radiation_usv_h", "temp_c")}}
+
+    def o2():
+        s = datasource.snapshot()
+        return {"tool": "o2", "ok": True, "data": {k: s[k] for k in ("o2_pct", "minutes_remaining")}}
+
+    def send_message(recipient, urgency, message):
+        """Persists the message through the datasource; a failed write is ok False. No numbers in the result."""
+        if not datasource.queue_message(recipient, urgency, message):
+            return {"tool": "send_message", "ok": False, "data": {"error": "message not queued"}}
+        return {"tool": "send_message", "ok": True,
+                "data": {"recipient": recipient, "recipient_name": recipient.replace("_", " "), "urgency": urgency,
+                         "status": "queued"}}
+
+    _register_six(registry, safety, place_result, data, o2, send_message)
+    _register_queue_print(registry)
     return registry

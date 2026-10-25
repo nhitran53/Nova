@@ -1,0 +1,8 @@
+{"expected_label": "call_navigation", "family_id": "regression-0", "provenance": "new_agent_authored_regression_not_legacy_copy", "scenario_id": "regression-0", "text": "I need the metres between this location and the tower."}
+{"expected_label": "call_safety", "family_id": "regression-1", "provenance": "new_agent_authored_regression_not_legacy_copy", "scenario_id": "regression-1", "text": "Check the basic oxygen-pressure condition; no trip is planned."}
+{"expected_label": "call_o2", "family_id": "regression-2", "provenance": "new_agent_authored_regression_not_legacy_copy", "scenario_id": "regression-2", "text": "Read how many minutes remain in my tank, without assessing a journey."}
+{"expected_label": "call_map", "family_id": "regression-3", "provenance": "new_agent_authored_regression_not_legacy_copy", "scenario_id": "regression-3", "text": "Display the map centred at the habitat module."}
+{"expected_label": "call_data", "family_id": "regression-4", "provenance": "new_agent_authored_regression_not_legacy_copy", "scenario_id": "regression-4", "text": "Get the live radiation dose reading."}
+{"expected_label": "call_llm", "family_id": "regression-5", "provenance": "new_agent_authored_regression_not_legacy_copy", "scenario_id": "regression-5", "text": "Explain why stars emit light."}
+{"expected_label": "NO_TOOL", "family_id": "regression-6", "provenance": "new_agent_authored_regression_not_legacy_copy", "scenario_id": "regression-6", "text": "Cancel any route toward the second base."}
+{"expected_label": "OOD", "family_id": "regression-7", "provenance": "new_agent_authored_regression_not_legacy_copy", "scenario_id": "regression-7", "text": "Shop for a new washing machine."}

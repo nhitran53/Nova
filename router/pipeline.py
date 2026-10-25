@@ -1,30 +1,8 @@
-"""Pipeline glue (stub): classifier label -> tool call with resolved args, clarification, or LLM hand-off.
+"""Route a request to a tool or clarification or LLM handoff.
 
-    python -m router.pipeline --text "take me home" [--checkpoint $NOVA_MODELS_DIR/v1] [--tau-hi 0.9] [--tau-lo 0.5]
-
-Confidence gate (calibrated top-1 confidence `c`; thresholds in pipeline_config.json):
-    top class is a TOOL label:
-        c >= tau_hi             -> tool route
-        tau_lo <= c < tau_hi    -> arbiter_fn(text, topk) -> label | "none".  Same label as the router -> tool route;
-                                   anything else, no arbiter supplied, or an arbiter exception -> clarify route (no tool)
-        c < tau_lo              -> LLM route, reason "low_confidence" (clarify policy)
-    top class is NO_TOOL / call_llm / OOD: LLM route with that class's prompt policy (low_confidence if c < tau_lo).
-The arbiter can only CONFIRM the router's class; it never selects another tool, so the LLM never overrides the router.
-
-`Pipeline.handle(text)` returns one of
-    {"route": "tool", "tool": "navigation", "args": {"place": "homebase"}, "confidence": 0.97, "label": "call_navigation",
-     "gate": "tau_hi"|"arbiter_agree"}
-    {"route": "clarify", "reason": "arbiter_disagree"|"no_arbiter"|"arbiter_error"|"ambiguous_place"|"missing_slot",
-     "question": "...", "options": [...], "confidence": 0.7, "label": "..."}      # deterministic text, no LLM
-    ("missing_slot": a tool in `required_slots` (pipeline_config.json) got no value, e.g. navigation/map without a
-    resolved place. It is a clarify route, never a tool route; `question` is None and `missing` lists the slots -
-    turn.py supplies the wording from turn_policy.json.)
-    {"route": "llm", "reason": "OOD"|"NO_TOOL"|"call_llm"|"low_confidence", "prompt_policy": "...",
-     "response": <llm_fn output>, "confidence": 0.9, "label": "..."}
-Navigation/map resolve a place with places.resolve_destination; two or more candidate places -> clarify
-("Which place do you mean: ...?"), never a positional guess. Which labels are tools lives in pipeline_config.json.
-No real LLM or arbiter is called: `llm_fn(text, prompt_policy)` and `arbiter_fn(text, topk)` are injectable.
-`topk` is the router's top-3 [{"label","p"}]; the arbiter picks one of those labels or "none".
+Confidence gates come from pipeline_config.json.
+Check required slots before calling a tool.
+Resolve destinations with explicit spans before fuzzy matching.
 """
 import argparse
 import json
@@ -66,7 +44,7 @@ def join_options(options):
 
 
 class Pipeline:
-    def __init__(self, router, config=None, llm_fn=placeholder_llm, arbiter_fn=None, tau_hi=None, tau_lo=None,
+    def __init__(self, router, config=None, llm_fn=placeholder_llm, arbiter_fn=None, tool_classifier_fn=None, tau_hi=None, tau_lo=None,
                  place_threshold=DEFAULT_THRESHOLD):
         """`router` needs `.predict(text) -> {"label", "confidence", "topk"?}` (a core.Router or a fake).
 
@@ -75,17 +53,34 @@ class Pipeline:
         self.config = load_config() if config is None else config
         self.llm_fn = llm_fn
         self.arbiter_fn = arbiter_fn
+        self.tool_classifier_fn = tool_classifier_fn  # classify(text) -> tool label | None; the second layer behind the router
         self.tau_hi = self.config["tau_hi"] if tau_hi is None else tau_hi
         self.tau_lo = self.config["tau_lo"] if tau_lo is None else tau_lo
         if not 0.0 <= self.tau_lo <= self.tau_hi <= 1.0:
             raise ValueError(f"need 0 <= tau_lo <= tau_hi <= 1, got tau_lo={self.tau_lo} tau_hi={self.tau_hi}")
         self.place_threshold = place_threshold
 
-    def handle(self, text):
+    def _second_layer(self, text, router_label, confidence, second_layer):
+        """A tool decision from the second layer, or None. Only labels in tool_labels count; args stay deterministic in _tool."""
+        if not second_layer or self.tool_classifier_fn is None:
+            return None
+        label = self.tool_classifier_fn(text)
+        tool_cfg = self.config["tool_labels"].get(label)
+        if tool_cfg is None:
+            return None
+        out = self._tool(text, label, confidence, tool_cfg, gate="llm_second_layer")
+        out["router_label"] = router_label
+        return out
+
+    def handle(self, text, second_layer=True):
         prediction = self.router.predict(text)
         label, confidence = prediction["label"], prediction["confidence"]
         topk = (prediction.get("topk") or [{"label": label, "p": confidence}])[:3]
         tool_cfg = self.config["tool_labels"].get(label)
+        if confidence < self.tau_lo or tool_cfg is None:
+            second = self._second_layer(text, label, confidence, second_layer)
+            if second is not None:
+                return second
         if confidence < self.tau_lo:
             return self._llm(text, label, confidence, "low_confidence", self.config["low_confidence_policy"])
         if tool_cfg is None:
@@ -95,6 +90,11 @@ class Pipeline:
         verdict = self._arbitrate(text, label, topk)
         if verdict == "agree":
             return self._tool(text, label, confidence, tool_cfg, gate="arbiter_agree")
+        if self.tool_classifier_fn is not None and second_layer:  # two layers, two outcomes: a tool or the LLM, never an intent question
+            second = self._second_layer(text, label, confidence, second_layer)
+            if second is not None:
+                return second
+            return self._llm(text, label, confidence, "NO_TOOL", self.config["llm_labels"]["NO_TOOL"])
         return self._clarify_intent(label, confidence, topk, reason=verdict)
 
     def _arbitrate(self, text, label, topk):
