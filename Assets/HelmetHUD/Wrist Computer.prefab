@@ -28,7 +28,7 @@ RectTransform:
   m_GameObject: {fileID: 3634691617326715683}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 0.0004, y: 0.0004, z: 0.0004}
+  m_LocalScale: {x: 0.00035, y: 0.00035, z: 0.00035}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 2837196423202811053}
@@ -38,7 +38,7 @@ RectTransform:
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 360, y: 270}
+  m_SizeDelta: {x: 360, y: 250}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!223 &134140306750215350
 Canvas:
@@ -84,7 +84,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0.015, g: 0.035, b: 0.05, a: 0.9}
+  m_Color: {r: 0.005, g: 0.012, b: 0.02, a: 1}
   m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -136,7 +136,7 @@ RectTransform:
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 330, y: 246}
+  m_SizeDelta: {x: 330, y: 220}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &2423270226856896750
 CanvasRenderer:
@@ -166,20 +166,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: 'SUIT / SIM
-
-    HEART   74 BPM
-
-    PRESS   29.6 kPa
-
-    RAD     0.05
-    uSv/h
-
-    TEMP    21.0 C
-
-    POWER   88%
-
-    OXYGEN  96%'
+  m_text: "<color=#9DEAF4><size=70%>HEART</size></color><pos=165><b>74</b> <size=65%>BPM</size>\n<color=#9DEAF4><size=70%>PRESSURE</size></color><pos=165><b>29.6</b> <size=65%>kPa</size>\n<color=#9DEAF4><size=70%>RADIATION</size></color><pos=165><b>0.05</b> <size=65%>uSv/h</size>\n<color=#9DEAF4><size=70%>TEMP</size></color><pos=165><b>21.0</b> <size=65%>Ã‚Â°C</size>\n<color=#9DEAF4><size=70%>BATTERY</size></color><pos=165><b>88</b> <size=65%>%</size>"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -189,7 +176,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontColor: {r: 0.65, g: 0.95, b: 1, a: 1}
+  m_fontColor: {r: 1, g: 1, b: 1, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -206,8 +193,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 24
-  m_fontSizeBase: 24
+  m_fontSize: 32
+  m_fontSizeBase: 32
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -300,9 +287,9 @@ MonoBehaviour:
   telemetry: {fileID: 0}
   panel: {fileID: 7106774023659453283}
   readings: {fileID: 3985723929041183867}
-  wristOffset: {x: 0, y: 0.045, z: -0.025}
-  wristRotation: {x: 90, y: 0, z: 0}
-  panelScale: 0.0004
+  wristOffset: {x: 0, y: -0.045, z: -0.075}
+  wristRotation: {x: -70, y: 90, z: 180}
+  panelScale: 0.00035
   panelOpen: 1
 --- !u!114 &5909220369933009567
 MonoBehaviour:
@@ -316,7 +303,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 34e2b919650643c7929f89a797969f74, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PinchToggle
-  hand: 1
+  hand: 0
   debounce: 0.35
   releaseTime: 0.08
   enableToggle: 1
@@ -371,7 +358,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 134}
+  m_AnchoredPosition: {x: 0, y: 124}
   m_SizeDelta: {x: 360, y: 2}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &7787180252567198789

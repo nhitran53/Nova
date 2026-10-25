@@ -404,7 +404,7 @@ namespace UnityEngine.XR.Hands.Samples.VisualizerSample
                 if (handEvents == null)
                 {
                     handEvents = m_HandRoot.AddComponent<XRHandTrackingEvents>();
-                    handEvents.updateType = XRHandTrackingEvents.UpdateTypes.Dynamic;
+                    handEvents.updateType = XRHandTrackingEvents.UpdateTypes.Dynamic | XRHandTrackingEvents.UpdateTypes.BeforeRender;
                     handEvents.handedness = handedness;
                 }
 

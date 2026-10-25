@@ -60,18 +60,20 @@ public class HelmetHUD : MonoBehaviour
         GetComponent<Canvas>().worldCamera = viewCamera;
         ApplyLayout();
         UpdateCompass();
+        // The camera gets a fresher head pose right before rendering, so read it then.
+        Application.onBeforeRender += UpdateCompass;
         telemetry.Changed += Refresh;
         Refresh(telemetry.Current);
     }
 
     void OnDisable()
     {
+        Application.onBeforeRender -= UpdateCompass;
         if (telemetry != null) telemetry.Changed -= Refresh;
     }
 
     void LateUpdate()
     {
-        UpdateCompass();
         if (diagnosticUntil > 0 && Time.unscaledTime >= diagnosticUntil)
         {
             subtitle.gameObject.SetActive(false);

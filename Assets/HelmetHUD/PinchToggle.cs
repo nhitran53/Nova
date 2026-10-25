@@ -6,7 +6,7 @@ public class PinchToggle : MonoBehaviour
 {
     public enum Hand { Left, Right }
 
-    [SerializeField] Hand hand = Hand.Right;
+    [SerializeField] Hand hand = Hand.Left;
     [SerializeField, Min(0)] float debounce = 0.35f;
     [SerializeField, Min(0)] float releaseTime = 0.08f;
     [SerializeField] bool enableToggle = true;

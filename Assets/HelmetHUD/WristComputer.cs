@@ -8,14 +8,29 @@ public class WristComputer : MonoBehaviour
     [SerializeField] SuitTelemetry telemetry;
     [SerializeField] RectTransform panel;
     [SerializeField] TMP_Text readings;
-    [SerializeField] Vector3 wristOffset = new Vector3(0, 0.045f, -0.025f);
-    [SerializeField] Vector3 wristRotation = new Vector3(90, 0, 0);
-    [SerializeField, Min(0.0001f)] float panelScale = 0.0004f;
+    [Tooltip("In wrist space: -Y is the palm side, -Z is toward the elbow.")]
+    [SerializeField] Vector3 wristOffset = new Vector3(0, -0.045f, -0.075f);
+    [Tooltip("Faces out of the palm, tilted 20 degrees toward the pinky.")]
+    [SerializeField] Vector3 wristRotation = new Vector3(-70, 90, 180);
+    [SerializeField, Min(0.0001f)] float panelScale = 0.00035f;
     [SerializeField] bool panelOpen = true;
+
+    [Header("Smoothing")]
+    [Tooltip("Lower = steadier when still, but laggier.")]
+    [SerializeField, Min(0.01f)] float minCutoff = 1.5f;
+    [Tooltip("Higher = less lag when moving fast.")]
+    [SerializeField, Min(0)] float positionBeta = 8;
+    [SerializeField, Min(0)] float rotationBeta = 0.04f;
 
     Transform trackingSpace;
     XRHandTrackingEvents leftHand;
+    Transform wrist;
     float nextSearch;
+    bool hasPose;
+    float lastSample;
+    Vector3 position, rawPosition, positionSpeed;
+    Quaternion rotation, rawRotation;
+    float rotationSpeed;
 
     public bool IsOpen => panelOpen;
     public bool WristTracked => leftHand != null && leftHand.handIsTracked;
@@ -25,15 +40,20 @@ public class WristComputer : MonoBehaviour
         var origin = GetComponentInParent<XROrigin>();
         trackingSpace = origin.CameraFloorOffsetObject.transform;
         panel.GetComponent<Canvas>().worldCamera = origin.Camera;
+        // Live in tracking space so walking and snap turns don't get smoothed.
+        panel.SetParent(trackingSpace, false);
         telemetry.Changed += Refresh;
         Refresh(telemetry.Current);
         panel.gameObject.SetActive(false);
+        if (leftHand != null) leftHand.poseUpdated.AddListener(OnWristPose);
     }
 
     void OnDisable()
     {
         if (telemetry != null) telemetry.Changed -= Refresh;
+        if (leftHand != null) leftHand.poseUpdated.RemoveListener(OnWristPose);
         if (panel != null) panel.gameObject.SetActive(false);
+        hasPose = false;
     }
 
     void Update()
@@ -47,37 +67,73 @@ public class WristComputer : MonoBehaviour
                 if (events == null || events.handedness != Handedness.Left || skeleton.rootTransform == null)
                     continue;
                 leftHand = events;
-                panel.SetParent(skeleton.rootTransform, false);
-                ApplyWristPose();
+                wrist = skeleton.rootTransform;
+                leftHand.poseUpdated.AddListener(OnWristPose);
                 break;
             }
         }
-        panel.gameObject.SetActive(panelOpen && WristTracked);
+        if (!WristTracked) hasPose = false;
+        panel.gameObject.SetActive(panelOpen && WristTracked && hasPose);
     }
 
-    void ApplyWristPose()
+    void OnWristPose(Pose rootPose)
     {
-        panel.localPosition = wristOffset;
-        panel.localRotation = Quaternion.Euler(wristRotation);
+        var space = wrist.parent;
+        var wristPosition = space.TransformPoint(rootPose.position);
+        var wristRotationWorld = space.rotation * rootPose.rotation;
+        var targetPosition = trackingSpace.InverseTransformPoint(wristPosition + wristRotationWorld * wristOffset);
+        var targetRotation = Quaternion.Inverse(trackingSpace.rotation) * wristRotationWorld * Quaternion.Euler(wristRotation);
+
+        // This runs twice a frame, so deltaTime would be wrong here.
+        float now = Time.realtimeSinceStartup;
+        float dt = now - lastSample;
+        lastSample = now;
+        if (!hasPose || dt <= 0 || dt > 0.25f)
+        {
+            position = targetPosition;
+            rotation = targetRotation;
+            positionSpeed = Vector3.zero;
+            rotationSpeed = 0;
+            hasPose = true;
+        }
+        else
+        {
+            positionSpeed = Vector3.Lerp(positionSpeed, (targetPosition - rawPosition) / dt, Alpha(1, dt));
+            position = Vector3.Lerp(position, targetPosition,
+                Alpha(minCutoff + positionBeta * positionSpeed.magnitude, dt));
+            rotationSpeed = Mathf.Lerp(rotationSpeed, Quaternion.Angle(rawRotation, targetRotation) / dt, Alpha(1, dt));
+            rotation = Quaternion.Slerp(rotation, targetRotation,
+                Alpha(minCutoff + rotationBeta * rotationSpeed, dt));
+        }
+        rawPosition = targetPosition;
+        rawRotation = targetRotation;
+
+        panel.localPosition = position;
+        panel.localRotation = rotation;
         panel.localScale = Vector3.one * panelScale;
     }
 
-    void OnValidate()
+    static float Alpha(float cutoff, float dt)
     {
-        if (panel != null && leftHand != null) ApplyWristPose();
+        float tau = 1 / (2 * Mathf.PI * cutoff);
+        return 1 / (1 + tau / dt);
     }
 
     public void Toggle()
     {
         panelOpen = !panelOpen;
-        panel.gameObject.SetActive(panelOpen && WristTracked);
+        panel.gameObject.SetActive(panelOpen && WristTracked && hasPose);
     }
 
     void Refresh(SuitReadings value)
     {
-        readings.text = $"<size=80%>SUIT / {(telemetry.IsSimulated ? "SIM" : "EXT")}</size>\n" +
-            $"HEART   {value.heartRate:0} BPM\nPRESS   {value.pressureKpa:0.0} kPa\n" +
-            $"RAD     {value.radiationMicrosieverts:0.00} uSv/h\nTEMP    {value.temperatureCelsius:0.0}\u00b0C\n" +
-            $"POWER   {value.batteryPercent:0}%\nOXYGEN  {value.oxygenPercent:0}%";
+        readings.text = Row("HEART", $"{value.heartRate:0}", "BPM") + "\n" +
+            Row("PRESSURE", $"{value.pressureKpa:0.0}", "kPa") + "\n" +
+            Row("RADIATION", $"{value.radiationMicrosieverts:0.00}", "uSv/h") + "\n" +
+            Row("TEMP", $"{value.temperatureCelsius:0.0}", "°C") + "\n" +
+            Row("BATTERY", $"{value.batteryPercent:0}", "%");
     }
+
+    static string Row(string label, string value, string unit) =>
+        $"<color=#9DEAF4><size=70%>{label}</size></color><pos=165><b>{value}</b> <size=65%>{unit}</size>";
 }
