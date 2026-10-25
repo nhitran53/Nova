@@ -49,21 +49,27 @@ class HazardDatasource:
                 self._hazard_started = None
             return triggered
 
+    def _hazard_status(self, position):
+        """Build active status from one position while the hazard lock is held."""
+        cfg = self.hazard_policy
+        distance = None if position is None else math.hypot(
+            position["x_m"] - cfg["center_x_m"], position["z_m"] - cfg["center_z_m"])
+        return dict(active=True, kind="meteor", center_x_m=cfg["center_x_m"], center_z_m=cfg["center_z_m"],
+                    radius_m=cfg["radius_m"], eta_s=max(0, math.ceil(cfg["eta_hours"] * 3600 -
+                    (self._hazard_clock() - self._hazard_started))),
+                    inside=None if distance is None else distance <= cfg["radius_m"],
+                    edge_distance_m=None if distance is None else round(abs(distance - cfg["radius_m"])))
+
     def hazard_status(self):
-        from .datasource import DataUnavailableError, distance_m
+        from .datasource import DataUnavailableError
         with self._hazard_lock:
             if self._hazard_started is None:
                 return inactive_hazard()
-            cfg = self.hazard_policy
             try:
-                distance = distance_m(self.hazard_position(), {"x_m": cfg["center_x_m"], "z_m": cfg["center_z_m"]})
+                position = self.hazard_position()
             except DataUnavailableError:
-                distance = None
-            return dict(active=True, kind="meteor", center_x_m=cfg["center_x_m"], center_z_m=cfg["center_z_m"],
-                        radius_m=cfg["radius_m"], eta_s=max(0, math.ceil(cfg["eta_hours"] * 3600 -
-                        (self._hazard_clock() - self._hazard_started))),
-                        inside=None if distance is None else distance <= cfg["radius_m"],
-                        edge_distance_m=None if distance is None else abs(distance - cfg["radius_m"]))
+                position = None
+            return self._hazard_status(position)
 
     def hazard_snapshot(self):
         from .datasource import DataUnavailableError
@@ -74,9 +80,10 @@ class HazardDatasource:
 
     def hazard_tool_data(self):
         with self._hazard_lock:
-            hazard = self.hazard_status()
-            if not hazard["active"]:
+            if self._hazard_started is None:
                 return {}
+            position = self.hazard_position()
+            hazard = self._hazard_status(position)
             return {**{key: hazard[key] for key in ("radius_m", "edge_distance_m", "inside")},
                     "eta_hours": hazard["eta_s"] / 3600,
-                    **nearest_safe_point(self.hazard_position(), self.hazard_policy)}
+                    **nearest_safe_point(position, self.hazard_policy)}

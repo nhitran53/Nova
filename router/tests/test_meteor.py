@@ -7,7 +7,7 @@ import pytest
 
 from router import stt
 from router.datasource import DataUnavailableError, FixtureDatasource, PostgresDatasource
-from router.hazard import nearest_safe_point
+from router.hazard import HazardDatasource, nearest_safe_point
 from router.stt import SpeechQueue
 from router.tools import OneCallPerTurnError, default_registry
 from router.turn import TurnHandler, evaluate_alerts, load_policy
@@ -41,6 +41,8 @@ def position(ds, dx=0, dz=0):
 
 
 @pytest.mark.parametrize("dx,dz,inside,edge", [(0, 0, True, 300), (180, 240, True, 0),
+                                                   (299.6, 0, True, 0), (300.4, 0, False, 0),
+                                                   (179.76, 239.68, True, 0), (180.24, 240.32, False, 0),
                                                    (301, 0, False, 1), (0, -400, False, 100)])
 def test_datasource_meteor_inside_and_edge_distance(ds, dx, dz, inside, edge):
     position(ds, dx, dz)
@@ -51,6 +53,31 @@ def test_datasource_meteor_inside_and_edge_distance(ds, dx, dz, inside, edge):
     assert ds.snapshot()["meteor_inside"] is inside
     alerts = evaluate_alerts(ds.snapshot(), load_policy())
     assert any(a["field"] == "meteor_inside" and a["severity"] == "critical" for a in alerts) is inside
+
+
+@pytest.mark.parametrize("dx,inside", [(299.6, True), (300.0, True), (300.4, False)])
+def test_hazard_tool_data_uses_one_position_for_status_and_safe_point(dx, inside):
+    class MovingDatasource(HazardDatasource):
+        def __init__(self):
+            self._init_hazard(clock=lambda: 100.0)
+            self.position_reads = 0
+
+        def hazard_position(self):
+            self.position_reads += 1
+            offset = dx if self.position_reads == 1 else -400
+            return {"x_m": self.hazard_policy["center_x_m"] + offset,
+                    "z_m": self.hazard_policy["center_z_m"]}
+
+    source = MovingDatasource()
+    source.set_demo_meteor(True)
+    data = source.hazard_tool_data()
+    assert source.position_reads == 1
+    assert data["inside"] is inside
+    assert data["edge_distance_m"] == 0
+    assert data["safe_distance_m"] == pytest.approx(325 - dx)
+    assert data["safe_direction"] == {"x": 1, "z": 0}
+    assert data["safe_place"] == {"x_m": source.hazard_policy["center_x_m"] + 325,
+                                  "z_m": source.hazard_policy["center_z_m"]}
 
 
 def test_datasource_meteor_eta_retrigger_and_clear(ds):
