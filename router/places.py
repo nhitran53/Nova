@@ -11,6 +11,10 @@ in words + 1), compare each window with every alias on a space-free form with di
 letter with the alias (stops "over" -> "rover", "bridge" -> "ridge"). Ties on score go to the longer window,
 then the earlier position, then the alphabetically first place id, so results are deterministic.
 
+Numbered-suffix guard: a digit or a number word (one..ten, "two" included) inside a window, or directly after it, must also
+be in the alias that matched. "base 2" resolves to base_2, but "base two" / "base 3" match nothing instead of silently
+becoming homebase ("base" is its alias). Literal comparison: the alias "base 2" does not accept "two".
+
 `resolve_destination(text)` is what the pipeline uses for navigation/map: first split the text into
 role-bearing spans at destination cues (to/toward/back to), origin cues (from), negation, and new navigation
 commands. Then fuzzy-match each span separately, excluding origins and negated places.
@@ -62,11 +66,29 @@ def _default_gazetteer():
     return load_gazetteer()
 
 
+NUMBER_WORDS = frozenset("one two three four five six seven eight nine ten".split())
+
+
+def _is_number(token):
+    return token.isdigit() or token in NUMBER_WORDS
+
+
 def _score(window, alias):
     """Similarity of two space-free strings; 0 if a fuzzy match changes the first letter."""
     a, b = window.replace(" ", ""), alias.replace(" ", "")
     ratio = SequenceMatcher(None, a, b).ratio()
     return ratio if ratio == 1.0 or a[0] == b[0] else 0.0
+
+
+def _alias_score(words, following, alias):
+    """_score of the window `words` (list of tokens) against `alias`, 0 when a number in the window or the next token
+    `following` (None at the end) is not part of the alias (numbered-suffix guard, see module docstring)."""
+    numbers = {t for t in [*words, following] if t is not None and _is_number(t)}
+    numbers |= set(re.findall(r"[0-9]+", " ".join(words)))
+    alias_numbers = set(alias.split()) | set(re.findall(r"[0-9]+", alias))
+    if numbers and not numbers <= alias_numbers:
+        return 0.0
+    return _score(" ".join(words), alias)
 
 
 ORIGIN_WORDS = frozenset({"from"})
@@ -91,8 +113,9 @@ def _matches(tokens, threshold, gazetteer):
             words = tokens[start:start + size]
             if len(words) < size or set(words) & STOPWORDS:
                 continue
-            window = " ".join(words)
-            scored = [(-max(_score(window, alias) for alias in aliases), place_id) for place_id, aliases in gazetteer.items()]
+            window, following = " ".join(words), tokens[start + size] if start + size < len(tokens) else None
+            scored = [(-max(_alias_score(words, following, alias) for alias in aliases), place_id)
+                      for place_id, aliases in gazetteer.items()]
             neg_score, place_id = min(scored)
             if -neg_score >= threshold:
                 found.append((neg_score, -size, start, place_id, window))
@@ -171,9 +194,9 @@ def resolve_place(text, threshold=DEFAULT_THRESHOLD, gazetteer=None):
             words = tokens[start:start + size]
             if len(words) < size or set(words) & STOPWORDS:
                 continue
-            window = " ".join(words)
+            window, following = " ".join(words), tokens[start + size] if start + size < len(tokens) else None
             for place_id, aliases in gazetteer.items():
-                score = max(_score(window, alias) for alias in aliases)
+                score = max(_alias_score(words, following, alias) for alias in aliases)
                 if score < threshold:
                     continue
                 key = (-score, -size, start, place_id)  # smaller wins: score, then longer window, earlier, id

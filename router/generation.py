@@ -56,7 +56,7 @@ from typing import Protocol
 from .verifier import (NUMBER_WORDS, VAGUE_QUANTITY_WORDS, allowed_numbers as numbers_in, fold_text, has_non_ascii_numeral, spoken_numbers,
                        strip_format_chars, verify_numbers)
 
-KINDS = ("tool_result", "grounded_answer", "chitchat", "confirmation")
+KINDS = ("tool_result", "grounded_answer", "chitchat", "confirmation", "general_explanation")
 PASSAGE_NUMBER_MODES = ("off", "digits")
 UNBUILT_PASSAGE_NUMBER_MODES = ("quote_span",)
 VIOLATION_CODES = (
@@ -136,9 +136,16 @@ class GenerationRequest:
     configured_passage_numbers: str = "digits"  # generation.passage_numbers as configured (passage_numbers may be forced to "off")
     passage_override_reason: str | None = None  # why a risk term forced "off" this turn, else None
 
+    general_prompt: str = ""          # human-owned general-knowledge scope prompt
+
+    @property
+    def provenance_mode(self):
+        return {"grounded_answer": "retrieved_passages", "general_explanation": "general_knowledge",
+                "chitchat": "conversation"}.get(self.kind, "tool_result")
+
     def summary(self):
         """JSON-friendly digest for logs and result["generation"]["request"]."""
-        return {"turn_id": self.turn_id, "kind": self.kind, "route": self.route, "tool": self.tool,
+        return {"turn_id": self.turn_id, "kind": self.kind, "provenance_mode": self.provenance_mode, "route": self.route, "tool": self.tool,
                 "user_text": self.user_text, "fact_keys": sorted(self.facts),
                 "slots": {n: {"kind": s.kind, "fmt": s.fmt, "unit_phrase": s.unit_phrase, "required": s.required}
                           for n, s in self.slots.items()},
@@ -376,6 +383,8 @@ def build_request(*, turn_id, kind, route, user_text, policy, tool=None, tool_re
     grounded = kind == "grounded_answer"
     kept = tuple(Passage(f"p{i}", p["text"], p["score"]) for i, p in enumerate(passages, 1)) if grounded else ()
     override = passage_override(gen, policy, user_text, kept) if grounded else None
+    if kind == "general_explanation":
+        mode = "off"
     if override:
         mode = "off"  # this turn only: no document numbers, whatever the configured mode
     allowed = numbers_in(facts)
@@ -390,7 +399,8 @@ def build_request(*, turn_id, kind, route, user_text, policy, tool=None, tool_re
         refusal_codes=tuple(gen["refusal_codes"]),
         history=tuple(HistoryTurn(mask_digits(u), mask_digits(s)) for u, s in turns),
         deadline_ms=gen["deadline_ms"], prompt_policy=prompt_policy, configured_passage_numbers=configured,
-        passage_override_reason=override)
+        passage_override_reason=override,
+        general_prompt=policy["llm_scope"]["speaking_scope"]["general_prompt"] if kind == "general_explanation" else "")
 
 
 # ------------------------------------------------------------------ prompt rendering
@@ -411,6 +421,7 @@ def render_system(req):
     else:
         lines.append("Numbers may only be copied exactly from PASSAGES. Never compute, convert or round a number.")
     lines += ["Use only the slots listed under SLOTS. Mention every REQUIRED slot.",
+              req.general_prompt if req.kind == "general_explanation" else
               "If the context does not answer the question, output a refusal code instead of text.",
               "Do not give instructions, advice or warnings that are not in the context. Do not say you did something "
               "unless ACTIONS says so. Do not state live readings unless a tool ran.",

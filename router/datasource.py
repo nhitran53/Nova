@@ -80,6 +80,11 @@ def load_walking_speed_m_per_min(path=POLICY_PATH) -> float:
     return json.loads(Path(path).read_text())["feasibility"]["walking_speed_m_per_min"]
 
 
+def load_demo_places(path=POLICY_PATH) -> dict:
+    """turn_policy.json["demo_places"]: PLACEHOLDER fixture-only {"locations": [...], "place_aliases": {...}}."""
+    return json.loads(Path(path).read_text())["demo_places"]
+
+
 def _finite_number(value) -> bool:
     return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
 
@@ -168,17 +173,34 @@ class FixtureDatasource:
     row using the same O2 burn (simulator_rules), dose and suit-pressure drift rules as simulator.step; other vitals hold.
     `clock` returns an aware datetime; rows are stamped with it, so a clock that stops advancing makes the data stale."""
 
-    def __init__(self, scenario="normal", activity="walking", clock=_utc_now, policy=None):
+    def __init__(self, scenario="normal", activity="walking", clock=_utc_now, policy=None, demo_places=None):
         self.clock = clock
         self.policy = load_data_source_policy() if policy is None else policy
         self.mission = {**SEED_MISSION, "scenario": scenario, "activity": activity}
         self.planet = dict(SEED_PLANET)
         self.locations = {row["code"]: dict(row) for row in SEED_LOCATIONS}
+        self._merge_demo_places(load_demo_places() if demo_places is None else demo_places)
         self.positions = [{"ts": clock(), "x_m": 0.0, "z_m": 0.0, "heading_deg": 0.0}]
         self.messages = []
         self.telemetry = [{"ts": clock(), "sim_seconds": 0.0, "o2_percent": 100.0, "heart_rate": 75.0,
                            "suit_pressure_kpa": SUIT_PRESSURE_NOMINAL_KPA, "suit_temp_c": 21.0, "radiation_msv": 0.0}]
         self.advance(FIXTURE_TICK_SIM_S)
+
+    def _merge_demo_places(self, demo_places):
+        """Add the PLACEHOLDER demo rows and aliases (fixture only; schema.sql seeds and data_source stay as they are).
+        A code or alias that is already taken raises instead of silently replacing a row."""
+        for row in demo_places["locations"]:
+            if row["code"] in self.locations:
+                raise ValueError(f"demo_places: location code {row['code']!r} already exists")
+            self.locations[row["code"]] = dict(row)
+        aliases = dict(self.policy["place_aliases"])
+        for name, code in demo_places["place_aliases"].items():
+            if name in aliases:
+                raise ValueError(f"demo_places: place alias {name!r} already maps to {aliases[name]!r}")
+            if code not in self.locations:
+                raise ValueError(f"demo_places: alias {name!r} maps to unknown location code {code!r}")
+            aliases[name] = code
+        self.policy = {**self.policy, "place_aliases": aliases}
 
     def advance(self, sim_seconds):
         """Append one telemetry row `sim_seconds` after the latest, stamped with the clock now."""

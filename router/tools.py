@@ -18,6 +18,7 @@ PLACE_DISTANCES_M = {  # fabricated: (distance in meters, walking minutes)
     "ridge": (500, 9), "outpost": (1500, 25), "greenhouse": (140, 3), "supply_depot": (300, 5),
     "sample_depot": (350, 6), "comms_tower": (400, 7), "solar_farm": (700, 12), "ice_shelf": (2000, 33),
     "lava_tube": (1800, 30), "dune_field": (1100, 18), "quarry": (950, 16), "east_outcrop": (1300, 22),
+    "base_2": (1000, 17),
 }
 
 

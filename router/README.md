@@ -202,6 +202,11 @@ from `pipeline_config.json`. Demo note: on `Get me the coolant level.` v1 gives 
   in a passage does not count). Risk terms are not applied to `call_llm` (retrieval gates it). Breaking change: the
   old "call_llm goes straight to the stub" behavior is gone.
 
+## Live LLM demo (`llm_generator.py`, `demo_live.py`, 2026-10-24)
+`uv run python -m router.demo_live [--fake-router] [--no-llm] [--script FILE]` runs the turn stack on the offline FixtureDatasource with an
+HTTP chat generator (llama-server / mlx / ollama) behind chitchat and call_llm, falling back to the FillerGenerator when no server answers.
+Config: PLACEHOLDER `live_llm` in `turn_policy.json`. Only tested against a fake local server. See `docs/live-demo.md`.
+
 ## Speech (`speech.py`, 2026-10-24)
 
 The final spoken line (`result["spoken"]`: after the number verifier and blocked-line substitution, every route incl.

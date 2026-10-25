@@ -510,7 +510,7 @@ def test_fake_demo_ends_with_the_offline_db_backed_section(capsys):
     out = capsys.readouterr().out
     section = out[out.index("--- DB-backed demo"):]
     assert "Oxygen at 99.9 percent, about 666 minutes remaining." in section
-    assert "Radiation 27.92 microsieverts per hour" in section and "Estimated time in minutes: 17." in section
+    assert "Radiation 27.92 microsieverts per hour" in section and "walking time 17 minutes." in section
     assert "you cannot get back home without a refill" in section and "marked urgent" in section
     assert "Critical alert. Oxygen at 15.9 percent" in section
 
