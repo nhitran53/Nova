@@ -487,5 +487,16 @@ AND NOT EXISTS (
     FROM astronaut_positions p
     WHERE p.mission_id = m.id
 );
-
+CREATE TABLE IF NOT EXISTS mars_weather (
+    id               BIGSERIAL PRIMARY KEY,
+    planet_id        TEXT NOT NULL DEFAULT 'mars' REFERENCES planets(id),
+    mars_year        INT  NOT NULL CHECK (mars_year > 0),
+    northern_season  TEXT NOT NULL CHECK (northern_season IN ('Spring', 'Summer', 'Fall', 'Winter')),
+    day_night        TEXT NOT NULL CHECK (day_night IN ('Day', 'Night')),
+    air_temp_c       REAL,                                  -- blank in the file -> NULL
+    air_temp_err_c   REAL CHECK (air_temp_err_c >= 0),      -- the ± value
+    pressure_pa      REAL CHECK (pressure_pa > 0),
+    pressure_err_pa  REAL CHECK (pressure_err_pa >= 0)      -- the ± value
+);
+ALTER TABLE mars_weather DROP COLUMN IF EXISTS data_source;
 COMMIT;
