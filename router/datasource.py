@@ -12,6 +12,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Protocol
+from .hazard import HazardDatasource
 
 HERE = Path(__file__).resolve().parent
 REPO_ROOT = HERE.parent
@@ -152,7 +153,7 @@ def _utc_now():
     return datetime.now(timezone.utc)
 
 
-class FixtureDatasource:
+class FixtureDatasource(HazardDatasource):
     """In-memory mission, planet, telemetry, position and map rows seeded from schema.sql; no Postgres, no network.
 
     Starts as the simulator would one tick after launch (two rows, sim_seconds 0 and 30). `advance(sim_seconds)` appends one
@@ -162,6 +163,7 @@ class FixtureDatasource:
     def __init__(self, scenario="normal", activity="walking", clock=_utc_now, policy=None, demo_places=None,
                  reference=None):
         self.clock = clock
+        self._init_hazard()
         if reference is None:
             from .reference_data import FixtureReferenceData  # lazy: reference_data imports this module
             reference = FixtureReferenceData()
@@ -204,6 +206,9 @@ class FixtureDatasource:
         self.telemetry.append({**last, "ts": self.clock(), "sim_seconds": last["sim_seconds"] + sim_seconds,
                                "o2_percent": o2, "radiation_msv": dose, "suit_pressure_kpa": pressure})
 
+    def hazard_position(self):
+        return self.positions[-1]
+
     def set_position(self, x_m, z_m):
         self.positions.append({"ts": self.clock(), "x_m": float(x_m), "z_m": float(z_m), "heading_deg": 0.0})
 
@@ -218,7 +223,7 @@ class FixtureDatasource:
 
     def snapshot(self):
         snap = snapshot_from_rows(self.mission, list(reversed(self.telemetry[-2:])), self.clock(), self.policy["max_age_s"])
-        return {**snap, "radiation_usv_h": self.reference_radiation_usv_h()}  # same six keys; only this value's source differs
+        return {**snap, "radiation_usv_h": self.reference_radiation_usv_h(), **self.hazard_snapshot()}
 
     def place(self, name):
         code = resolve_place_code(name, self.policy["place_aliases"])
@@ -246,13 +251,14 @@ def _default_connect(database_url):
                            **password_options(database_url))
 
 
-class PostgresDatasource:
+class PostgresDatasource(HazardDatasource):
     """Reads the live staging DB (DATABASE_URL, default "dbname=nova"). psycopg is imported on first use only.
 
     `connect(database_url)` is injectable (tests pass a fake). Any DB error while reading raises DataUnavailableError;
     a failed message write returns False."""
 
     def __init__(self, database_url=None, connect=None, policy=None):
+        self._init_hazard()
         self.database_url = database_url or os.environ.get("DATABASE_URL", DEFAULT_DATABASE_URL)
         self._connect = connect or _default_connect
         self.policy = load_data_source_policy() if policy is None else policy
@@ -267,8 +273,14 @@ class PostgresDatasource:
         except Exception as exc:
             raise DataUnavailableError(f"database read failed: {type(exc).__name__}: {exc}"[:300]) from exc
 
+    def hazard_position(self):
+        position = self._query(SQL_LATEST_POSITION)
+        if position is None:
+            raise DataUnavailableError("no astronaut position for the active mission")
+        return position
+
     def snapshot(self):
-        return self._read_snapshot()[0]
+        return {**self._read_snapshot()[0], **self.hazard_snapshot()}
 
     def _read_snapshot(self):
         # Read mission settings and telemetry together to avoid mixing scenarios.
