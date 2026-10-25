@@ -4,7 +4,7 @@
 
 Reads <data-dir>/{train,dev,test}.jsonl ({"text","label"}; labels from labels.json, order = class index).
 Each epoch is scored on dev; the best epoch (dev macro-F1, ties -> lower dev NLL) is saved with its tokenizer
-to --out-dir. Temperature scaling is then fitted on that model's dev logits, test is scored once for the
+to --out-dir. Temperature scaling is fitted on independent calibration logits for v3/v4 (legacy: dev reuse), test is scored once for the
 record, and --out-dir/router_meta.json is written (trained: true, labels, epochs, data hash, dev/test macro-F1,
 temperature). Uses MPS, then CUDA, then CPU (--device overrides).
 
@@ -12,7 +12,6 @@ HONESTY NOTE: with the synthetic data from data/gen_synthetic.py, dev/test come 
 as train, so the scores are optimistic and are NOT evidence for the 95% target on real speech.
 """
 import argparse
-import copy
 import hashlib
 import json
 import random
@@ -24,8 +23,9 @@ import numpy as np
 import torch
 from transformers import AutoModelForSequenceClassification, AutoTokenizer, get_linear_schedule_with_warmup
 
-from .core import META_FILENAME, base_model_dir, load_labels, models_dir, resolve_device
-from .evaluate import (CAVEAT, classification_metrics, compute_logits, expected_calibration_error, load_jsonl,
+from .training_tools import calibration_input, checked_device, file_hash, is_trip, data_contract, V4_CAVEAT, reserve_checkpoint
+from .core import META_FILENAME, base_model_dir, load_labels, models_dir
+from .evaluate import (CAVEAT, V3_CAVEAT, classification_metrics, compute_logits, expected_calibration_error, load_jsonl,
                        softmax)
 
 HERE = Path(__file__).parent
@@ -33,15 +33,15 @@ SPLITS = ("train", "dev", "test")
 
 
 def data_hash(data_dir, labels):
-    """sha256 over the label order and the raw bytes of train/dev/test.jsonl."""
+    """Hash labels and classifier split bytes (including trip calibration and threshold)."""
     h = hashlib.sha256(json.dumps(labels).encode())
-    for split in SPLITS:
+    for split in (SPLITS + (("calibration", "threshold") if is_trip(data_dir) else ())):
         h.update((Path(data_dir) / f"{split}.jsonl").read_bytes())
     return h.hexdigest()
 
 
 def fit_temperature(logits, y_true, max_iter=100):
-    """Temperature T > 0 minimising dev NLL of softmax(logits / T) (LBFGS on log T)."""
+    """Temperature T > 0 minimising calibration-input NLL of softmax(logits / T) (LBFGS on log T)."""
     z = torch.tensor(logits, dtype=torch.float64)
     y = torch.tensor(y_true)
     log_t = torch.zeros(1, dtype=torch.float64, requires_grad=True)
@@ -65,24 +65,41 @@ def nll(logits, y_true, temperature=1.0):
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--data-dir", default=str(HERE / "data"))
-    ap.add_argument("--out-dir", default=str(models_dir() / "synthetic-v0"), help="default: %(default)s (set NOVA_MODELS_DIR to move)")
+    ap.add_argument("--out-dir", help=f"New checkpoint directory; required for v3/v4, legacy default: {models_dir() / 'synthetic-v0'}")
     ap.add_argument("--base", default=str(base_model_dir()), help="default: %(default)s")
     ap.add_argument("--labels", default=str(HERE / "labels.json"))
     ap.add_argument("--epochs", type=int, default=3)
     ap.add_argument("--lr", type=float, default=5e-5)
-    ap.add_argument("--batch-size", type=int, default=16)
+    ap.add_argument("--batch-size", type=int, default=4)
+    ap.add_argument("--eval-batch-size", type=int, default=4)
+    ap.add_argument("--calibration-path", help="Independent JSONL; v3/v4 default to calibration.jsonl, never dev")
+    ap.add_argument("--require-cuda", action="store_true", help="Fail rather than fall back to CPU/MPS")
+    ap.add_argument("--gradient-checkpointing", action="store_true")
+    ap.add_argument("--mixed-precision", choices=("no", "bf16"), default="no")
     ap.add_argument("--max-length", type=int, default=64)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--device", default="auto", help="auto|cpu|mps|cuda")
     args = ap.parse_args(argv)
 
+    if min(args.epochs, args.batch_size, args.eval_batch_size, args.max_length) < 1:
+        ap.error("epochs, batch sizes and max length must be positive")
+    if args.out_dir is None:
+        if is_trip(args.data_dir):
+            ap.error("trip contract requires an explicit new --out-dir; no default promotion")
+        args.out_dir = str(models_dir() / "synthetic-v0")
+    caveat = V4_CAVEAT if data_contract(args.data_dir) == 'v4-trip-1' else V3_CAVEAT if is_trip(args.data_dir) else CAVEAT
+    device = checked_device(args.device, args.require_cuda)
+    if args.mixed_precision != 'no' and device.type != 'cuda':
+        ap.error("mixed precision here requires CUDA")
+    cal_path = calibration_input(args.data_dir, args.calibration_path)
+    out_dir = reserve_checkpoint(args.out_dir)
     random.seed(args.seed)
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
     labels = load_labels(args.labels)
-    device = resolve_device(args.device)
     train_x, train_y = load_jsonl(Path(args.data_dir) / "train.jsonl", labels)
     dev_x, dev_y = load_jsonl(Path(args.data_dir) / "dev.jsonl", labels)
+    cal_x, cal_y = load_jsonl(cal_path, labels)
     test_x, test_y = load_jsonl(Path(args.data_dir) / "test.jsonl", labels)
     print(f"device={device} labels={len(labels)} train/dev/test={len(train_x)}/{len(dev_x)}/{len(test_x)}", flush=True)
 
@@ -91,6 +108,9 @@ def main(argv=None):
         args.base, num_labels=len(labels),
         id2label=dict(enumerate(labels)), label2id={name: i for i, name in enumerate(labels)},
     ).to(device)
+
+    if args.gradient_checkpointing:
+        model.gradient_checkpointing_enable()
 
     steps_per_epoch = -(-len(train_x) // args.batch_size)
     total_steps = steps_per_epoch * args.epochs
@@ -110,21 +130,23 @@ def main(argv=None):
             enc = tokenizer([train_x[i] for i in idx], return_tensors="pt", padding=True, truncation=True,
                             max_length=args.max_length).to(device)
             labels_t = torch.tensor(train_y[idx], device=device)
-            loss = model(**enc, labels=labels_t).loss
+            with torch.autocast(device_type=device.type, dtype=torch.bfloat16,
+                                enabled=args.mixed_precision == 'bf16'):
+                loss = model(**enc, labels=labels_t).loss
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.step()
             scheduler.step()
             optimizer.zero_grad(set_to_none=True)
             losses.append(loss.item())
-            if (step + 1) % 25 == 0 or step + 1 == steps_per_epoch:
-                done = (epoch - 1) * steps_per_epoch + step + 1
-                elapsed = time.perf_counter() - start
-                eta = elapsed / done * (total_steps - done)
-                print(f"  epoch {epoch}/{args.epochs} step {step + 1}/{steps_per_epoch} "
-                      f"(overall {done}/{total_steps}) loss {np.mean(losses[-25:]):.4f} "
-                      f"elapsed {elapsed:.0f}s eta {eta:.0f}s", flush=True)
-        dev_logits = compute_logits(model, tokenizer, dev_x, device, args.max_length)
+            # Log every optimizer step, including short resource trials.
+            done = (epoch - 1) * steps_per_epoch + step + 1
+            elapsed = time.perf_counter() - start
+            eta = elapsed / done * (total_steps - done)
+            print(f"  epoch {epoch}/{args.epochs} step {step + 1}/{steps_per_epoch} "
+                  f"(overall {done}/{total_steps}) loss {np.mean(losses[-25:]):.4f} "
+                  f"elapsed {elapsed:.0f}s eta {eta:.0f}s", flush=True)
+        dev_logits = compute_logits(model, tokenizer, dev_x, device, args.max_length, args.eval_batch_size)
         dev_metrics = classification_metrics(dev_y, dev_logits.argmax(axis=1), len(labels))
         dev_nll = nll(dev_logits, dev_y)
         history.append({"epoch": epoch, "train_loss": float(np.mean(losses)), "dev_macro_f1": dev_metrics["macro_f1"],
@@ -133,23 +155,34 @@ def main(argv=None):
               f"acc {dev_metrics['accuracy']:.4f} nll {dev_nll:.4f} | {time.perf_counter() - start:.0f}s", flush=True)
         if (dev_metrics["macro_f1"], -dev_nll) > (best["macro_f1"], -best["nll"]):
             best.update(macro_f1=dev_metrics["macro_f1"], nll=dev_nll, epoch=epoch, logits=dev_logits,
-                        state=copy.deepcopy({k: v.detach().cpu() for k, v in model.state_dict().items()}))
+                        state={k: v.detach().to("cpu", copy=True) for k, v in model.state_dict().items()})
 
     model.load_state_dict(best["state"])
-    temperature = fit_temperature(best["logits"], dev_y)
-    test_logits = compute_logits(model, tokenizer, test_x, device, args.max_length)
+    best["state"] = None  # release CPU snapshot before final evaluation
+    cal_logits = compute_logits(model, tokenizer, cal_x, device, args.max_length, args.eval_batch_size)
+    temperature = fit_temperature(cal_logits, cal_y)
+    test_logits = compute_logits(model, tokenizer, test_x, device, args.max_length, args.eval_batch_size)
     test_metrics = classification_metrics(test_y, test_logits.argmax(axis=1), len(labels))
-    out_dir = Path(args.out_dir)
     model.save_pretrained(out_dir, safe_serialization=True)
     tokenizer.save_pretrained(out_dir)
     meta = {
         "trained": True,
+        "data_contract": data_contract(args.data_dir),
+        "promotion_status": "candidate_only_not_default",
+        "calibration_path": str(cal_path),
+        "calibration_sha256": file_hash(cal_path),
+        "calibration_role": "independent" if is_trip(args.data_dir) else "legacy_dev_reuse" if cal_path.name == "dev.jsonl" else "explicit",
+        "selection_split": "dev",
+        "calibration_ece": expected_calibration_error(softmax(cal_logits, temperature), cal_y),
         "labels": labels,
         "base_model": str(args.base),
         "epochs": args.epochs,
         "best_epoch": best["epoch"],
         "lr": args.lr,
         "batch_size": args.batch_size,
+        "eval_batch_size": args.eval_batch_size,
+        "mixed_precision": args.mixed_precision,
+        "gradient_checkpointing": args.gradient_checkpointing,
         "max_length": args.max_length,
         "seed": args.seed,
         "device": str(device),
@@ -159,15 +192,16 @@ def main(argv=None):
         "test_macro_f1": test_metrics["macro_f1"],
         "temperature": temperature,
         "dev_ece_uncalibrated": expected_calibration_error(softmax(best["logits"]), dev_y),
+        "dev_ece_role": "diagnostic_only_not_temperature_fit" if is_trip(args.data_dir) else "legacy_dev_reuse",
         "dev_ece_calibrated": expected_calibration_error(softmax(best["logits"], temperature), dev_y),
         "history": history,
         "synthetic_data": True,
-        "caveat": CAVEAT,
+        "caveat": caveat,
     }
     (out_dir / META_FILENAME).write_text(json.dumps(meta, indent=2) + "\n")
     print(f"best epoch {best['epoch']} | dev macro-F1 {best['macro_f1']:.4f} | test macro-F1 "
           f"{test_metrics['macro_f1']:.4f} | T={temperature:.3f} | saved {out_dir}")
-    print("NOTE: " + CAVEAT)
+    print("NOTE: " + caveat)
     return 0
 
 

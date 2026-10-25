@@ -164,7 +164,7 @@ def test_navigation_with_a_place_runs_one_tool_and_speaks_the_tool_result():
     rig = Rig("call_navigation")
     out = rig.say("go from the rover to the airlock")
     assert rig.registry.log == [("navigation", {"place": "airlock"})] and out["tool_calls"] == 1
-    assert out["spoken"].startswith("Heading to airlock. About 80 meters. Estimated time in minutes: 1. ") and out["verifier"]["ok"]
+    assert out["spoken"].startswith("Navigation information for airlock: estimated straight-line distance 80 meters, walking time 1 minutes. ") and out["verifier"]["ok"]
 
 
 # ---- 5. low confidence / OOD / llm ----
@@ -183,9 +183,9 @@ def test_ood_gets_the_template_reply_not_the_llm():
 
 def test_chitchat_uses_the_injected_llm_stub_ungrounded():
     rig = Rig("NO_TOOL", 0.97, llm=FakeLLM("Hello there!"))
-    out = rig.say("hi")
+    out = rig.say("hello there")
     assert out["route"] == "llm" and out["spoken"] == "Hello there!" and out["llm_called"]
-    assert len(rig.llm.calls) == 1 and rig.llm.calls[0][0] == "hi" and rig.registry.log == []
+    assert len(rig.llm.calls) == 1 and rig.llm.calls[0][0] == "hello there" and rig.registry.log == []
     assert rig.llm.passages_seen == [None]
 
 
@@ -245,7 +245,7 @@ def test_default_registry_has_six_fixed_schema_tools_and_rejects_bad_calls():
 @pytest.mark.parametrize("label", TOOL_LABELS)
 def test_each_tool_class_runs_exactly_one_fake_tool(label):
     rig = Rig(label)
-    out = rig.say("do it at the airlock")
+    out = rig.say("check my health" if label == "call_safety" else "do it at the airlock")
     assert out["route"] == "tool" and out["tool_calls"] == 1 and len(rig.registry.log) == 1 and out["verifier"]["ok"]
 
 
@@ -397,7 +397,7 @@ def test_arbiter_agree_executes_the_tool():
 def test_arbiter_disagree_none_or_error_gives_a_clarification_and_no_tool(answer):
     rig = Rig("call_o2", 0.7, arbiter=FakeArbiter(answer))
     out = rig.say("oxygen")
-    assert out["route"] == "clarify" and out["spoken"].startswith("I'm not sure I understood.") and rig.registry.log == []
+    assert out["route"] == "clarify" and out["spoken"].startswith("Please choose:") and rig.registry.log == []
     assert rig.llm.calls == []
 
 
@@ -446,7 +446,7 @@ def feasibility(out):
 def test_feasibility_outcome_boundaries_for_a_round_trip(minutes, outcome):
     rig, out = nav(minutes)
     assert feasibility(out) == {"outcome": outcome, "is_home": False, "outbound_min": 25, "return_min": 25, "trip_min": 50,
-                                "reserve_min": 10, "required_min": 60, "o2_minutes_remaining": minutes}
+                                "reserve_min": 10, "required_min": 60, "o2_minutes_remaining": minutes, "margin_min": minutes - 60}
     assert out["tool_calls"] == 1 and out["tool_call"] == {"name": "navigation", "args": {"place": "outpost"}}
 
 
@@ -461,16 +461,23 @@ def test_feasibility_outcome_boundaries_for_a_round_trip(minutes, outcome):
 ])
 def test_feasibility_line_is_spoken_after_the_route_line_with_numbers_from_the_tool_result(minutes, tail):
     rig, out = nav(minutes)
-    assert out["spoken"] == "Heading to outpost. About 1500 meters. Estimated time in minutes: 25. " + tail
+    expected = load_policy()['clarification']['guidance'].format(**out['tool_result']['data'])
+    budget = load_policy()['clarification']['budget'].format(**feasibility(out))
+    if ' Do you want' in tail:
+        warning, offer = tail.split(' Do you want', 1)
+        tail = warning + budget + ' Do you want' + offer
+    else:
+        tail += budget
+    assert out['spoken'] == expected + ' ' + tail
     assert out["verifier"]["ok"] and out["blocked_text"] is None
     spoken = set(out["verifier"]["spoken"])
-    assert spoken <= {1500.0, 25.0, 50.0, 10.0, 60.0, float(minutes)}
+    assert spoken <= {1500.0, 25.0, 50.0, 10.0, 60.0, float(minutes), float(minutes - 60)}
 
 
 def test_the_route_is_never_refused_even_when_the_destination_cannot_be_reached():
     rig, out = nav(5)
     assert feasibility(out)["outcome"] == "cannot_reach" and out["route"] == "tool"
-    assert rig.registry.log == [("navigation", {"place": "outpost"})] and out["spoken"].startswith("Heading to outpost.")
+    assert rig.registry.log == [("navigation", {"place": "outpost"})] and out["spoken"].startswith("Navigation information for outpost:")
 
 
 @pytest.mark.parametrize("minutes, outcome, tail", [
@@ -482,8 +489,8 @@ def test_the_route_is_never_refused_even_when_the_destination_cannot_be_reached(
 def test_home_as_destination_skips_the_return_leg_and_never_says_cannot_return(minutes, outcome, tail):
     rig, out = nav(minutes, text="take me home")
     assert feasibility(out) == {"outcome": outcome, "is_home": True, "outbound_min": 2, "return_min": 0, "trip_min": 2,
-                                "reserve_min": 10, "required_min": 12, "o2_minutes_remaining": minutes}
-    assert out["spoken"].endswith(tail) and out["verifier"]["ok"]
+                                "reserve_min": 10, "required_min": 12, "o2_minutes_remaining": minutes, "margin_min": minutes - 12}
+    assert tail in out["spoken"] and out["verifier"]["ok"]
     assert "refills" not in out["spoken"] and out["pending_confirmation"] is None and rig.handler.pending_confirmation is None
 
 
@@ -496,11 +503,11 @@ def test_o2_minutes_fall_back_to_the_percent_rate_and_no_o2_data_means_no_feasib
     assert assess_feasibility(data, {"o2_pct": 20.0, "minutes_remaining": 300}, policy)["o2_minutes_remaining"] == 300
 
 
-def test_without_o2_data_the_route_is_spoken_alone_and_no_offer_is_pending():
+def test_without_o2_data_navigation_explicitly_reports_unavailable_and_no_offer_is_pending():
     rig = Rig("call_navigation", snapshot={"bpm": 72})
     out = rig.say("take me to the outpost")
-    assert out["spoken"] == "Heading to outpost. About 1500 meters. Estimated time in minutes: 25."
-    assert "feasibility" not in out["tool_result"]["data"] and rig.handler.pending_confirmation is None
+    assert out["spoken"].endswith(load_policy()["clarification"]["unavailable"])
+    assert out["tool_result"]["data"]["feasibility"]["outcome"] == "unavailable" and rig.handler.pending_confirmation is None
 
 
 def test_legs_are_rounded_up_and_remaining_down_so_the_check_is_conservative():
@@ -730,11 +737,11 @@ def test_match_confirmation_word_lists(text, answer):
 
 # ---- C. LLM scope: router class + retrieval score + risk terms ----
 @pytest.mark.parametrize("text", ["how is my oxygen", "tell me a joke about my suit", "is this Radiation bad", "what dose is safe",
-                                  "my battery is dying lol", "any emergency", "fix the leak", "o2 chat", "suit pressure"])
+                                  "my battery is dying lol", "any emergency", "o2 chat", "suit pressure"])
 def test_chitchat_with_a_risk_term_gets_the_template_and_the_llm_is_not_called(text):
     rig = Rig("NO_TOOL", 0.97)
     out = rig.say(text)
-    assert out["route"] == "risk_diverted" and out["spoken"] == load_policy()["llm_scope"]["risk_diverted"]
+    assert out["route"] in ("risk_diverted", "repair_offer") and out["spoken"] == load_policy()["llm_scope"]["speaking_scope"]["repair_offer"]
     assert rig.llm.calls == [] and not out["llm_called"] and rig.registry.log == [] and out["verifier"]["ok"]
 
 
@@ -777,7 +784,7 @@ def test_call_llm_with_passages_calls_the_llm_with_them_best_first_and_top_k_onl
 def test_call_llm_output_may_use_numbers_that_are_in_the_retrieved_passages():
     rig = Rig("call_llm", 0.97, llm=FakeLLM("The Moon is about 384400 kilometers away."), retriever=lambda t: [PASSAGE])
     out = rig.say("how far away is the moon")
-    assert out["spoken"] == "The Moon is about 384400 kilometers away." and out["verifier"]["ok"]
+    assert out["spoken"] == "According to the document, the Moon is about 384400 kilometers away." and out["verifier"]["ok"]
 
 
 def test_call_llm_output_with_a_number_missing_from_the_passages_is_blocked():

@@ -1,0 +1,106 @@
+{
+  "files": {
+    "data/paraphrase_test.jsonl": {
+      "heuristic_review_candidates_by_old_label": {
+        "call_o2": 1,
+        "call_safety": 1
+      },
+      "label_counts": {
+        "NO_TOOL": 8,
+        "OOD": 8,
+        "call_data": 8,
+        "call_llm": 8,
+        "call_map": 8,
+        "call_navigation": 8,
+        "call_o2": 8,
+        "call_safety": 8
+      },
+      "rows": 64,
+      "sha256": "2362b1b3ffb718a083eafb50275f495e8391305c13b4a1f9585cdd181b81f650"
+    },
+    "data/v2/dev.jsonl": {
+      "heuristic_review_candidates_by_old_label": {
+        "call_o2": 5
+      },
+      "label_counts": {
+        "NO_TOOL": 40,
+        "OOD": 40,
+        "call_data": 40,
+        "call_llm": 40,
+        "call_map": 40,
+        "call_navigation": 40,
+        "call_o2": 40,
+        "call_safety": 40
+      },
+      "rows": 320,
+      "sha256": "83010c29f0c8ca6e691f3913d33bd5d50b85693aece11cd6b1a4d30e3c81a47d"
+    },
+    "data/v2/test.jsonl": {
+      "heuristic_review_candidates_by_old_label": {
+        "call_safety": 4
+      },
+      "label_counts": {
+        "NO_TOOL": 40,
+        "OOD": 40,
+        "call_data": 40,
+        "call_llm": 40,
+        "call_map": 40,
+        "call_navigation": 40,
+        "call_o2": 40,
+        "call_safety": 40
+      },
+      "rows": 320,
+      "sha256": "bb3aa12c623ab63f827fbf43b569193809c0eae8809c330e1b6956664c52b042"
+    },
+    "data/v2/train.jsonl": {
+      "heuristic_review_candidates_by_old_label": {
+        "call_o2": 21,
+        "call_safety": 21
+      },
+      "label_counts": {
+        "NO_TOOL": 200,
+        "OOD": 200,
+        "call_data": 200,
+        "call_llm": 200,
+        "call_map": 200,
+        "call_navigation": 200,
+        "call_o2": 200,
+        "call_safety": 200
+      },
+      "rows": 1600,
+      "sha256": "010c9b044231c7b470ed291a73a3e07b6b4a30e5bb5c1d222ecf52e1c588cff3"
+    },
+    "demo_calls.json": {
+      "heuristic_review_candidates_by_old_label": {},
+      "label_counts": {
+        "NO_TOOL": 2,
+        "OOD": 2,
+        "call_data": 2,
+        "call_llm": 1,
+        "call_map": 2,
+        "call_navigation": 2,
+        "call_o2": 2,
+        "call_safety": 2
+      },
+      "rows": 15,
+      "sha256": "8f4bb9d201207b1337a975fe4e231c47d46dd3bf948c680b96b3c440bdd7be17"
+    },
+    "demo_calls_47.json": {
+      "heuristic_review_candidates_by_old_label": {},
+      "label_counts": {
+        "NO_TOOL": 6,
+        "OOD": 6,
+        "call_data": 6,
+        "call_llm": 5,
+        "call_map": 6,
+        "call_navigation": 6,
+        "call_o2": 6,
+        "call_safety": 6
+      },
+      "rows": 47,
+      "sha256": "dca86fb6492538cb67a995cc1159d676fb2a44e297a151793f5cdf4ba65f14a8"
+    }
+  },
+  "method": "casefolded regex triage only; manual adjudication required",
+  "status": "historical_labels_incompatible_do_not_score_as_v3"
+}

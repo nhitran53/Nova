@@ -18,7 +18,7 @@ Definitions (choices documented here, review finding 5):
   * HCW splits into FALSE ACTIVATION (true label is NO_TOOL / call_llm / OOD: an action fired when no tool was
     wanted) and WRONG TOOL (true label is a different tool class). Other errors (missed tool, non-tool
     confusions, below-tau_hi errors) are counted separately and never mixed into the action rate.
-  * tau_hi is swept; the suggestion is chosen on DEV ONLY: the lowest grid value whose combined action HCW rate
+  * tau_hi is swept; legacy suggestion is chosen on DEV ONLY (v3 requires --selection-split threshold): the lowest grid value whose combined action HCW rate
     on dev is <= target (max coverage subject to the target). Test is then scored at that value and its own
     sweep is printed for information only; nothing is tuned on test.
 
@@ -38,6 +38,7 @@ from pathlib import Path
 
 import numpy as np
 
+from .training_tools import is_trip, data_contract, check_checkpoint_contract, V4_CAVEAT, write_report
 from .core import Router, load_labels, models_dir
 from .evaluate import compute_logits, load_jsonl, softmax
 from .pipeline import load_config
@@ -141,9 +142,9 @@ def format_per_class(title, stats):
     return "\n".join(lines)
 
 
-def split_probs(router, data_dir, split, labels):
+def split_probs(router, data_dir, split, labels, batch_size=4):
     texts, y = load_jsonl(Path(data_dir) / f"{split}.jsonl", labels)
-    logits = compute_logits(router.model, router.tokenizer, texts, router.device, router.max_length)
+    logits = compute_logits(router.model, router.tokenizer, texts, router.device, router.max_length, batch_size)
     return softmax(logits, router.temperature), y, texts
 
 
@@ -157,7 +158,12 @@ def main(argv=None):
     ap.add_argument("--action-labels", nargs="+", default=list(ACTION_LABELS))
     ap.add_argument("--report-dir", default=str(HERE / "reports"))
     ap.add_argument("--device", default="auto")
+    ap.add_argument("--selection-split", choices=("dev", "threshold"), default="dev",
+                    help="v3 requires threshold; dev selection is legacy only")
+    ap.add_argument("--batch-size", type=int, default=4)
     args = ap.parse_args(argv)
+    if is_trip(args.data_dir) and args.selection_split != 'threshold':
+        ap.error('trip contract requires --selection-split threshold; dev is for epoch selection only')
 
     labels = load_labels(args.labels)
     tool_labels = list(load_config(labels=labels)["tool_labels"])
@@ -170,36 +176,52 @@ def main(argv=None):
     if router.untrained:
         sys.exit(f"{args.checkpoint} is untrained")
 
+    try:
+        check_checkpoint_contract(getattr(router, 'meta', {}), args.data_dir)
+    except ValueError as exc:
+        ap.error(str(exc))
     out = {"checkpoint": str(args.checkpoint), "data_dir": str(args.data_dir), "target": args.target,
-           "action_labels": args.action_labels, "temperature": router.temperature}
+           "action_labels": args.action_labels, "temperature": router.temperature,
+           "data_contract": data_contract(args.data_dir)}
+    if data_contract(args.data_dir) == "v4-trip-1":
+        out["caveat"] = V4_CAVEAT
     sweeps = {}
     probs = {}
-    for split in ("dev", "test"):
-        p, y, _ = split_probs(router, args.data_dir, split, labels)
+    selection = args.selection_split
+    for split in (selection, "test"):
+        p, y, _ = split_probs(router, args.data_dir, split, labels, args.batch_size)
         probs[split] = (p, y)
         sweeps[split] = sweep(p, y, labels, tool_labels, args.action_labels)
-        print(format_sweep(f"== {split.upper()} sweep ({len(y)} rows)" + ("  [used to choose tau_hi]" if split == "dev"
+        print(format_sweep(f"== {split.upper()} sweep ({len(y)} rows)" + ("  [used to choose tau_hi]" if split == selection
                            else "  [information only, not used to choose]"), sweeps[split], args.target))
         print()
-    dev_chosen = choose_tau_hi(sweeps["dev"], args.target)
+    dev_chosen = choose_tau_hi(sweeps[selection], args.target)
     chosen = args.tau_hi if args.tau_hi is not None else dev_chosen
-    out["dev_chosen_tau_hi"] = dev_chosen
+    out["selection_split"] = selection
+    out["offline_proposed_tau_hi"] = dev_chosen
+    out["current_tau_hi"] = load_config(labels=labels)["tau_hi"]
+    out["legacy_dev_selection"] = selection == 'dev'
+    if selection == 'dev':
+        out["dev_chosen_tau_hi"] = dev_chosen
     out["scored_tau_hi"] = chosen
-    out["tau_hi_source"] = "--tau-hi" if args.tau_hi is not None else "dev only"
-    print(f"Suggested tau_hi = {dev_chosen} (dev only).")
+    out["tau_hi_source"] = "--tau-hi" if args.tau_hi is not None else f"{selection} only (offline suggestion, not runtime policy)"
+    print(f"Suggested tau_hi = {dev_chosen} ({selection} only; offline, no policy change).")
     if chosen is None:
-        print(f"No swept tau_hi meets the {args.target:.3%} target on DEV; not scoring test at a chosen value.")
+        print(f"No swept tau_hi meets the {args.target:.3%} target on {selection}; not scoring test at a chosen value.")
     else:
         print(f"Scoring tau_hi = {chosen} ({out['tau_hi_source']}).")
-        for split in ("dev", "test"):
+        for split in (selection, "test"):
             stats = gate_stats(*probs[split], labels, chosen, tool_labels, args.action_labels)
             out[f"{split}_at_chosen"] = stats
             print(format_per_class(f"-- {split.upper()} per class at tau_hi={chosen}", stats))
             print()
+    out["at_current_threshold"] = {
+        split: gate_stats(*values, labels, out["current_tau_hi"], tool_labels, args.action_labels)
+        for split, values in probs.items()}
     out["sweeps"] = sweeps
-    out_path = Path(args.report_dir) / f"{Path(args.checkpoint).resolve().name}_gate.json"
+    out_path = Path(args.report_dir) / f"{Path(args.checkpoint).resolve().name}_gate_{selection}_test.json"
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(json.dumps(out, indent=2) + "\n")
+    write_report(out_path, out)
     print(f"report -> {out_path}")
     return 0
 
