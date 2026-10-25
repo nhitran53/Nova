@@ -338,9 +338,12 @@ def load_real_voice_session():
     llm.API_KEY_ENV = "NOVA_LLM_API_KEY"
     llm.GEMINI_KEY_ENV = "GEMINI_API_KEY"
     llm.redact_secrets = lambda text, secret: text
+    hazard = types.ModuleType(package + ".hazard")
+    hazard.inactive_hazard = lambda: dict(active=False, kind="meteor", center_x_m=None, center_z_m=None,
+                                          radius_m=None, eta_s=None, inside=False, edge_distance_m=None)
     root = types.ModuleType(package)
     root.__path__ = []
-    stubs = {package: root, package + ".stt": stt, package + ".llm_generator": llm}
+    stubs = {package: root, package + ".stt": stt, package + ".llm_generator": llm, package + ".hazard": hazard}
     sys.modules.update(stubs)
     try:
         spec = importlib.util.spec_from_file_location(package + ".voice_server", path)
