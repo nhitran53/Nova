@@ -19,7 +19,6 @@ public class NovaAssistantPresenter : MonoBehaviour
     [SerializeField] bool keyboardShortcut = true;
     [Tooltip("Keep NOVA's last reply on the HUD this long after the conversation ends.")]
     [SerializeField, Min(0)] float replyHoldSeconds = 8;
-    [SerializeField, Min(20)] int maxMessageChars = 160;
 
     static readonly Color Cyan = new Color(0.35f, 0.9f, 1);
     static readonly Color Amber = new Color(1, 0.75f, 0.3f);
@@ -160,9 +159,6 @@ public class NovaAssistantPresenter : MonoBehaviour
         }
     }
 
-    string Clip(string text)
-    {
-        if (string.IsNullOrEmpty(text)) return "";
-        return text.Length <= maxMessageChars ? text : text.Substring(0, maxMessageChars - 3) + "...";
-    }
+    // The whole transcript or reply is shown; the HUD wraps it at the subtitle's width.
+    static string Clip(string text) => text ?? "";
 }

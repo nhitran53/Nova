@@ -53,6 +53,8 @@ public class HelmetHUD : MonoBehaviour
 
     void OnEnable()
     {
+        subtitle.overflowMode = TextOverflowModes.Overflow;   // the full transcript/reply wraps at the same width instead of "..."
+        subtitle.verticalAlignment = VerticalAlignmentOptions.Top;   // extra lines grow down, away from the NOVA orb and status
         if (viewCamera == null)
         {
             viewCamera = GetComponentInParent<Camera>();
@@ -201,11 +203,12 @@ public class HelmetHUD : MonoBehaviour
         orbPulseAmount = pulseAmount;
     }
 
+    // Gesture diagnostics (pinch, telephone) no longer replace NOVA's transcript/reply on the HUD; they still log to the Console.
     public void ReportPinch(string message)
     {
-        subtitle.text = message;
-        subtitle.gameObject.SetActive(true);
-        diagnosticUntil = Time.unscaledTime + 4;
+        // subtitle.text = message;
+        // subtitle.gameObject.SetActive(true);
+        // diagnosticUntil = Time.unscaledTime + 4;
     }
 
     void Refresh(SuitReadings value)
@@ -223,7 +226,7 @@ public class HelmetHUD : MonoBehaviour
         states[0] = Low(value.oxygenPercent, 30, 15);
         states[1] = Band(value.heartRate, 50, 110, 40, 140);
         states[2] = Band(value.pressureKpa, 28, 35, 25, 40);
-        states[3] = Low(value.batteryPercent, 25, 10);
+        states[3] = SuitAlert.Normal;   // no battery sensor on the suit: never alerted
         states[4] = High(value.radiationMicrosieverts, 0.5f, 2);
         states[5] = Band(value.temperatureCelsius, 10, 32, 0, 40);
         SetValue(oxygen, $"<size=60%>O2</size>  {value.oxygenPercent:0}%", states[0]);
@@ -238,8 +241,7 @@ public class HelmetHUD : MonoBehaviour
             ApplyStatusAlert();
             return;
         }
-        string detail = highest == 3 ? $"  {value.batteryPercent:0}%" :
-            highest == 4 ? $"  {value.radiationMicrosieverts:0.00} uSv/h" : "";
+        string detail = highest == 4 ? $"  {value.radiationMicrosieverts:0.00} uSv/h" : "";
         alert.text = $"{state.ToString().ToUpperInvariant()} / {MetricNames[highest]}{detail}";
         alert.color = statusLine.color = ColorFor(state);
         ApplyStatusAlert();

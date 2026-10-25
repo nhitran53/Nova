@@ -278,8 +278,7 @@ public class WristComputer : MonoBehaviour
         readings.text = Row("HEART", $"{value.heartRate:0}", "BPM") + "\n" +
             Row("PRESSURE", $"{value.pressureKpa:0.0}", "kPa") + "\n" +
             Row("RADIATION", $"{value.radiationMicrosieverts:0.00}", "uSv/h") + "\n" +
-            Row("TEMP", $"{value.temperatureCelsius:0.0}", "°C") + "\n" +
-            Row("BATTERY", $"{value.batteryPercent:0}", "%");
+            Row("TEMP", $"{value.temperatureCelsius:0.0}", "°C");   // no battery sensor on the suit: not shown
     }
 
     static string Row(string label, string value, string unit) =>
