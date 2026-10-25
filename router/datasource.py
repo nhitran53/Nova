@@ -141,6 +141,7 @@ SEED_LOCATIONS = (
     {"code": "CRATR", "name": "Crater Rim", "x_m": 900.0, "z_m": 350.0},
     {"code": "SLOPE", "name": "Unstable Slope", "x_m": 600.0, "z_m": 500.0},
     {"code": "RIDGE", "name": "Ridge Overlook", "x_m": 1500.0, "z_m": -100.0},
+    {"code": "SHUTTLE", "name": "Shuttle", "x_m": -115.0, "z_m": -80.0},
 )
 SUIT_PRESSURE_NOMINAL_KPA, SUIT_PRESSURE_O2_LEAK_KPA, SUIT_PRESSURE_TAU_S = 29.6, 24.0, 300.0  # simulator.py step()
 RADIATION_EVENT_DOSE_FACTOR = 40.0

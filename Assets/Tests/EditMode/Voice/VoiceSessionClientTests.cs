@@ -98,7 +98,7 @@ public class VoiceSessionClientTests
         var first = tracker.Apply(Status("speaking", "yes", "Okay."));
         Assert.IsTrue(first.TranscriptChanged);
         Assert.IsTrue(first.ReplyChanged);
-        Assert.IsFalse(tracker.Apply(Status("speaking", "yes", "Okay.")).TranscriptChanged);   // same poll again
+        Assert.IsFalse(tracker.Apply(Status("speaking", "yes", "Okay.")).TranscriptChanged);
         tracker.Apply(Status("listening", "yes", "Okay."));
         var second = tracker.Apply(Status("speaking", "yes", "Okay."));
         Assert.IsTrue(second.TranscriptChanged);
@@ -127,6 +127,22 @@ public class VoiceSessionClientTests
         var tracker = new VoiceStatusTracker();
         Assert.IsTrue(tracker.Apply(Status("error", error: "SttError: no key")).ErrorChanged);
         Assert.IsFalse(tracker.Apply(Status("error", error: "SttError: no key")).ErrorChanged);
+    }
+
+    [Test]
+    public void Tracker_NavigationFiresOncePerCommandAndSkipsOneIssuedBeforeConnecting()
+    {
+        VoiceStatus Nav(int seq, string action = "start") => new VoiceStatus { state = "speaking", session_id = 1,
+            navigation_action = action, navigation_destination = "shuttle_001", navigation_seq = seq };
+        var tracker = new VoiceStatusTracker();
+        Assert.IsFalse(tracker.Apply(Nav(1)).NavigationRequested);
+        Assert.IsFalse(tracker.Apply(Nav(1)).NavigationRequested);
+        Assert.IsTrue(tracker.Apply(Nav(2, "find")).NavigationRequested);
+        Assert.AreEqual("find", tracker.NavigationAction);
+        Assert.AreEqual("shuttle_001", tracker.NavigationDestination);
+        Assert.IsFalse(tracker.Apply(Nav(2, "find")).NavigationRequested);
+        Assert.IsTrue(VoiceStatusParser.TryParse("{\"state\":\"idle\",\"navigation_action\":null,\"navigation_destination\":null,\"navigation_seq\":0}", out var idle));
+        Assert.AreEqual("", idle.navigation_destination);
     }
 
     [Test]

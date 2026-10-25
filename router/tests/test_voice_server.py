@@ -69,7 +69,8 @@ def test_status_is_idle_before_any_session_and_has_the_documented_keys(serve):
     base, _, _ = serve(blocking_until_stopped)
     code, status = call(base, "/voice/status")
     assert code == 200
-    assert set(status) >= {"state", "last_transcript", "last_reply", "route", "error", "session_id", "seq", "display", "display_seq", "alert"}
+    assert set(status) >= {"state", "last_transcript", "last_reply", "route", "error", "session_id", "seq", "display", "display_seq", "alert",
+                          "navigation_action", "navigation_destination", "navigation_seq"}
     assert status["state"] == "idle" and status["session_id"] == 0 and status["error"] is None
     assert status["display"] is None and status["display_seq"] == 0 and status["alert"] is None
 
@@ -634,3 +635,58 @@ def test_status_contains_router_error_alert_and_display_together(serve):
     assert {"router_error", "alert", "display", "display_seq"} <= status.keys()
     assert status["router_error"] is status["alert"] is status["display"] is None
     assert status["display_seq"] == 0
+
+
+def _shuttle_turn(text, label, **sim):
+    """Run an offline turn with a fixed router prediction."""
+    from router.tools import SimState, default_registry
+    from router.turn import TurnHandler
+    from test_turn import FakeRouter
+
+    sim_state = SimState(**sim)
+    return TurnHandler(FakeRouter(label, 0.99), sim_state.snapshot, default_registry(sim_state)).handle(text)
+
+
+@pytest.mark.parametrize("text,label,expected", [
+    ("take me to the shuttle", "call_navigation", ("start", "shuttle_001")),
+    ("navigate to the viking lander", "call_navigation", ("start", "shuttle_001")),
+    ("show me the shuttle on the map", "call_map", ("find", "shuttle_001")),
+    ("how far is the shuttle", "call_navigation", None),
+    ("take me to the habitat", "call_navigation", None),
+])
+def test_shuttle_tool_calls_become_unity_navigation_commands(text, label, expected):
+    turn = _shuttle_turn(text, label)
+    assert turn["tool_call"]["name"] == {"call_navigation": "navigation", "call_map": "map"}[label]
+    assert voice_server.unity_navigation(turn) == expected
+
+
+def test_no_shuttle_route_when_nova_says_there_is_not_enough_oxygen():
+    turn = _shuttle_turn("take me to the shuttle", "call_navigation", o2_pct=17.0, minutes_remaining=2)
+    assert turn["tool_result"]["data"]["feasibility"]["outcome"] in voice_server.NO_GO_OUTCOMES
+    assert voice_server.unity_navigation(turn) is None
+
+
+def test_status_exposes_the_navigation_command_and_counts_new_ones(serve):
+    step = threading.Event()
+    start = {"spoken": "Shuttle is 3 minutes away.", "route": "tool", "blocked_text": None,
+             "tool_call": {"name": "navigation", "args": {"place": "shuttle"}},
+             "tool_result": {"tool": "navigation", "ok": True, "data": {"place": "shuttle", "response_mode": "guidance",
+                                                                       "feasibility": {"outcome": "comfortable"}}}}
+
+    def script(on_event, on_turn, stop_event):
+        on_turn({"transcript": "take me to the shuttle", "turn": start})
+        step.wait(5)
+        on_turn({"transcript": "thanks", "turn": {"spoken": "Happy to help!", "route": "session_end"}})
+        stop_event.wait(5)
+        return []
+
+    base, _, _ = serve(script)
+    status = call(base, "/voice/status")[1]
+    assert status["navigation_action"] is None and status["navigation_destination"] is None and status["navigation_seq"] == 0
+    call(base, "/voice/start", "POST")
+    assert wait_for(lambda: call(base, "/voice/status")[1]["navigation_seq"] == 1)
+    status = call(base, "/voice/status")[1]
+    assert (status["navigation_action"], status["navigation_destination"]) == ("start", "shuttle_001")
+    step.set()
+    assert wait_for(lambda: call(base, "/voice/status")[1]["last_reply"] == "Happy to help!")
+    assert call(base, "/voice/status")[1]["navigation_seq"] == 1

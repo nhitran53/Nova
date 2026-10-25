@@ -442,6 +442,11 @@ VALUES
         'RIDGE', 'Ridge Overlook', 'landmark',
         1500, -100, 20, 'safe', FALSE,
         'Demo observation point.'
+    ),
+    (
+        'SHUTTLE', 'Shuttle', 'landmark',
+        -115, -80, 6, 'safe', FALSE,
+        'Viking lander used as the demo shuttle.'
     )
 ON CONFLICT (code) DO NOTHING;
 

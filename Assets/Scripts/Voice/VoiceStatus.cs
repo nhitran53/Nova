@@ -77,6 +77,10 @@ public class VoiceStatus
     public int seq;
     public bool router_ready;
     public bool started;   // only present in the /voice/start answer: false = ignored (already running)
+    // The latest route command and its sequence number.
+    public string navigation_action = "";
+    public string navigation_destination = "";
+    public int navigation_seq;
 }
 
 public static class VoiceStatusParser
@@ -94,6 +98,8 @@ public static class VoiceStatusParser
         parsed.last_reply = parsed.last_reply ?? "";
         parsed.route = parsed.route ?? "";
         parsed.error = parsed.error ?? "";
+        parsed.navigation_action = parsed.navigation_action ?? "";
+        parsed.navigation_destination = parsed.navigation_destination ?? "";
         status = parsed;
         return true;
     }
@@ -104,7 +110,7 @@ public sealed class VoiceStatusTracker
 {
     public struct Changes
     {
-        public bool StateChanged, TranscriptChanged, ReplyChanged, ErrorChanged;
+        public bool StateChanged, TranscriptChanged, ReplyChanged, ErrorChanged, NavigationRequested;
     }
 
     public string State { get; private set; } = VoiceStates.Idle;
@@ -114,7 +120,10 @@ public sealed class VoiceStatusTracker
     // Last reply route. Python still owns tool selection.
     public string LastRoute { get; private set; } = "";
     public bool RouterReady { get; private set; }
+    public string NavigationAction { get; private set; } = "";
+    public string NavigationDestination { get; private set; } = "";
     int sessionId;
+    int navigationSeq = -1;   // Skip commands from before Unity connected
 
     public Changes Apply(VoiceStatus status)
     {
@@ -138,6 +147,10 @@ public sealed class VoiceStatusTracker
         LastError = status.error;
         LastRoute = status.route;
         RouterReady = status.router_ready;
+        changes.NavigationRequested = navigationSeq >= 0 && status.navigation_seq > navigationSeq && status.navigation_destination.Length > 0;
+        navigationSeq = status.navigation_seq;
+        NavigationAction = status.navigation_action;
+        NavigationDestination = status.navigation_destination;
         return changes;
     }
 }

@@ -11,6 +11,14 @@ It is demo guidance rather than a verified safe path
 3. Save and press Play
 
 Running setup again only adds missing components and updates the shuttle marker
+It adds the shuttle model to the marker if needed
+
+## Shuttle model
+
+The demo shuttle uses a Viking lander model from Blender
+The FBX is in `Assets/Shuttle/Generated`
+It uses plain colors without textures
+Check its performance on Quest
 
 ## Use the map
 
@@ -52,5 +60,11 @@ Adjust **Curl Enter** and **Curl Exit** and **Hold Time** on **Fist Locomotion**
 `StartNavigation` starts it and `StopNavigation` hides guidance
 An empty route ID starts the last preview
 `RunToolJson` exposes the same actions to a later integration
-Voice does not call these Unity methods yet
+
+## Voice
+
+Say "take me to the shuttle" or "take me to the viking lander" to start guidance
+"Show me the shuttle on the map" only previews it
+Distance questions and insufficient oxygen do not start guidance
+The voice server puts the command in `/voice/status` and `RouteNavigator` picks it up
 `NavigationService` returns the available route if a requested preference has no match

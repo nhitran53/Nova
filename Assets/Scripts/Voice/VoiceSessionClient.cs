@@ -38,6 +38,8 @@ public class VoiceSessionClient : MonoBehaviour
     public StringEvent OnTranscript = new StringEvent();
     public StringEvent OnReply = new StringEvent();
     public StringEvent OnError = new StringEvent();
+    // Sends the destination when a new navigation command arrives.
+    public StringEvent OnNavigation = new StringEvent();
 
     readonly VoiceStatusTracker tracker = new VoiceStatusTracker();
     bool polling;
@@ -55,6 +57,7 @@ public class VoiceSessionClient : MonoBehaviour
     public string LastReply => tracker.LastReply;
     public string LastError => tracker.LastError;
     public string LastRoute => tracker.LastRoute;
+    public string NavigationAction => tracker.NavigationAction;
 
     public string BaseUrl
     {
@@ -240,6 +243,7 @@ public class VoiceSessionClient : MonoBehaviour
         if (changes.TranscriptChanged) OnTranscript.Invoke(tracker.LastTranscript);
         if (changes.ReplyChanged) OnReply.Invoke(tracker.LastReply);
         if (changes.ErrorChanged) OnError.Invoke(tracker.LastError);
+        if (changes.NavigationRequested) OnNavigation.Invoke(tracker.NavigationDestination);
     }
 
     void MarkReachable()

@@ -59,6 +59,7 @@ public class RouteNavigator : MonoBehaviour
     int segment;
     LineRenderer trail;
     Material ownMaterial;
+    VoiceSessionClient voice;
 
     void Awake()
     {
@@ -74,6 +75,24 @@ public class RouteNavigator : MonoBehaviour
                 x_m = end.x, z_m = end.z, radius_m = arrivalMeters, hazard_level = MapHazardLevel.safe.ToString(), source = "route",
             });
         }
+    }
+
+    void OnEnable()
+    {
+        voice = FindAnyObjectByType<VoiceSessionClient>(FindObjectsInactive.Include);
+        if (voice != null) voice.OnNavigation.AddListener(OnVoiceNavigation);
+    }
+
+    void OnDisable()
+    {
+        if (voice != null) voice.OnNavigation.RemoveListener(OnVoiceNavigation);
+    }
+
+    // Find previews the route. Start also enables guidance.
+    void OnVoiceNavigation(string destinationId)
+    {
+        var response = FindNavigationRoute(new NavigationRequest { destination_id = destinationId });
+        if (response.success && voice.NavigationAction == "start") StartNavigation(response.route_id);
     }
 
     void OnDestroy()
