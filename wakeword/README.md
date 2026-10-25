@@ -38,6 +38,36 @@ transcribe" if the realtime session fails. `realtime` / `batch` force one path.
 
 ## Demo setup (wake word -> Unity voice conversation)
 
+### One command
+
+From the repo root, after `cd wakeword && uv sync` and placing `hey_nova.onnx` in
+`wakeword/models/`, run:
+
+```bash
+wakeword/run_demo.sh
+```
+
+Then press **Play in Unity**. Unity itself does **not** launch the Python processes.
+The launcher starts voice_server, waits up to 120 seconds for router readiness, then
+starts the wake listener; Ctrl-C stops both (including listener subprocesses).
+It requires Bash and `setsid` (Linux). It uses `NOVA_ROUTER_PYTHON` if set, otherwise
+`router/.venv/bin/python`, then `/home/isaach/Nova/router/.venv/bin/python`.
+`VOICE_PORT` defaults to 8765; configure Unity to use the same port if changed.
+Extra listener flags can follow the command (e.g. `wakeword/run_demo.sh --device 3`).
+
+For shared telemetry, **PostgreSQL and `simulator.py` must already be running**:
+
+```bash
+VOICE_SERVER_ARGS="--datasource postgres" wakeword/run_demo.sh
+```
+
+`VOICE_SERVER_ARGS` accepts whitespace-separated server flags (not shell quoting or
+shell commands). Prepare dependencies and shared openWakeWord feature models ahead
+of an offline demo; first-time `uv`/model setup may otherwise need internet.
+The launcher's readiness checks use localhost only.
+
+### Manual two-terminal setup
+
 Flow: this process listens for `hey_nova`; on a detection it `POST`s `/voice/start` to `router/voice_server.py`,
 **closes the microphone** (voice_server opens the mic itself for the conversation, STT -> router -> TTS), polls
 `GET /voice/status` until `ended` / `idle` / `error`, waits a cooldown, reopens the mic and listens again. Nothing here
