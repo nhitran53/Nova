@@ -11,7 +11,7 @@ from router.tools import SimState, default_registry
 from router.turn import TurnHandler, load_policy
 from router.tests.test_turn import FakeRouter
 
-GREETING, IDENTITY = "Hello. How can I help?", "I'm Nova, your assistant."
+GREETING, IDENTITY = "Hello. How can I help?", "I'm Nova, your navigation and observation voice assistant."
 
 CASES = (
     [(t, "greeting", GREETING) for t in ["hi", "Hello!", "hey", "Hi Nova.", "hey nova", "Good morning", "good morning, Nova",

@@ -278,7 +278,7 @@ def test_huge_query_is_truncated_before_tokenising_and_never_raises(corpus):
 
 def _no_server(monkeypatch):
     from router import llm_generator
-    monkeypatch.setattr(llm_generator, "check_server", lambda url, timeout: (False, "no LLM server (fake)"))
+    monkeypatch.setattr(llm_generator, "check_server", lambda url, timeout, **kw: (False, "no LLM server (fake)"))
 
 
 def test_default_handler_has_no_retriever_without_docs_dir_or_env(monkeypatch):

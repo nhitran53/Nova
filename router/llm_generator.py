@@ -21,10 +21,11 @@ from .generation import FillerGenerator, GenerationResult, output_gbnf, output_j
 
 HERE = Path(__file__).parent
 POLICY_PATH = HERE / "turn_policy.json"
-RUNTIMES = ("llama-server", "mlx", "ollama", "openai")
+RUNTIMES = ("llama-server", "mlx", "ollama", "openai", "gemini")
 CONSTRAIN_MODES = ("none", "json_schema", "gbnf")
 ENV_OVERRIDES = {"runtime": "NOVA_LLM_RUNTIME", "base_url": "NOVA_LLM_BASE_URL", "model": "NOVA_LLM_MODEL",
                  "constrain": "NOVA_LLM_CONSTRAIN"}
+GEMINI_KEY_ENV = "GEMINI_API_KEY"  # fallback key name for the "gemini" runtime; read from the environment only
 API_KEY_ENV = "NOVA_LLM_API_KEY"  # optional bearer token (hosted "openai" runtime); read from the environment only
 CONFIG_KEYS = ("runtime", "base_url", "model", "request_timeout_cap_s", "health_timeout_s", "temperature", "constrain",
                "disable_thinking", "extra_body")
@@ -37,7 +38,8 @@ _OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))  # a prox
 def redact_secrets(text, api_key=None):
     """`text` with the API key (also URL-encoded) and any `Bearer <token>` removed; error text must never carry credentials."""
     text = BEARER_TOKEN.sub("Bearer [redacted]", text)
-    for secret in {api_key, urllib.parse.quote(api_key, safe="")} if api_key else ():
+    keys = {k for k in (api_key, os.environ.get(API_KEY_ENV), os.environ.get(GEMINI_KEY_ENV)) if k}
+    for secret in keys | {urllib.parse.quote(k, safe="") for k in keys}:
         text = text.replace(secret, "[redacted]")
     return text
 
@@ -106,10 +108,16 @@ def load_live_llm_config(path=POLICY_PATH, env=None, **overrides):
     return validate_live_llm_config(config)
 
 
+def resolve_api_key(runtime, env=None):
+    """NOVA_LLM_API_KEY, else (gemini runtime only) GEMINI_API_KEY, else None. Never logged."""
+    env = os.environ if env is None else env
+    return env.get(API_KEY_ENV) or (env.get(GEMINI_KEY_ENV) if runtime == "gemini" else None) or None
+
+
 def api_base(base_url):
     """-> base_url ending in /v1 with no trailing slash ("http://localhost:8080" and ".../v1/" both work)."""
     base = base_url.rstrip("/")
-    return base if base.endswith("/v1") else base + "/v1"
+    return base if base.endswith(("/v1", "/openai")) else base + "/v1"  # Gemini's OpenAI-compatible root is .../v1beta/openai
 
 
 def strip_reasoning(content):
@@ -128,7 +136,7 @@ class HTTPChatGenerator:
 
     def __init__(self, config=None, api_key=None, opener=_OPENER):
         self.config = validate_live_llm_config(load_live_llm_config() if config is None else config)
-        self.api_key = os.environ.get(API_KEY_ENV) if api_key is None else api_key
+        self.api_key = resolve_api_key(self.config["runtime"]) if api_key is None else api_key
         self.opener = opener
         self.url = api_base(self.config["base_url"]) + "/chat/completions"
         self.calls = 0
@@ -148,7 +156,7 @@ class HTTPChatGenerator:
         c, runtime, constrain = self.config, self.config["runtime"], self.effective_constrain
         body = {"model": c["model"], "messages": render_prompt(req), "max_tokens": req.style.max_tokens,
                 "temperature": c["temperature"], "stream": False}
-        if req.seed is not None and runtime != "mlx":
+        if req.seed is not None and runtime not in ("mlx", "gemini"):  # Gemini rejected `seed` with HTTP 400 in a live probe
             body["seed"] = req.seed
         if runtime == "llama-server":
             if c["disable_thinking"]:
@@ -158,6 +166,8 @@ class HTTPChatGenerator:
             elif constrain == "gbnf":
                 body["grammar"] = output_gbnf(req)
         else:
+            if runtime == "gemini" and c["disable_thinking"]:
+                body["reasoning_effort"] = c.get("gemini_reasoning_effort", "minimal")
             if runtime == "ollama" and c["disable_thinking"]:
                 body["reasoning_effort"] = "none"
             if constrain == "json_schema":
@@ -216,25 +226,29 @@ class HTTPChatGenerator:
         return strip_reasoning(content)  # reasoning_content is never read
 
 
-def _get(url, timeout):
-    with _OPENER.open(urllib.request.Request(url, headers={"Accept": "application/json"}), timeout=timeout) as response:
+def _get(url, timeout, api_key=None):
+    headers = {"Accept": "application/json", **({"Authorization": f"Bearer {api_key}"} if api_key else {})}
+    with _OPENER.open(urllib.request.Request(url, headers=headers), timeout=timeout) as response:
         return response.status, response.read(MAX_RESPONSE_BYTES)
 
 
-def check_server(base_url, timeout=1.5, api_key=None):
+def check_server(base_url, timeout=1.5, api_key=None, runtime=None):
     """-> (ok, message), with the API key (default: NOVA_LLM_API_KEY) and any `Bearer ...` redacted. GET <root>/health (llama-server), then GET <base_url>/models (all runtimes). Short timeout, never raises.
     A llama-server that answers /health with 503 is still loading its model and counts as not ready."""
-    ok, message = _check_server(base_url, timeout)
-    return ok, redact_secrets(message, os.environ.get(API_KEY_ENV) if api_key is None else api_key)
+    key = resolve_api_key(runtime) if api_key is None else api_key
+    ok, message = _check_server(base_url, timeout, key, hosted=runtime == "gemini")
+    return ok, redact_secrets(message, key)
 
 
-def _check_server(base_url, timeout):
+def _check_server(base_url, timeout, api_key=None, hosted=False):
     base = api_base(base_url)
-    root = base[:-len("/v1")]
+    if hosted and not api_key:
+        return False, "no API key in NOVA_LLM_API_KEY or GEMINI_API_KEY"
+    root = base[:-len("/v1")] if base.endswith("/v1") else base
     problems = []
-    for url in (root + "/health", base + "/models"):
+    for url in ((base + "/models",) if hosted else (root + "/health", base + "/models")):
         try:
-            status, payload = _get(url, timeout)
+            status, payload = _get(url, timeout, api_key)
         except urllib.error.HTTPError as exc:
             if exc.code == 503:
                 return False, f"server at {base} is up but still loading the model (HTTP 503 from {url})"
@@ -253,6 +267,28 @@ def _check_server(base_url, timeout):
     return False, f"server at {base} did not look like an OpenAI-compatible server ({'; '.join(problems)})"
 
 
+class FailoverGenerator:
+    """Tries each generator in order; the next one runs only after an LLMRequestError (429, 402, 5xx, timeout, network).
+    Raises the last error when all fail, so run_generation speaks its fixed error line. A generator that failed is skipped for
+    `cooldown_s` seconds so a dead API does not eat every turn's deadline."""
+
+    def __init__(self, generators, cooldown_s=60.0, clock=time.monotonic):
+        self.generators, self.cooldown_s, self.clock = list(generators), cooldown_s, clock
+        self.down_until = {}
+
+    def generate(self, req):
+        last = None
+        for i, gen in enumerate(self.generators):
+            if self.down_until.get(i, 0) > self.clock():
+                continue
+            try:
+                return gen.generate(req)
+            except LLMRequestError as exc:
+                last = exc
+                self.down_until[i] = self.clock() + self.cooldown_s
+        raise last or LLMRequestError("all LLM generators are cooling down")
+
+
 def build_generator(say, no_llm=False, runtime=None, base_url=None, model=None, constrain=None):
     """-> (generator, label). The real HTTPChatGenerator when a server answers its health check, else the offline
     FillerGenerator after ONE `say(...)` line. Raises ValueError (message redacted) for an invalid live_llm config."""
@@ -263,10 +299,16 @@ def build_generator(say, no_llm=False, runtime=None, base_url=None, model=None, 
         config = load_live_llm_config(runtime=runtime, base_url=base_url, model=model, constrain=constrain)
     except ValueError as exc:  # redacted in case a message ever carries a credential
         raise ValueError(redact_secrets(str(exc), os.environ.get(API_KEY_ENV))) from None
-    ok, message = check_server(config["base_url"], config["health_timeout_s"])
+    if config["runtime"] == "gemini":
+        from dotenv import load_dotenv
+        load_dotenv(Path(os.environ.get("NOVA_ENV_FILE") or HERE.parent / ".env"))  # does not override; the value is never printed
+    ok, message = check_server(config["base_url"], config["health_timeout_s"], runtime=config["runtime"])
     if not ok:
         say(f"LLM: {message}; falling back to the offline FillerGenerator")
         return FillerGenerator(), "FillerGenerator (offline)"
     generator = HTTPChatGenerator(config)
     say(f"LLM: {message}; using {generator.describe()}")
+    fallback = config.get("fallback_model")
+    if config["runtime"] == "gemini" and fallback and fallback != config["model"]:
+        generator = FailoverGenerator([generator, HTTPChatGenerator({**config, "model": fallback})])
     return generator, f"HTTPChatGenerator ({config['runtime']})"
