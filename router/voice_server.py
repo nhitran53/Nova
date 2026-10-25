@@ -56,6 +56,21 @@ def _redacted(text):
     return text
 
 
+class _SessionSpeech:
+    """Keep the session-owned queue alive when stt.converse closes its per-conversation handle.
+
+    Idle demo broadcasts and later conversations must still use the same priority worker.
+    """
+    def __init__(self, speech):
+        self._speech = speech
+
+    def __getattr__(self, name):
+        return getattr(self._speech, name)
+
+    def close(self):
+        pass  # VoiceSession owns this queue, not the individual conversation.
+
+
 class VoiceSession:
     """One conversation at a time, run on a worker thread. All state changes go through `_update` under a lock.
 
@@ -71,6 +86,10 @@ class VoiceSession:
         self._session_id = 0
         self._seq = 0
         self._display, self._display_seq = None, 0
+        from .hazard import inactive_hazard
+        self._hazard, self._hazard_seq = inactive_hazard(), 0
+        self._hazard_datasource = self._options.get("datasource")
+        self._speech = self._options.get("speech_queue")
         self._navigation_action = self._navigation_destination = None
         self._navigation_seq = 0
         self._stop = None
@@ -98,11 +117,35 @@ class VoiceSession:
             return self._status_locked()
 
     def _status_locked(self):
+        if self._hazard_datasource is not None and hasattr(self._hazard_datasource, "hazard_status"):
+            from .datasource import DataUnavailableError
+            try:
+                hazard = self._hazard_datasource.hazard_status()
+            except DataUnavailableError:
+                # Never report an unavailable position as outside the active zone.
+                hazard = {**self._hazard, "inside": None, "edge_distance_m": None}
+            if hazard != self._hazard:
+                self._hazard, self._hazard_seq = hazard, self._hazard_seq + 1
         return {"state": self._state, "last_transcript": self._last_transcript, "last_reply": self._last_reply,
                 "alert": self._alert, "route": self._route, "error": self._error, "session_id": self._session_id, "seq": self._seq,
                 "router_ready": self._router_ready.is_set(), "router_error": self._router_error, "display": self._display, "display_seq": self._display_seq,
                 "navigation_action": self._navigation_action, "navigation_destination": self._navigation_destination,
-                "navigation_seq": self._navigation_seq}
+                "navigation_seq": self._navigation_seq, "hazard": self._hazard, "hazard_seq": self._hazard_seq}
+
+    def set_demo_meteor(self, active):
+        """Broadcast once per trigger, even without a running microphone conversation."""
+        from .datasource import DataUnavailableError
+        with self._lock:
+            datasource = self._hazard_datasource
+            if datasource is None or not hasattr(datasource, "set_demo_meteor"):
+                raise DataUnavailableError("Meteor demo requires a position datasource")
+            if datasource.set_demo_meteor(active):
+                if self._speech is None:
+                    self._speech = stt.default_speech_queue()
+                    self._options["speech_queue"] = self._speech
+                self._speech.clear_pending()
+                self._speech.enqueue(datasource.hazard_policy["broadcast_line"], "alert", priority=True)
+            return self._status_locked()
 
     def _update(self, session_id, **fields):
         """Apply `fields` unless `session_id` is no longer current or its stop was requested (late events of a stopped conversation)."""
@@ -171,6 +214,11 @@ class VoiceSession:
                          last_reply=turn.get("spoken"), alert=turn.get("alert_line"), route=turn.get("route"), **fields)
 
         try:
+            if self._converse_fn is stt.converse and self._options.get("speak", True):
+                with self._lock:
+                    if self._speech is None:
+                        self._speech = stt.default_speech_queue()
+                    self._options["speech_queue"] = _SessionSpeech(self._speech)
             self._converse_fn(on_event=on_event, on_turn=on_turn, on_transcript=on_transcript, stop_event=stop_event,
                               router_loader=self._router.get, **self._options)
         except BaseException as exc:
@@ -233,7 +281,18 @@ def make_handler(session, datasource=None):
                 self._send(400, {"error": "invalid body length"})
                 return
             body = self.rfile.read(length) if length else b""
-            if self.path == "/demo/oxygen":
+            if self.path == "/demo/meteor":
+                from .datasource import DataUnavailableError
+                try:
+                    command = json.loads(body)
+                    if not isinstance(command, dict) or set(command) != {"active"} or not isinstance(command["active"], bool):
+                        raise ValueError()
+                    self._send(200, session.set_demo_meteor(command["active"]))
+                except (ValueError, TypeError, UnicodeDecodeError):
+                    self._send(400, {"error": "Use active: true or false."})
+                except DataUnavailableError:
+                    self._send(503, {"error": "Meteor demo requires a position datasource."})
+            elif self.path == "/demo/oxygen":
                 from .datasource import DataUnavailableError
 
                 try:
@@ -265,6 +324,8 @@ def make_handler(session, datasource=None):
 
 
 def make_server(session, host=DEFAULT_HOST, port=DEFAULT_PORT, datasource=None):
+    if datasource is not None:
+        session._hazard_datasource = datasource
     return ThreadingHTTPServer((host, port), make_handler(session, datasource))
 
 
