@@ -1,4 +1,5 @@
 using System;
+using System.Text.RegularExpressions;
 using UnityEngine;
 
 [Serializable]
@@ -75,6 +76,8 @@ public class HazardZoneData
     public float radius_m;
     public int eta_s;
     public bool inside;
+    // JsonUtility maps JSON null to false; only an explicit boolean establishes position.
+    [NonSerialized] public bool insideUnknown = true;
     public float edge_distance_m;
 }
 
@@ -117,6 +120,8 @@ public static class VoiceStatusParser
         parsed.error = parsed.error ?? "";
         parsed.alert = parsed.alert ?? "";
         parsed.hazard = parsed.hazard ?? new HazardZoneData();
+        var insideValue = Regex.Match(json, "\"inside\"\\s*:\\s*(true|false|null)\\b");
+        parsed.hazard.insideUnknown = !insideValue.Success || insideValue.Groups[1].Value == "null";
         parsed.navigation_action = parsed.navigation_action ?? "";
         parsed.navigation_destination = parsed.navigation_destination ?? "";
         status = parsed;

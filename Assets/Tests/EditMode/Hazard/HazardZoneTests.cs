@@ -19,7 +19,47 @@ public class HazardZoneTests
         Assert.AreEqual(30f, status.hazard.radius_m);
         Assert.AreEqual(45, status.hazard.eta_s);
         Assert.IsTrue(status.hazard.inside);
+        Assert.IsFalse(status.hazard.insideUnknown);
         Assert.AreEqual(-5.25f, status.hazard.edge_distance_m);
+    }
+
+    [Test]
+    public void VoiceStatus_NullHazardPositionIsUnknown()
+    {
+        const string json = "{\"state\":\"idle\",\"hazard\":{\"active\":true,\"kind\":\"meteor\","
+            + "\"center_x_m\":10,\"center_z_m\":20,\"radius_m\":30,"
+            + "\"inside\" : null,\"edge_distance_m\":null}}";
+        VoiceStatus status = null;
+        Assert.DoesNotThrow(() => Assert.IsTrue(VoiceStatusParser.TryParse(json, out status)));
+        Assert.IsTrue(status.hazard.active);
+        Assert.IsTrue(status.hazard.insideUnknown);
+    }
+
+    [TestCase("true")]
+    [TestCase("false")]
+    public void VoiceStatus_ExplicitHazardPositionIsKnown(string inside)
+    {
+        string json = "{\"state\":\"idle\",\"hazard\":{\"active\":true,\"inside\" : " + inside + "}}";
+        Assert.IsTrue(VoiceStatusParser.TryParse(json, out var status));
+        Assert.IsFalse(status.hazard.insideUnknown);
+        Assert.AreEqual(inside == "true", status.hazard.inside);
+    }
+
+    [Test]
+    public void Overlay_RimColorIsGreenOnlyWhenPositivelyOutside()
+    {
+        foreach (float time in new[] { 0f, Mathf.PI / 8, 3 * Mathf.PI / 8 })
+        {
+            Color unknown = HazardZoneOverlay.SelectRimColor(null, time);
+            Color danger = HazardZoneOverlay.SelectRimColor(true, time);
+            Color outside = HazardZoneOverlay.SelectRimColor(false, time);
+            Assert.Greater(unknown.r, unknown.g);
+            Assert.Greater(danger.r, danger.g);
+            Assert.Greater(outside.g, outside.r);
+            Assert.AreEqual(1f, danger.a);
+        }
+        Assert.Greater(HazardZoneOverlay.SelectRimColor(null, Mathf.PI / 8).a,
+            HazardZoneOverlay.SelectRimColor(null, 3 * Mathf.PI / 8).a);
     }
 
     [TestCase("{\"state\":\"idle\"}")]
@@ -30,6 +70,7 @@ public class HazardZoneTests
         Assert.IsTrue(VoiceStatusParser.TryParse(json, out var status));
         Assert.IsNotNull(status.hazard);
         Assert.IsFalse(status.hazard.active);
+        Assert.IsTrue(status.hazard.insideUnknown);
         Assert.AreEqual("", status.alert);
         Assert.AreEqual(0, status.hazard_seq);
     }

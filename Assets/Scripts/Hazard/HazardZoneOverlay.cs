@@ -85,11 +85,18 @@ public sealed class HazardZoneOverlay : MonoBehaviour
     void UpdateRim()
     {
         var camera = Camera.main;
-        bool inside = camera != null ? HazardZoneGeometry.IsInside(camera.transform.position,
-            hazard.center_x_m, hazard.center_z_m, hazard.radius_m) : hazard.inside;
-        Color tint = inside ? new Color(1, 0.08f, 0.03f) : new Color(0.15f, 1, 0.45f);
-        tint.a = inside ? 1 : 0.6f + 0.4f * (0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 4));
-        rim.startColor = rim.endColor = tint;
+        bool? inside = camera != null ? HazardZoneGeometry.IsInside(camera.transform.position,
+            hazard.center_x_m, hazard.center_z_m, hazard.radius_m)
+            : hazard.insideUnknown ? (bool?)null : hazard.inside;
+        rim.startColor = rim.endColor = SelectRimColor(inside, Time.unscaledTime);
+    }
+
+    // A missing position pulses red; green requires a positively known outside position.
+    public static Color SelectRimColor(bool? inside, float unscaledTime)
+    {
+        Color tint = inside == false ? new Color(0.15f, 1, 0.45f) : new Color(1, 0.08f, 0.03f);
+        tint.a = inside == true ? 1 : 0.6f + 0.4f * (0.5f + 0.5f * Mathf.Sin(unscaledTime * 4));
+        return tint;
     }
 
     static bool IsFinite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
