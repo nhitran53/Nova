@@ -12,6 +12,7 @@ DEFAULT_ENV_FILE = HERE.parent / "router" / ".env"
 
 SAMPLE_RATE = 16000          # openWakeWord and Scribe both take 16 kHz mono int16
 FRAME_SAMPLES = 1280         # 80 ms at 16 kHz: the chunk size openWakeWord is tuned for
+DEFAULT_VOICE_URL = "http://127.0.0.1:8765"  # router/voice_server.py default
 PLACEHOLDER_MODEL = "hey_jarvis"  # pretrained stand-in until custom hey_nova / nova models exist
 
 
@@ -37,11 +38,13 @@ class WakeConfig:
     models_dir: Path
     threshold: float
     cooldown_s: float
+    voice_url: str
 
     @classmethod
     def from_env(cls):
         return cls(
             models_dir=Path(os.environ.get("WAKEWORD_MODELS_DIR", HERE / "models")),
-            threshold=float(os.environ.get("WAKEWORD_THRESHOLD", "0.5")),
+            threshold=float(os.environ.get("WAKEWORD_THRESHOLD", "0.3")),
             cooldown_s=float(os.environ.get("WAKEWORD_COOLDOWN_S", "2.0")),
+            voice_url=os.environ.get("WAKEWORD_VOICE_URL", DEFAULT_VOICE_URL),
         )

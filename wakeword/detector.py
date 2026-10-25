@@ -18,6 +18,21 @@ def find_model_files(models_dir):
     return sorted(str(p) for p in directory.glob("*.onnx")) if directory.is_dir() else []
 
 
+def ensure_feature_models():
+    """Download openWakeWord's shared melspectrogram + embedding models (~2 MB, once) into the installed package.
+
+    The pip package does not ship them, and a custom hey_nova.onnx needs them. No-op when already present.
+    """
+    import openwakeword
+    from openwakeword.utils import download_file
+    target = Path(openwakeword.__file__).parent / "resources" / "models"
+    target.mkdir(parents=True, exist_ok=True)
+    for feature in openwakeword.FEATURE_MODELS.values():
+        onnx_url = feature["download_url"].replace(".tflite", ".onnx")
+        if not (target / onnx_url.rsplit("/", 1)[-1]).is_file():
+            download_file(onnx_url, str(target))
+
+
 def _default_model_factory(models):
     from openwakeword.model import Model
     # onnx: openwakeword>=0.6 defaults to tflite, which has no wheels for python>=3.12.

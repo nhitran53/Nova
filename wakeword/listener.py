@@ -11,14 +11,20 @@ from stt import SttError
 log = logging.getLogger("nova.wakeword.listener")
 
 
+class MicError(RuntimeError):
+    """The input stream stopped delivering audio."""
+
+
 class MicFrames:
     """Iterator of 80 ms, 16 kHz, mono int16 frames from the default (or given) input device.
 
     Use as a context manager. The stream stays open across wake/STT cycles so no audio is lost between them.
     """
 
-    def __init__(self, device=None, frame_samples=FRAME_SAMPLES, sample_rate=SAMPLE_RATE, max_queued_frames=100):
+    def __init__(self, device=None, frame_samples=FRAME_SAMPLES, sample_rate=SAMPLE_RATE, max_queued_frames=100,
+                 frame_timeout_s=None):
         self._device = device
+        self._frame_timeout_s = frame_timeout_s  # None: wait forever; else raise MicError when no frame arrives in time
         self._frame_samples = frame_samples
         self._sample_rate = sample_rate
         self._queue = queue.Queue(maxsize=max_queued_frames)
@@ -50,7 +56,10 @@ class MicFrames:
         return self
 
     def __next__(self):
-        return self._queue.get()
+        try:
+            return self._queue.get(timeout=self._frame_timeout_s)
+        except queue.Empty:
+            raise MicError(f"no audio from the microphone for {self._frame_timeout_s:g} s") from None
 
     def drain(self):
         """Discard queued (stale) frames."""
