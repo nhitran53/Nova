@@ -190,3 +190,83 @@ def test_distance_question_with_origin_form_place_needs_no_slot_question_after_m
     assert r['tool_call']['args'] == {'place': 'comms_tower'}
     assert r['route'] != 'slot_question' and not r['llm_called']
     assert r['tool_result']['data']['response_mode'] == 'distance'
+
+
+@pytest.mark.parametrize('text,options,has_note', [
+    ('check my status', ['call_safety', 'call_navigation', 'call_map'], False),
+    ('can i make it home', ['call_safety', 'call_navigation', 'call_map'], True),
+    ('can i make the trip', ['call_safety', 'call_navigation', 'call_map'], True),
+    ('can i make it home', ['call_navigation', 'call_map', 'call_safety'], False),
+])
+def test_menu_destination_note_only_for_offered_safety_and_destination_context(text, options, has_note):
+    from router.turn import load_policy
+
+    sim = SimState()
+    router = MenuRouter()
+    router.predict = lambda _: {'label': options[0], 'confidence': .8, 'topk': [
+        {'label': label, 'p': p} for label, p in zip(options, [.8, .15, .05])]}
+    h = TurnHandler(router, sim.snapshot, default_registry(sim))
+    result = h.handle(text)
+    assert (load_policy()['clarification']['menu_destination_note'] in result['spoken']) == has_note
+    assert result['verifier']['ok'] and result['tool_calls'] == 0
+    assert result['pipeline']['options'] == options[:2]
+    assert h.pending_clarification['choices'] == options[:2]
+    assert h.pending_clarification['out']['options'] == options[:2]
+
+
+@pytest.mark.parametrize('answer,tool', [('map', None), ('third', None), ('second', 'navigation')])
+def test_menu_trimming_keeps_only_top_two_and_selection_uses_trimmed_set(answer, tool):
+    sim = SimState()
+    router = MenuRouter()
+    router.predict = lambda _: {'label': 'call_safety', 'confidence': .8, 'topk': [
+        {'label': 'call_safety', 'p': .8}, {'label': 'call_navigation', 'p': .15},
+        {'label': 'call_map', 'p': .05}]}
+    h = TurnHandler(router, sim.snapshot, default_registry(sim))
+    first = h.handle('can i make it home')
+    map_name = h.pipeline.config['tool_labels']['call_map']['spoken']
+    assert map_name not in first['spoken']
+    result = h.handle(answer)
+    assert result['tool_calls'] == (1 if tool else 0)
+    assert len(router.seen) == 0  # injected predictor never reclassifies the answer
+    if tool:
+        assert result['tool_call']['name'] == tool
+        assert result['clarification_selection']['offered'] == ['call_safety', 'call_navigation']
+    else:
+        assert h.pending_clarification['choices'] == ['call_safety', 'call_navigation']
+
+
+@pytest.mark.parametrize('value', [0, -1, True, 1.5, '2', None])
+def test_policy_loader_rejects_bad_clarification_max_options(tmp_path, value):
+    import json
+    from router.turn import load_policy
+
+    policy = load_policy()
+    policy['clarification']['max_options'] = value
+    path = tmp_path / 'policy.json'
+    path.write_text(json.dumps(policy))
+    with pytest.raises(ValueError, match='clarification.max_options'):
+        load_policy(path)
+
+
+def test_policy_loader_defaults_clarification_max_options(tmp_path):
+    import json
+    from router.turn import load_policy
+
+    policy = load_policy()
+    del policy['clarification']['max_options']
+    path = tmp_path / 'policy.json'
+    path.write_text(json.dumps(policy))
+    assert load_policy(path)['clarification']['max_options'] == 2
+
+
+@pytest.mark.parametrize('value', ['', None, 42])
+def test_policy_loader_rejects_bad_menu_destination_note(tmp_path, value):
+    import json
+    from router.turn import load_policy
+
+    policy = load_policy()
+    policy['clarification']['menu_destination_note'] = value
+    path = tmp_path / 'policy.json'
+    path.write_text(json.dumps(policy))
+    with pytest.raises(ValueError, match='clarification.menu_destination_note'):
+        load_policy(path)

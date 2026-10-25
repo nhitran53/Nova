@@ -147,6 +147,13 @@ def load_policy(path=POLICY_PATH):
     for tier, flags in policy["severity_tiers"].items():
         if isinstance(flags, dict) and flags.get("preempts_router") and flags.get("uses_llm"):
             raise ValueError(f"{path}: severity tier {tier!r} preempts the router, so it cannot use the LLM")
+    clarification = policy["clarification"]
+    clarification.setdefault("max_options", 2)
+    if type(clarification["max_options"]) is not int or clarification["max_options"] < 1:
+        raise ValueError(f"{path}: clarification.max_options must be a positive integer")
+    for key in ("menu", "menu_destination_note"):
+        if not isinstance(clarification.get(key), str) or not clarification[key].strip():
+            raise ValueError(f"{path}: clarification.{key} must be a non-empty string")
     validate_generation_policy(policy.get("generation"), path)
     if "demo_scene" in policy:
         validate_demo_scene(policy["demo_scene"], path)
@@ -598,6 +605,9 @@ class TurnHandler:
             return self._speak(result, "clarify", self.policy["navigation_scope"]["clarification"], {})
         cfg = self.policy['clarification']
         kind = 'slot' if out['reason'] == 'missing_slot' else 'place' if out['reason'] == 'ambiguous_place' else 'intent'
+        if kind == 'intent':
+            # Pipeline options follow the router's descending-confidence topk order.
+            out['options'] = out['options'][:cfg.get('max_options', 2)]
         self.pending_confirmation = None
         self.pending_clarification = {'kind': kind, 'original_text': result.get('context_text', result['text']),
                                       'choices': list(out['options']), 'out': out.copy(), 'turn': self.turn_index,
@@ -610,7 +620,15 @@ class TurnHandler:
             options = " or ".join(o.replace("_", " ") for o in out["options"])
             return self._speak(result, "slot_question", self.policy["slot_questions"]["ambiguous_place"].format(options=options), out["options"])
         names = [self.pipeline.config['tool_labels'][o]['spoken'] for o in out['options']]
-        return self._speak(result, "clarify", cfg['menu'].format(options=' or '.join(names)), {})
+        line = cfg['menu'].format(options=' or '.join(names))
+        speaking = self.policy['llm_scope']['speaking_scope']
+        requesting_context = _mask_non_requesting_travel_spans(context, speaking)
+        if 'call_safety' in out['options'] and (
+                resolve_destination(context)['status'] != 'none'
+                or resolve_destination(requesting_context)['status'] != 'none'
+                or _contains_phrase(requesting_context, speaking['travel_phrases'])):
+            line += ' ' + cfg['menu_destination_note']
+        return self._speak(result, "clarify", line, {})
 
     def _tool_turn(self, result, out, snapshot):
         tool, args = out["tool"], out["args"]
