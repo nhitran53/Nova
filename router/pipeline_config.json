@@ -1,5 +1,5 @@
 {
-  "_comment": "Pipeline routing config. tool_labels: label -> {tool name, spoken name for clarification questions, whether to resolve a place from the utterance, optional required_slots: a tool whose required slot is unfilled becomes a missing_slot clarify and never executes}. Every other label in labels.json needs a prompt policy in llm_labels. Confidence gate for a TOOL top class (calibrated confidence c): c >= tau_hi -> execute; tau_lo <= c < tau_hi -> ask the injectable arbiter (top-3 classes + 'none'): same class as the router -> execute, anything else (or no arbiter, or an arbiter error) -> deterministic clarification, never a tool; c < tau_lo -> LLM clarify policy. The arbiter can only confirm the router's class, never choose another. Non-tool top classes route to the LLM with their prompt policy when c >= tau_lo.",
+  "_comment": "Six-class head: tool_labels dispatch directly at tau_hi; below tau_lo use LLM self-check; middle band requires arbiter agreement or clarifies. llm always uses self-check, then generation.",
   "tau_hi": 0.9,
   "tau_lo": 0.5,
   "tool_labels": {
@@ -36,9 +36,7 @@
     }
   },
   "llm_labels": {
-    "call_llm": "answer_question: answer the space/science question concisely and accurately for an astronaut mid-task.",
-    "NO_TOOL": "chitchat: reply briefly and warmly; no tools are needed.",
-    "OOD": "out_of_scope: politely say this is out of scope for Nova and offer help with mission, suit, navigation or space questions."
+    "llm": "Answer briefly from the Mars-base context. The sky on Mars is grey. Unknown safety questions must be refused."
   },
   "low_confidence_policy": "clarify: the request was unclear; ask one short clarifying question and do not guess a tool.",
   "clarify_question": "I'm not sure I understood. Did you want {options}?",

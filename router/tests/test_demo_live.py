@@ -227,21 +227,17 @@ def test_pos_command_in_a_script_changes_the_distance_and_help_lists_it(capsys, 
     assert "usage: /pos X Z" in out and "/pos X Z (astronaut position in meters)" in out
 
 
-def test_default_checkpoint_is_v2_with_a_message_fallback_to_v1(capsys, tmp_path, monkeypatch):
+def test_default_checkpoint_is_binary(tmp_path, monkeypatch):
     from router import demo_live
     from router.demo_live import build_router, parse_args
     loaded = []
     monkeypatch.setattr(demo_live.Router, "load", lambda path, labels, device="cpu": loaded.append(path) or object())
-    for name in ("v1", "v2"):
-        (tmp_path / name).mkdir()
-        (tmp_path / name / "weights").write_text("x")
+    (tmp_path / "binary").mkdir()
+    (tmp_path / "binary" / "weights").write_text("x")
     monkeypatch.setenv("NOVA_MODELS_DIR", str(tmp_path))
     messages = []
     build_router(parse_args([]), messages.append)
-    assert loaded == [str(tmp_path / "v2")] and messages == [f"router: {tmp_path / 'v2'}"]
-    (tmp_path / "v2" / "weights").unlink()
-    build_router(parse_args([]), messages.append)
-    assert loaded[-1] == str(tmp_path / "v1") and any("not found; falling back" in m for m in messages)
+    assert loaded == [str(tmp_path / "binary")] and messages == [f"router: {tmp_path / 'binary'}"]
 
 
 def test_hi_deterministic_and_keyboard_interrupt_exits_cleanly(capsys, tmp_path):

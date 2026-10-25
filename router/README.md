@@ -1,8 +1,15 @@
 # Nova router
 
-ModernBERT chooses the route for a request
-Python tools read telemetry and Gemini can generate supported replies
-The voice server connects this to Unity
+The active contract is the [six-class router and voice path](#six-class-routing-and-voice-sessions)
+(`call_safety`, `call_navigation`, `call_map`, `call_data`, `call_o2`, `llm`). It needs a newly
+trained head at `$NOVA_MODELS_DIR/binary`; old binary/eight-class checkpoints are incompatible.
+The sections below preserve historical v1/v2 results and architecture notes; their distinct
+OOD/NO_TOOL/call_llm policies are superseded by the six-class section. The base model alone has
+a random head flagged `untrained: true`. Checkpoints are git-ignored.
+
+Output of `Router.predict(text)`:
+`{label, confidence, topk:[{label,p}], latency_ms, untrained, warning?}` - softmax probs
+(optionally divided by `temperature`). Runs on CPU; `device='auto'` picks MPS (Mac), then CUDA, then CPU.
 
 ## Setup
 
@@ -393,6 +400,90 @@ config .90/.50 with no arbiter: v2 `okay im home please` -> NO_TOOL/.819/LLM stu
   the CLI still reports `untrained`. macOS 14 ARM64 dependency selection passed a cross-platform
   `uv sync --locked --dry-run`; actual MPS execution still needs verification on the Mac.
 
-Use `python -m router.train --help` for training options
-Use `python -m router.evaluate --help` for evaluation options
-Training and model promotion are separate from running this demo
+## Six-class routing and voice sessions
+
+ModernBERT uses these ordered labels (head indices):
+`call_safety`, `call_navigation`, `call_map`, `call_data`, `call_o2`, `llm`.
+**Binary and eight-class checkpoints are incompatible**; train a new six-class head before
+using the live voice path. No training or new checkpoint is included here.
+The checkpoint directory deliberately remains **`$NOVA_MODELS_DIR/binary`**
+(default `/home/isaach/models/Nova/router/binary`) for entrypoint compatibility;
+the directory name does not describe the new six-class head. Missing checkpoints
+fail explicitly with a retraining-required error; checkpoint metadata must match label order.
+
+```sh
+# Run from the repository root, only when training is authorized:
+router/.venv/bin/python -m router.train --data-dir router/data \
+  --out-dir /home/isaach/models/Nova/router/binary --epochs 3 --device cpu
+python -m router.pipeline --checkpoint "$NOVA_MODELS_DIR/binary" --text "what color is the sky"
+```
+
+`colab/train_binary_router.ipynb` retains its filename but trains the six-class head
+into `/content/models/binary` and exports `binary.zip`. Its GPU command uses
+`--base /content/models/ModernBERT-base --batch-size 16 --eval-batch-size 32
+--device cuda --require-cuda` (bf16 only on supported GPUs).
+
+Top-level and v2 JSONL data retain `fine_label` and rebuild `label` from it:
+all five tool intents stay distinct; `call_llm`, `NO_TOOL`, and `OOD` merge into
+`llm`. The top-level paraphrase set is shared by v1/v2 (there is no separate v2
+paraphrase file). Generators reproduce the same mapping and preserve the original
+texts/order. `llm` therefore has three times the examples of each tool, not a newly
+balanced corpus. Frozen `v3-trip`/`v4-trip` files remain untouched; their eight-class
+evaluation/release tooling is not compatible with the active labels/config and needs
+separate migration before reuse. Retraining, calibration and real speech validation
+remain necessary; this is not a safety-qualified model.
+
+### Dispatch and confidence
+
+BERT selects the tool directly using `pipeline_config.json`'s `tool_labels`;
+there is **no keyword selector**. At `confidence >= tau_hi` (currently 0.9),
+a `call_*` prediction bypasses the LLM and uses the original place resolver and
+required-slot checks. Missing/ambiguous places ask a question rather than execute.
+Below `tau_lo` (currently 0.5), tool predictions fall to the LLM self-check instead
+of executing blindly. The original middle band `[tau_lo, tau_hi)` remains
+conservative: an explicitly supplied arbiter must agree with BERT or the pipeline
+asks an intent clarification; with no arbiter (normal voice path), it clarifies.
+Thresholds are unchanged and have not been calibrated for this untrained head.
+
+An `llm` prediction at any confidence uses the generator's structured self-check
+(`tool` plus a catalog name, or `none`). A recovered catalog tool goes through the
+same slot/place checks; model-supplied arguments/free text are never executed or
+spoken. Failed/malformed checks fall through to answer generation, not an action.
+General answers use existing generation/verifier gates with Mars-base context
+(showcase sky color: grey). Unknown safety requests are refused ("Please contact
+base."); matching safety documents may be answered. Quick responses are unchanged,
+and there is no interim "Let me think" speech. Offline FillerGenerator is a
+deterministic showcase, not a live LLM.
+
+### Voice follow-up and daily context
+
+The Gemini adapter uses `https://generativelanguage.googleapis.com/v1beta/openai`,
+model `gemini-3.5-flash-lite` (override with `NOVA_LLM_MODEL`), with
+`reasoning_effort: minimal` when thinking is disabled. Set `GEMINI_API_KEY` or
+`NOVA_LLM_API_KEY`; absent credentials explicitly select the offline filler.
+Live Gemini compatibility/latency has not been measured.
+
+Completed tool calls and generated statements close the session immediately;
+questions and pending clarification/confirmation retain the normal ten-second
+follow-up window. There is no five-second post-generation window.
+`router.stt.converse` returns when that window ends; the integrated wakeword path
+is `python wakeword/main.py --router-checkpoint <six-class-checkpoint>` in an
+environment with both dependency sets. The existing transcriber captures follow-ups
+and returns to wake detection on silence/channel closure. `--transcript-only`
+preserves transcript-only operation; `--no-speak` routes without playback.
+Live mic, Scribe, TTS and a trained six-class checkpoint are not exercised by offline tests.
+
+Each turn appends only its raw user query to `router/memory/YYYY-MM-DD.md` using
+the local date. Self-check and generation load the entire current day's file as
+untrusted context, never numeric evidence. Files are gitignored, persistent across
+sessions and have no automatic retention limit; protect/delete them as appropriate.
+
+### Offline validation of this correction
+
+Focused pipeline/showcase/daily-memory/data/training/STT/HTTP-generator tests:
+**219 passed**; wakeword tests: **29 passed**. Full router diagnostic:
+**1460 passed, 104 failed, 6 errors**. Residual failures are legacy demo/session/interim,
+OOD/NO_TOOL/retrieval-only expectations and frozen v3/v4 contracts coupled to the
+active labels/config. These are not claimed green or silently skipped; the frozen
+releases were intentionally not migrated. No live Gemini calls, training, audio or
+trained-head accuracy measurements were performed.

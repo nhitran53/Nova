@@ -75,14 +75,14 @@ class RedactingArgumentParser(argparse.ArgumentParser):
 def parse_args(argv):
     ap = RedactingArgumentParser(prog="python -m router.demo_live", description=__doc__.splitlines()[0])
     ap.add_argument("--model", default=None,
-                    help="router checkpoint (default: $NOVA_MODELS_DIR/v2, or v1 with a message if v2 is missing)")
+                    help="router checkpoint (default: $NOVA_MODELS_DIR/binary)")
     ap.add_argument("--fake-router", action="store_true", help="keyword router instead of a checkpoint (no models needed)")
     ap.add_argument("--device", default="cpu")
     ap.add_argument("--runtime", choices=RUNTIMES, help="default: turn_policy.json live_llm.runtime (env NOVA_LLM_RUNTIME)")
     ap.add_argument("--base-url", help="default: live_llm.base_url (env NOVA_LLM_BASE_URL)")
     ap.add_argument("--llm-model", help="model name the runtime knows (env NOVA_LLM_MODEL)")
     ap.add_argument("--constrain", choices=CONSTRAIN_MODES, help="default: live_llm.constrain (env NOVA_LLM_CONSTRAIN)")
-    ap.add_argument("--deadline-ms", type=int, help="override generation.deadline_ms for this run (a slow CPU may need more than 1500)")
+    ap.add_argument("--deadline-ms", type=int, help="override generation.deadline_ms for this run (default: 8000 ms)")
     ap.add_argument("--no-llm", action="store_true", help="force the offline FillerGenerator")
     ap.add_argument("--advance", type=float, default=0.0, metavar="SECONDS", help="sim seconds to advance before each turn (default 0)")
     ap.add_argument("--script", metavar="FILE", help="read input lines from FILE (default: stdin)")
@@ -103,13 +103,7 @@ def build_router(args, say):
         say("router: FAKE keyword router (no checkpoint)")
         return KeywordRouter()
     if args.model is None:
-        v2 = models_dir() / "v2"
-        if v2.is_dir() and any(v2.iterdir()):
-            args.model = str(v2)
-        else:
-            args.model = str(models_dir() / "v1")
-            say(f"router: default checkpoint {v2} not found; falling back to {args.model} "
-                "(v1 is less confident on short questions like 'how far is base 2'; pass --model to choose)")
+        args.model = str(models_dir() / "binary")
     path = Path(args.model)
     if not path.is_dir() or not any(path.iterdir()):
         raise SystemExit(f"router checkpoint not found at {path}. Set NOVA_MODELS_DIR / pass --model, or run with --fake-router "
