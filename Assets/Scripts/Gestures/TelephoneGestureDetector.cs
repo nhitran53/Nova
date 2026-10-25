@@ -5,8 +5,7 @@ using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.XR.Hands;
 
-// Detects the telephone pose: index, middle and ring fingers curled, thumb and pinky extended.
-// Ignored while a fist, walking, a system gesture or a fingertip at the minimap owns the hand.
+// Read the telephone pose when other hand controls are idle.
 public class TelephoneGestureDetector : MonoBehaviour
 {
     public enum Hand { Left, Right }

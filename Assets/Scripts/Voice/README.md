@@ -1,34 +1,76 @@
-# Voice conversation from Unity
+# Voice and shared readings
 
-`VoiceSessionClient` starts/stops the spoken conversation (`router/stt.py`: mic -> Scribe -> router -> TTS, repeated) that
-`router/voice_server.py` runs on the PC. It only sends HTTP commands and polls status.
+Python runs the voice conversation on the PC
+Unity reads its status and telemetry through `VoiceSessionClient`
+Tool selection stays in Python
 
-## Run the server (on the PC)
+## Start from the repo folder
 
+Keep PostgreSQL and Ollama running
+Put credentials in `router/.env` and keep that file out of Git
+Voice needs `sounddevice` and an ElevenLabs key
+
+Run the simulator in one terminal
+
+```cmd
+.\router\.venv\Scripts\python.exe simulator.py
 ```
-router/.venv/bin/python -m router.voice_server            # 127.0.0.1:8765; --host / --port / --model / --no-speak / --no-llm
+
+Run the voice server in another terminal
+
+```cmd
+.\router\.venv\Scripts\python.exe -m router.voice_server --model "C:\Users\cardin\models\Nova\router\ModernBERT-v4.2" --runtime ollama --base-url http://localhost:11434/v1 --llm-model qwen3.5:4b --datasource postgres
 ```
 
-It loads the router in the background at start (`router_ready` in the status), so `/voice/start` is quick after that.
-The microphone needs `sounddevice` in that venv.
+Change `--model` if your checkpoint is elsewhere
+Restart both processes after code updates
 
-## Unity
+## In Unity
 
-Add `VoiceSessionClient` to any GameObject (no scene is edited by this folder). Call `StartVoiceSession()`,
-`StopVoiceSession()` or `ToggleVoiceSession()` (e.g. from a button/gesture UnityEvent). Wire `OnStateChanged`,
-`OnTranscript`, `OnReply`, `OnError` in the Inspector or via code; `State` holds the current state
-(idle | loading | listening | speaking | ended | error). Base URL defaults to `http://127.0.0.1:8765`.
-If the server is unreachable it logs one `[Voice]` warning and fires `OnError`; it never throws.
+Open `SampleScene` and press Play
+Hold the right-hand telephone pose to start voice
+Repeat it to stop or press V while testing on desktop
+The NOVA orb shows the server state and latest reply
+**Show Gesture Diagnostics** adds pose feedback while tuning
 
-API: `POST /voice/start`, `POST /voice/stop`, `GET /voice/status`
--> `{state, last_transcript, last_reply, route, error, session_id, seq, router_ready}`.
+The HUD and wrist read the same active mission as NOVA
+Keep **Use Server Telemetry** enabled on **Suit Telemetry**
+The existing voice client is found automatically
+Readings update every half second even without a conversation
+Stale or missing data shows **TELEMETRY UNAVAILABLE**
+Radiation uses uSv/h and temperature is suit temperature
+Database credentials stay on the PC
+
+## Oxygen demo
+
+Open the left wrist computer and poke a button with your right index finger
+Use **-10 O2** or **+10 O2** to change oxygen
+Use **REFILL** for 100 percent
+Pull back before pressing again
+The panel has no collision and withdrawal does not count as another click
+
+All three systems read the changed value
+The simulator keeps consuming oxygen
+Use more than 30 percent for normal conversation or 10 percent for a critical oxygen demo
+Turn off **Show Oxygen Demo** on **Wrist Computer** to hide the controls
+
+For an offline HUD demo turn off **Use Server Telemetry** and leave **Simulate** enabled
+
+## Quest Link and standalone
+
+Editor and Quest Link can use `http://127.0.0.1:8765`
+Choose the headset microphone and speakers in Windows for Link audio
+
+Standalone telemetry needs the PC LAN address in **Base URL**
+Start the server with `--host <PC LAN IP>` on a trusted network
+Development builds also need HTTP downloads allowed
+Standalone voice audio is not connected yet
+Keep the server local and do not expose it to the internet
 
 ## Limits
 
-- **Python owns the microphone and speaker on the PC.** No audio goes to or from Unity. Quest standalone audio is out of scope;
-  with a headset, run the server on the PC, use the PC's LAN address as base URL and start the server with `--host`
-  (it has no authentication, so only on a trusted network).
-- `ELEVENLABS_API_KEY` is read by Python from its environment (or `router/.env`); Unity never sees or sends it.
-- Stop does not cut off a reply that is already being spoken; a new start is refused until that reply ends.
-- Tests: `Assets/Tests/EditMode/VoiceSessionClientTests.cs` (status parsing / change detection; Editor only). Python side:
-  `router/tests/test_voice_server.py`.
+The microphone stays closed while NOVA speaks
+Stopping a session lets the current spoken reply finish
+Voice does not drive Unity navigation actions yet
+Run Python tests in `router/tests`
+Unity parsing and gesture tests are in **Test Runner > EditMode**

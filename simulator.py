@@ -1,16 +1,8 @@
-"""
-NOVA telemetry simulator (Mars demo)
-It does not move the astronaut
-Only ONE simulator may run at a time (enforced with a Postgres advisory lock).
-Run:
-    pip install "psycopg[binary]"
-    python simulator.py                          # run forever
-    python simulator.py --scenario o2_leak       # change scenario, then run
-    python simulator.py --activity running
-    python simulator.py --time-scale 600         # fast-forward for testing
-    python simulator.py --new-mission            # fresh mission: full tank, at habitat
-    python simulator.py --ticks 10               # stop after 10 ticks
+"""Simulate suit telemetry for the NOVA demo.
 
+Run python simulator.py to resume the active mission.
+Use --ticks N for a bounded run or --new-mission to start another mission.
+Only one simulator can write at a time. Oxygen demo controls share its write lock.
 """
 
 import argparse
@@ -20,16 +12,21 @@ import random
 import sys
 import time
 from dataclasses import dataclass, asdict
+from pathlib import Path
 from typing import Optional
 import psycopg
+from dotenv import load_dotenv
 from psycopg.rows import dict_row
 from simulator_rules import ACTIVITY_O2, SCENARIO_O2, o2_used_pct
+from router.db_config import password_options
 
-DATABASE_URL = os.getenv("DATABASE_URL", "dbname=nova") 
+load_dotenv(Path(__file__).resolve().parent / "router" / ".env")
+DATABASE_URL = os.getenv("DATABASE_URL", "dbname=nova")
 TICK_SECONDS = 1.0
 MAX_GAP_S = 10.0              # longer gap between ticks = pause (sleep/outage)
 MAX_CONSECUTIVE_ERRORS = 10   # then exit with a clear error
 LOCK_KEY = 4242_0001  # advisory lock id: "the NOVA simulator"
+CONTROL_LOCK_KEY = LOCK_KEY + 1
 MARS_SOL_HOURS = 24.66
 
 ACTIVITY_HEART = {"resting": 70, "walking": 95, "working": 110, "running": 145}
@@ -283,6 +280,7 @@ def deliver_messages(cur, mission_id: int):
 def tick(conn, real_dt: float) -> Optional[Reading]:
     """One transaction. real_dt = real seconds to simulate (0 = resume, no time passes)."""
     with conn.transaction(), conn.cursor(row_factory=dict_row) as cur:
+        cur.execute("SELECT pg_advisory_xact_lock(%s)", (CONTROL_LOCK_KEY,))
         mission = load_active_mission(cur)
         if not mission:
             print("No active mission. Waiting...")
@@ -304,6 +302,21 @@ def tick(conn, real_dt: float) -> Optional[Reading]:
         check_alerts(cur, mission, r)
         deliver_messages(cur, mission["id"])
         return r
+
+
+def set_demo_oxygen(conn, value: float, relative: bool = False) -> float:
+    if not math.isfinite(value) or (not relative and not 0 <= value <= 100):
+        raise ValueError("Use an oxygen percentage from 0 to 100.")
+    with conn.transaction(), conn.cursor(row_factory=dict_row) as cur:
+        cur.execute("SELECT pg_advisory_xact_lock(%s)", (CONTROL_LOCK_KEY,))
+        cur.execute("""SELECT t.id, t.o2_percent FROM telemetry t JOIN missions m ON m.id=t.mission_id
+                       WHERE m.active ORDER BY t.ts DESC, t.id DESC LIMIT 1 FOR UPDATE OF t""")
+        latest = cur.fetchone()
+        if latest is None:
+            raise ValueError("Start simulator.py first.")
+        oxygen = clamp(latest["o2_percent"] + value if relative else value, 0, 100)
+        cur.execute("UPDATE telemetry SET o2_percent=%s WHERE id=%s", (oxygen, latest["id"]))
+        return oxygen
 
 
 def apply_settings(conn, args):
@@ -337,10 +350,17 @@ def connect_and_lock():
     delay = 1.0
     while True:
         try:
-            conn = psycopg.connect(DATABASE_URL, autocommit=True)
+            conn = psycopg.connect(DATABASE_URL, autocommit=True, connect_timeout=5,
+                                   **password_options(DATABASE_URL))
             break
         except psycopg.OperationalError as e:
-            print(f"Cannot reach database ({e.__class__.__name__}). Retrying in {delay:.0f}s...")
+            message = str(e).lower()
+            reason = "connection failed"
+            for detail in ("no password supplied", "password authentication failed", "connection refused", "timeout expired"):
+                if detail in message:
+                    reason = detail
+                    break
+            print(f"Cannot reach database ({reason}). Retrying in {delay:.0f}s...")
             time.sleep(delay)
             delay = min(delay * 2, 15)
     got = conn.execute("SELECT pg_try_advisory_lock(%s)", (LOCK_KEY,)).fetchone()[0]

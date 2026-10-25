@@ -19,6 +19,10 @@ public struct SuitReadings
 
 public class SuitTelemetry : MonoBehaviour
 {
+    [Tooltip("Read simulator data through the existing voice client.")]
+    [SerializeField] bool useServerTelemetry = true;
+    [SerializeField] VoiceSessionClient server;
+    [Tooltip("Local demo only when Use Server Telemetry is off.")]
     [SerializeField] bool simulate = true;
     [SerializeField] SuitAlert demoAlert;
     [SerializeField] SuitReadings readings = new SuitReadings
@@ -28,13 +32,16 @@ public class SuitTelemetry : MonoBehaviour
     };
 
     public event Action<SuitReadings> Changed;
-    public bool IsSimulated => simulate;
+    public bool IsSimulated => !useServerTelemetry && simulate;
+    public VoiceSessionClient Server => server;
+    bool hasServerReading;
+    public bool HasData => !useServerTelemetry || (hasServerReading && server != null && server.TelemetryAvailable);
     public SuitReadings Current
     {
         get
         {
             var value = readings;
-            if (demoAlert != SuitAlert.Normal)
+            if (!useServerTelemetry && demoAlert != SuitAlert.Normal)
                 value.radiationMicrosieverts = Mathf.Max(value.radiationMicrosieverts,
                     demoAlert == SuitAlert.Warning ? 0.75f : 2.5f);
             return value;
@@ -46,13 +53,32 @@ public class SuitTelemetry : MonoBehaviour
     void Update()
     {
 #if ENABLE_INPUT_SYSTEM
-        if (Keyboard.current != null && Keyboard.current.f8Key.wasPressedThisFrame)
+        if (!useServerTelemetry && Keyboard.current != null && Keyboard.current.f8Key.wasPressedThisFrame)
             CycleDemoAlert();
 #endif
         if (Time.unscaledTime < nextUpdate)
             return;
         nextUpdate = Time.unscaledTime + 0.5f;
-        if (simulate)
+        if (useServerTelemetry)
+        {
+            if (server == null) server = FindFirstObjectByType<VoiceSessionClient>();
+            if (server != null && server.TelemetryAvailable)
+            {
+                var value = server.Telemetry;
+                readings = new SuitReadings
+                {
+                    oxygenPercent = value.o2_percent,
+                    heartRate = value.heart_rate,
+                    pressureKpa = value.suit_pressure_kpa,
+                    batteryPercent = value.battery_percent,
+                    radiationMicrosieverts = value.radiation_usv_h,
+                    temperatureCelsius = value.suit_temp_c
+                };
+                hasServerReading = true;
+            }
+            else hasServerReading = false;
+        }
+        else if (simulate)
         {
             float t = Time.unscaledTime;
             readings.oxygenPercent = 96 + Mathf.Sin(t * 0.04f) * 0.3f;
@@ -68,6 +94,7 @@ public class SuitTelemetry : MonoBehaviour
     // Call from Unity's main thread when connecting another data source.
     public void SetReadings(SuitReadings value)
     {
+        useServerTelemetry = false;
         simulate = false;
         demoAlert = SuitAlert.Normal;
         readings = value;
@@ -77,6 +104,7 @@ public class SuitTelemetry : MonoBehaviour
     [ContextMenu("Demo/Cycle Alert (F8)")]
     public void CycleDemoAlert()
     {
+        if (useServerTelemetry) return;
         demoAlert = (SuitAlert)(((int)demoAlert + 1) % 3);
         Changed?.Invoke(Current);
     }

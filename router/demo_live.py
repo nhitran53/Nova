@@ -1,21 +1,7 @@
-"""Talk to the full turn stack with a REAL local LLM behind the chitchat / call_llm paths (falls back to the offline stub).
+"""Try the turn stack with a local LLM or an offline fallback.
 
-    python -m router.demo_live                                  # real router checkpoint, llama-server on localhost:8080
-    python -m router.demo_live --fake-router --no-llm           # no model at all: keyword router + FillerGenerator
-    python -m router.demo_live --fake-router --script turns.txt # non-interactive; also reads stdin when it is not a TTY
-    python -m router.demo_live --runtime ollama --llm-model qwen3.5:4b --base-url http://localhost:11434/v1
-
-Wiring: FixtureDatasource (offline sim; `ds.snapshot` is the alert source, `default_registry(datasource=ds)` the tools) ->
-TurnHandler(router, generator=HTTPChatGenerator | FillerGenerator, retriever=demo_retriever). Tool turns stay template-only and
-critical alerts bypass the LLM; scoped conversation, general explanations and grounded call_llm turns reach the generator, and every reply is still
-parsed, number-verified and spoken only through TurnHandler._speak. If no server answers at start, ONE line says so and the
-offline FillerGenerator is used. If the server fails mid-session the turn speaks the tool_error line and shows `llm_error`.
-
-Input lines: text = one utterance; `/advance N` = advance the fixture N sim seconds; `/set key=value` = set o2_pct, bpm, temp_c,
-suit_pressure_kpa, scenario or activity; `/pos X Z` = move the astronaut to x/z meters (distances change; starts at 0 0);
-`/sim` = show the snapshot; `/help`; `/quit`. Blank lines and `#` comments are skipped.
-Runtime/URL/model/constraint default to turn_policy.json["live_llm"] (PLACEHOLDER) and can come from NOVA_LLM_* env or the flags.
-Nothing here has been run against a real Qwen; no ElevenLabs, no speech.
+Use --fake-router and --no-llm for a model-free demo.
+Use --script FILE for saved turns. Readings come from the offline fixture.
 """
 import argparse
 import math
@@ -42,7 +28,8 @@ HELP = ("commands: /advance N (sim seconds) | /set o2_pct|bpm|temp_c|suit_pressu
         "/pos X Z (astronaut position in meters) | /sim | /help | /quit; anything else is an utterance. "
         "Try: how far is base 2 | how far is the tower | take me to base 2")
 
-# fake-router keyword rules, first match wins: (label, any of these words / phrases in the lowercased utterance)
+# fake-router keyword rules, first match wins: (label, any of these words / phrases in the
+# lowercased utterance)
 KEYWORD_RULES = (
     ("call_navigation", ("take me", "navigate", "go to", "walk to", "head to", "directions", "how far is", "how far to",
                          "distance to")),

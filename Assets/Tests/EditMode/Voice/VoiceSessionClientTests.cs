@@ -3,6 +3,33 @@ using NUnit.Framework;
 // Pure parsing / change-detection tests; no scene, no network.
 public class VoiceSessionClientTests
 {
+    const string TelemetryJson = "{\"schema_version\":1,\"available\":true,\"source\":\"postgres\","
+        + "\"mission_id\":1,\"sample_id\":2,\"age_seconds\":1,\"max_age_seconds\":10,"
+        + "\"o2_percent\":87.5,\"heart_rate\":72,\"suit_pressure_kpa\":29.6,"
+        + "\"battery_percent\":88,\"radiation_usv_h\":27.9,\"suit_temp_c\":21.5}";
+
+    [Test]
+    public void Telemetry_ParsesReadingsAndExpiresLocally()
+    {
+        Assert.IsTrue(TelemetryStatusParser.TryParse(TelemetryJson, out var value));
+        Assert.AreEqual(87.5f, value.o2_percent);
+        Assert.AreEqual(27.9f, value.radiation_usv_h);
+        Assert.IsTrue(value.IsFresh(1, 3));
+        Assert.IsFalse(value.IsFresh(4, 3));
+        Assert.IsFalse(value.IsFresh(10, 20));
+    }
+
+    [Test]
+    public void Telemetry_RejectsPartialAndStalePackets()
+    {
+        Assert.IsFalse(TelemetryStatusParser.TryParse(TelemetryJson.Replace("\"battery_percent\":88,", ""), out _));
+        Assert.IsFalse(TelemetryStatusParser.TryParse(TelemetryJson.Replace("\"age_seconds\":1,", "\"age_seconds\":11,"), out _));
+        Assert.IsFalse(TelemetryStatusParser.TryParse("{}", out _));
+        Assert.IsFalse(TelemetryStatusParser.TryParse("not json", out _));
+        Assert.IsTrue(TelemetryStatusParser.TryParse("{\"schema_version\":1,\"available\":false}", out var unavailable));
+        Assert.IsFalse(unavailable.IsFresh(0, 3));
+    }
+
     const string Idle = "{\"state\": \"idle\", \"last_transcript\": null, \"last_reply\": null, \"route\": null, \"error\": null, \"session_id\": 0, \"seq\": 0, \"router_ready\": true}";
 
     static VoiceStatus Status(string state, string transcript = "", string reply = "", string error = "", int session = 1)
@@ -43,10 +70,11 @@ public class VoiceSessionClientTests
     }
 
     [Test]
-    public void IsActive_OnlyWhileLoadingListeningOrSpeaking()
+    public void IsActive_OnlyWhileLoadingListeningProcessingOrSpeaking()
     {
         Assert.IsTrue(VoiceStates.IsActive("loading"));
         Assert.IsTrue(VoiceStates.IsActive("listening"));
+        Assert.IsTrue(VoiceStates.IsActive("processing"));
         Assert.IsTrue(VoiceStates.IsActive("speaking"));
         Assert.IsFalse(VoiceStates.IsActive("idle"));
         Assert.IsFalse(VoiceStates.IsActive("ended"));
@@ -75,6 +103,22 @@ public class VoiceSessionClientTests
         var second = tracker.Apply(Status("speaking", "yes", "Okay."));
         Assert.IsTrue(second.TranscriptChanged);
         Assert.IsTrue(second.ReplyChanged);
+    }
+
+    [Test]
+    public void Tracker_ProcessingCarriesTheTranscriptAndTheReplyComesWithSpeaking()
+    {
+        var tracker = new VoiceStatusTracker();
+        tracker.Apply(Status("listening"));
+        var heard = tracker.Apply(Status("processing", "yes"));
+        Assert.IsTrue(heard.TranscriptChanged);
+        Assert.IsFalse(heard.ReplyChanged);
+        var reply = tracker.Apply(Status("speaking", "yes", "Okay."));
+        Assert.IsFalse(reply.TranscriptChanged);   // already reported at processing
+        Assert.IsTrue(reply.ReplyChanged);
+        tracker.Apply(Status("listening", "yes", "Okay."));
+        Assert.IsTrue(tracker.Apply(Status("processing", "yes", "")).TranscriptChanged);   // the same words again are a new turn
+        Assert.IsTrue(tracker.Apply(Status("speaking", "yes", "Okay.")).ReplyChanged);
     }
 
     [Test]

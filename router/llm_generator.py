@@ -1,29 +1,10 @@
-"""HTTP chat generator: the `Generator` for a local OpenAI-compatible server (stdlib only, localhost-friendly).
+"""Generate replies through a local OpenAI-compatible HTTP server.
 
-    config = load_live_llm_config(base_url="http://localhost:8080/v1")    # turn_policy.json["live_llm"] < env < arguments
-    ok, message = check_server(config["base_url"], config["health_timeout_s"])
-    handler = TurnHandler(router, alert_source, registry, generator=HTTPChatGenerator(config))
-
-One POST to `<base_url>/chat/completions` per `generate(req)`. The messages are `render_prompt(req)`; `max_tokens` is
-`req.style.max_tokens`; `seed` is `req.seed` (not sent to mlx). The adapter returns the model's message content as
-`GenerationResult.raw` and nothing else: it does NOT parse, validate or fix numbers (`postprocess` / `run_generation` do,
-including retry and the fallback line). Any HTTP error, refused connection, timeout or malformed response RAISES; run_generation
-turns a raising generator into the `error` outcome (tool_error line, no retry). Error messages carry the HTTP status and reason
-only, never the server's response body, and the API key / any `Bearer ...` token is redacted from every message.
-
-The request timeout is min(live_llm.request_timeout_cap_s, the remaining req.deadline_ms) in seconds.
-
-`runtime` only changes the extra body fields (all PLACEHOLDER, none verified against a real server):
-  llama-server : chat_template_kwargs {enable_thinking: false}; constrain "json_schema" -> `json_schema` = output_json_schema(req),
-                 "gbnf" -> `grammar` = output_gbnf(req)
-  ollama       : reasoning_effort "none"; constrain "json_schema" -> response_format {type: json_schema, ...}   (no GBNF)
-  openai       : constrain "json_schema" -> response_format; no thinking field
-  mlx          : none of them (mlx_lm.server has no constrained decoding; thinking-off is a LAUNCH flag, e.g.
-                 --chat-template-args '{"enable_thinking":false}'; no `seed`). `constrain` is ignored for mlx.
-`live_llm.extra_body` is merged last and wins over the fields above. `disable_thinking: false` omits the thinking-off field.
-
-The model's `<think>...</think>` text is stripped and `reasoning_content` is never read, so reasoning can not reach `postprocess`
-or the speaker. Only 127.0.0.1-style URLs are expected; proxies from the environment are ignored on purpose.
+Send one chat request per generation attempt.
+Response checking and number validation stay in generation.py.
+Timeouts respect the remaining turn budget.
+Errors omit response bodies and redact keys and bearer tokens.
+Runtime settings select the fields supported by each server.
 """
 import http.client
 import json
@@ -197,7 +178,7 @@ class HTTPChatGenerator:
             return self._generate(req)
         except LLMRequestError as exc:
             error_type, message = type(exc), redact_secrets(str(exc), self.api_key)
-        # raised outside the `except` block: a raise inside it would keep the original (with its secret-bearing cause) as __context__
+        # Raise outside except so the original error cannot expose credentials.
         raise error_type(message) from None
 
     def _generate(self, req):
