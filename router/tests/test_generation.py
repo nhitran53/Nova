@@ -669,7 +669,7 @@ def test_history_is_kept_only_when_enabled_and_is_masked_in_the_next_request():
 
 
 def test_registry_stays_within_the_tool_cap():
-    assert len(default_registry().names()) <= 8 and ToolRegistry().max_tools == 8
+    assert len(default_registry().names()) <= 10 and ToolRegistry().max_tools == 10
 
 
 # ---- review fixes (2026-10-24) ----

@@ -1,4 +1,4 @@
-"""Whole-utterance session end and the interim "Let me think." line (fake router, fake generator, no model)."""
+"""Conversation endings and interim replies with fake services."""
 import copy
 import json
 
@@ -47,8 +47,9 @@ class Rig:
 
 
 # ---- session end ----
-@pytest.mark.parametrize("text", ["thank you", "Thanks!", "thank you Nova", "Thanks, Nova", "that's all", "Goodbye.", "bye"])
-def test_whole_utterance_session_end_speaks_the_line_and_flags_end_session(text):
+@pytest.mark.parametrize("text", ["thank you", "Thanks!", "thank you Nova", "Thanks, Nova", "that's all", "Goodbye.", "bye",
+                                 "NOVA, thank you", "yes thank you", "okay thank you for your help"])
+def test_session_end_speaks_the_line_and_flags_end_session(text):
     rig = Rig()
     out = rig.say(text)
     assert out["route"] == "session_end" and out["spoken"] == "Happy to help!" and out["end_session"] is True
@@ -80,13 +81,36 @@ def test_session_end_clears_pending_clarification_and_confirmation():
     assert out["end_session"] is True and rig.handler.pending_clarification is None and rig.handler.pending_confirmation is None
 
 
-def test_yes_thank_you_still_confirms_a_pending_offer():
+def test_yes_thank_you_confirms_then_ends():
     sim = SimState(minutes_remaining=45)
     handler = TurnHandler(FakeRouter("call_navigation", .99), sim.snapshot, default_registry(sim))
     offer = handler.handle("take me to the outpost")
     assert handler.pending_confirmation is not None, offer["spoken"]
     out = handler.handle("yes thank you")
-    assert out["route"] == "confirmed_yes" and "end_session" not in out
+    assert out["route"] == "confirmed_yes" and out["end_session"]
+    assert handler.pending_confirmation is None
+
+
+@pytest.mark.parametrize("text", ["take me home thank you", "thank you take me home", "NOVA, take me home, thank you"])
+def test_request_with_thank_you_runs_before_ending(text):
+    rig = Rig("call_navigation", .99)
+    out = rig.say(text)
+    assert out["route"] == "tool" and out["tool_call"]["args"] == {"place": "homebase"}
+    assert out["tool_calls"] == 1 and out["end_session"] and out["text"] == text
+    assert out["spoken"] != "Happy to help!"
+
+
+def test_question_with_thank_you_gets_answered_before_ending():
+    rig = Rig("NO_TOOL", .97)
+    out = rig.say("Tell me about Mars thank you")
+    assert out["llm_called"] and out["spoken"] == "Hello there." and out["end_session"]
+
+
+def test_thank_you_ends_a_pending_clarification():
+    rig = Rig()
+    rig.handler.pending_clarification = {"kind": "stale"}
+    out = rig.say("NOVA thank you")
+    assert out["end_session"] and rig.handler.pending_clarification is None
 
 
 def test_thanks_take_me_home_routes_normally():

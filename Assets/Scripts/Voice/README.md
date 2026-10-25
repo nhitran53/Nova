@@ -4,6 +4,28 @@ Python runs the voice conversation on the PC
 Unity reads its status and telemetry through `VoiceSessionClient`
 Tool selection stays in Python
 
+Say **NOVA return to start** to return beside the damaged rover wheel
+The reset fades briefly and stops auto navigation
+Headset floor tracking needs to be ready
+Add **thank you** to finish the request then end the conversation
+
+## Live location
+
+Play `SampleScene` and ask **NOVA where am I**
+Location comes from a fresh Unity snapshot
+Shuttle and rover distances use scene landmarks
+Ground distance and route distance stay separate
+
+For older terrain run **Tools > Jezero > Update Georeference** once
+New imports already include it
+Check the conversion with **Tools > NOVA > Check Spatial Mapping**
+CTX and HiRISE share the same coordinate frame
+Coordinates use the source Mars sphere and east longitude from 0 to 360
+Missing georeferencing returns unavailable
+
+Use **Log Current Location** on `NovaSpatialContextProvider` in Play mode to inspect a snapshot
+Test walking and turning and shuttle navigation on Quest
+
 ## Start from the repo folder
 
 Keep PostgreSQL running for shared readings
@@ -88,6 +110,5 @@ Keep the server local and do not expose it to the internet
 
 The microphone stays closed while NOVA speaks
 Stopping a session lets the current spoken reply finish
-Voice does not drive Unity navigation actions yet
 Run Python tests in `router/tests`
 Unity parsing and gesture tests are in **Test Runner > EditMode**

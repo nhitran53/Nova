@@ -188,6 +188,10 @@ public static class NovaNavigationTools
 
     static Vector3? FindSpawn()
     {
+        // Start the route at the rover inspection spot when enabled.
+        var inspection = UnityEngine.Object.FindObjectsByType<RoverInspectionSpawn>(FindObjectsInactive.Exclude, FindObjectsSortMode.None)
+            .FirstOrDefault(s => s.spawnOnStart && s.gameObject.scene == SceneManager.GetActiveScene());
+        if (inspection != null && inspection.TryGetInspectionGround(out var ground)) return ground;
         var origin = UnityEngine.Object.FindObjectsByType<XROrigin>(FindObjectsInactive.Include, FindObjectsSortMode.None)
             .FirstOrDefault(o => o.gameObject.scene == SceneManager.GetActiveScene());
         if (origin != null) return origin.transform.position;

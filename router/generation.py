@@ -621,6 +621,16 @@ def _source_for_backstop(req):
     return [req.facts, *([p.text for p in req.passages] if req.passage_numbers == "digits" else [])]
 
 
+def _strip_code_fence(raw):
+    """Remove a code fence that wraps the entire JSON reply."""
+    if isinstance(raw, str):
+        text = raw.strip()
+        if text.startswith("```") and text.endswith("```") and text.count("```") == 2:
+            text = text[3:-3]
+            return text[4:] if text.lower().startswith("json") else text
+    return raw
+
+
 def postprocess(req, result_or_raw, policy, verifier=verify_numbers):
     """Parse -> refusal -> slot checks -> prose number scan (BEFORE filling) -> limits -> deny-lists -> fill -> verifier.
     `policy` is the full turn policy or its "generation" section. Pure; never raises on model output."""
@@ -631,7 +641,7 @@ def postprocess(req, result_or_raw, policy, verifier=verify_numbers):
         return _fail(raw, ["parse_error"], [f"raw output is {len(raw)} characters, over generation.max_raw_chars {limit}"],
                      blocked=raw[:limit])
     try:
-        data = json.loads(raw)
+        data = json.loads(_strip_code_fence(raw))
     except (TypeError, ValueError, RecursionError) as exc:  # RecursionError: deeply nested JSON
         return _fail(raw, ["parse_error"], [f"not JSON: {type(exc).__name__}: {exc}"[:200]],
                      blocked=raw if isinstance(raw, str) else None)

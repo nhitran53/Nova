@@ -9,6 +9,9 @@ public class RoverDamageState : MonoBehaviour
     [SerializeField] Transform damagedPose;
     [SerializeField] bool damaged = true;
 
+    public bool Damaged => damaged;
+    public Transform FrontRightWheel => frontRightWheel;
+
     void OnEnable() => Apply();
     void OnValidate() => Apply();
 

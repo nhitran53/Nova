@@ -6,7 +6,7 @@ Use the supplied datasource or the built-in simulated state.
 import itertools
 import math
 
-MAX_TOOLS = 8
+MAX_TOOLS = 10
 DEMO_ROVER_FAULTS = [{"part": "left_front_wheel", "label": "left front tire", "status": "damaged", "print_part": "wheel"}]  # PLACEHOLDER demo fixture
 PRINTABLE_PARTS = ("wheel",)
 PLACE_DISTANCES_M = {  # fabricated: (distance in meters, walking minutes)
@@ -93,11 +93,23 @@ class SimState:
         return snapshot
 
 
-def default_registry(sim=None, datasource=None):
-    """Seven tools (safety, navigation, map, data, o2, send_message, queue_print = simulated demo print queue); leaves room for one more.
+def default_registry(sim=None, datasource=None, vision=None, location=None, return_to_start=False):
+    """Seven base tools plus optional Unity vision and live location tools.
 
     Default: FAKE tools over `sim` (SimState, fabricated places). With `datasource`: same names, schemas and result keys,
     but readings, places and messages come from the datasource (it raises DataUnavailableError rather than guess)."""
+    registry = _default_registry(sim, datasource)
+    if vision is not None:
+        registry.register("vision", {"required": ["question", "mode"], "properties": {"question": str, "mode": str}}, vision)
+    if location is not None:
+        registry.register("get_current_location", {"required": ["question"], "properties": {"question": str}}, location)
+    if return_to_start:
+        registry.register("return_to_start", {"required": [], "properties": {}},
+                          lambda: {"tool": "return_to_start", "ok": True, "data": {"requested": True}})
+    return registry
+
+
+def _default_registry(sim, datasource):
     if datasource is not None:
         if sim is not None:
             raise ValueError("pass either sim or datasource, not both")

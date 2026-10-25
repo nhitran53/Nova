@@ -65,7 +65,7 @@ def test_only_a_whole_utterance_matches(text):
 def test_flag_off_keeps_the_old_routing():
     rig = Rig(enabled=False, label="NO_TOOL")
     out = rig.say("what is this")
-    assert out["route"] != "scene" and "demo_scene" not in out and rig.router.seen == ["what is this"]
+    assert out["route"] != "scene" and "demo_scene" not in out  # with the flag off "what is this" is a vision question
     assert rig.handler.pending_confirmation is None and load_policy()["demo_scene"]["enabled"] is False
 
 

@@ -3,6 +3,22 @@ using NUnit.Framework;
 // Pure parsing / change-detection tests; no scene, no network.
 public class VoiceSessionClientTests
 {
+    [Test]
+    public void SpatialRequest_IsFreshOnConnectAndOnlyAnsweredOnce()
+    {
+        var tracker = new VoiceStatusTracker();
+        var status = new VoiceStatus { state = "processing", spatial_seq = 1, spatial_pending = true };
+        Assert.IsTrue(tracker.Apply(status).SpatialRequested);
+        Assert.IsFalse(tracker.Apply(status).SpatialRequested);
+        status.spatial_seq++;
+        Assert.IsTrue(tracker.Apply(status).SpatialRequested);
+        status.spatial_pending = false;
+        Assert.IsFalse(tracker.Apply(status).SpatialRequested);
+        status.spatial_seq = 1;
+        status.spatial_pending = true;
+        Assert.IsTrue(tracker.Apply(status).SpatialRequested);
+    }
+
     const string TelemetryJson = "{\"schema_version\":1,\"available\":true,\"source\":\"postgres\","
         + "\"mission_id\":1,\"sample_id\":2,\"age_seconds\":1,\"max_age_seconds\":10,"
         + "\"o2_percent\":87.5,\"heart_rate\":72,\"suit_pressure_kpa\":29.6,"
@@ -143,6 +159,38 @@ public class VoiceSessionClientTests
         Assert.IsFalse(tracker.Apply(Nav(2, "find")).NavigationRequested);
         Assert.IsTrue(VoiceStatusParser.TryParse("{\"state\":\"idle\",\"navigation_action\":null,\"navigation_destination\":null,\"navigation_seq\":0}", out var idle));
         Assert.AreEqual("", idle.navigation_destination);
+    }
+
+    [Test]
+    public void Tracker_VisionRequestFiresOncePerCaptureAndSkipsOneIssuedBeforeConnecting()
+    {
+        VoiceStatus Vision(int seq, string state, string target = "") => new VoiceStatus { state = "processing", session_id = 1,
+            vision_seq = seq, vision_mode = "pointing", vision_state = state, vision_target = target };
+        var tracker = new VoiceStatusTracker();
+        Assert.IsFalse(tracker.Apply(Vision(1, "capturing")).VisionRequested);   // already pending before Unity connected
+        Assert.IsTrue(tracker.Apply(Vision(2, "capturing")).VisionRequested);
+        Assert.AreEqual("pointing", tracker.VisionMode);
+        Assert.IsFalse(tracker.Apply(Vision(2, "capturing")).VisionRequested);   // same poll again
+        Assert.IsFalse(tracker.Apply(Vision(2, "identified", "Perseverance rover")).VisionRequested);
+        Assert.AreEqual("Perseverance rover", tracker.VisionTarget);
+        Assert.IsFalse(tracker.Apply(Vision(3, "error")).VisionRequested);   // a request that already failed is not captured
+        Assert.IsTrue(VoiceStatusParser.TryParse("{\"state\":\"idle\",\"vision_seq\":0,\"vision_mode\":null,\"vision_state\":null,\"vision_target\":null}", out var idle));
+        Assert.AreEqual("", idle.vision_state);
+        Assert.AreEqual("", idle.vision_target);
+    }
+
+    [Test]
+    public void Tracker_DisplayFiresOncePerNewDocumentAndSkipsOneShownBeforeConnecting()
+    {
+        VoiceStatus Doc(int seq) => new VoiceStatus { state = "speaking", session_id = 1, display_seq = seq,
+            display = new DisplayInfo { asset = "wheel_assembly", title = "Wheel Assembly" } };
+        var tracker = new VoiceStatusTracker();
+        Assert.IsFalse(tracker.Apply(Doc(1)).DisplayRequested);   // already shown before Unity connected
+        Assert.IsTrue(tracker.Apply(Doc(2)).DisplayRequested);
+        Assert.AreEqual("wheel_assembly", tracker.Display.asset);
+        Assert.IsFalse(tracker.Apply(Doc(2)).DisplayRequested);   // same poll again
+        Assert.IsTrue(VoiceStatusParser.TryParse("{\"state\":\"idle\",\"display\":null,\"display_seq\":0}", out var idle));
+        Assert.AreEqual("", idle.display.asset);
     }
 
     [Test]
