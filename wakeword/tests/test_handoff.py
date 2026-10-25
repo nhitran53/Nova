@@ -351,7 +351,8 @@ def load_real_voice_session():
         sys.modules[spec.name] = module
         spec.loader.exec_module(module)
     finally:
-        for name in [*stubs, package + ".voice_server"]:
+        # the package root and .hazard stay registered: VoiceSession imports .hazard lazily when constructed
+        for name in [package + ".stt", package + ".llm_generator", package + ".voice_server"]:
             sys.modules.pop(name, None)
     return module.VoiceSession
 
