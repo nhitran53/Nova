@@ -227,6 +227,11 @@ def validate_generation_policy(gen, where="turn_policy.json"):
     prefix = gen["attribution_prefix"]
     if not isinstance(prefix, str) or not prefix.strip() or not verify_numbers(prefix, {})["ok"]:
         raise ValueError(f"{where}: generation.attribution_prefix must be a non-empty string without a number")
+    interim = gen.get("interim")
+    if interim is not None and (not isinstance(interim, dict) or not isinstance(interim.get("enabled"), bool)
+                                or not isinstance(interim.get("line"), str) or not interim["line"].strip()
+                                or not verify_numbers(interim["line"], {})["ok"]):
+        raise ValueError(f"{where}: generation.interim must be {{\"enabled\": true|false, \"line\": a non-empty line without a number}}")
     mode = gen["passage_numbers"]
     if mode in UNBUILT_PASSAGE_NUMBER_MODES:
         raise ValueError(f"{where}: generation.passage_numbers {mode!r} is documented but not built; use one of {PASSAGE_NUMBER_MODES}")

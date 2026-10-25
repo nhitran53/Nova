@@ -451,23 +451,18 @@ def test_feasibility_outcome_boundaries_for_a_round_trip(minutes, outcome):
 
 
 @pytest.mark.parametrize("minutes, tail", [
-    (212, "Oxygen check: the round trip needs about 60 minutes including a 10 minute reserve, and you have 212."),
-    (55, "Warning, oxygen margin is tight: 25 minutes out, 25 minutes back and a 10 minute reserve need 60 minutes, and you have 55. "
+    (212, "Oxygen check: the round trip needs 60 minutes with 10 reserve; you have 212."),
+    (55, "Warning, oxygen margin is tight: 25 out, 25 back, 10 reserve is 60 minutes; you have 55. "
          "Do you want me to call outpost and check if they have oxygen refills?"),
-    (45, "Warning, on your current oxygen you cannot get back home without a refill: 25 minutes out plus 25 minutes back is 50, "
-         "and you have 45. Do you want me to call outpost and check if they have oxygen refills?"),
-    (20, "Warning, you cannot reach it on your current oxygen: the trip out takes 25 minutes and you have 20. "
+    (45, "Warning, you cannot get back home without a refill: 25 out plus 25 back is 50; "
+         "you have 45. Do you want me to call outpost and check if they have oxygen refills?"),
+    (20, "Warning, you cannot reach it on your oxygen: 25 minutes out; you have 20. "
          "Do you want me to call outpost and check if they have oxygen refills?"),
 ])
 def test_feasibility_line_is_spoken_after_the_route_line_with_numbers_from_the_tool_result(minutes, tail):
     rig, out = nav(minutes)
     expected = load_policy()['clarification']['guidance'].format(**out['tool_result']['data'])
-    budget = load_policy()['clarification']['budget'].format(**feasibility(out))
-    if ' Do you want' in tail:
-        warning, offer = tail.split(' Do you want', 1)
-        tail = warning + budget + ' Do you want' + offer
-    else:
-        tail += budget
+    assert 'budget' not in load_policy()['clarification'] and 'Oxygen budget' not in out['spoken']
     assert out['spoken'] == expected + ' ' + tail
     assert out["verifier"]["ok"] and out["blocked_text"] is None
     spoken = set(out["verifier"]["spoken"])
@@ -481,10 +476,10 @@ def test_the_route_is_never_refused_even_when_the_destination_cannot_be_reached(
 
 
 @pytest.mark.parametrize("minutes, outcome, tail", [
-    (212, "comfortable", "Oxygen check: the way home needs about 12 minutes including a 10 minute reserve, and you have 212."),
-    (12, "comfortable", "Oxygen check: the way home needs about 12 minutes including a 10 minute reserve, and you have 12."),
-    (11, "tight", "Warning, oxygen margin is tight: the way home takes 2 minutes plus a 10 minute reserve, 12 in all, and you have 11."),
-    (1, "cannot_reach", "Warning, you cannot reach home on your current oxygen: the way home takes 2 minutes and you have 1."),
+    (212, "comfortable", "Oxygen check: home needs 12 minutes with 10 reserve; you have 212."),
+    (12, "comfortable", "Oxygen check: home needs 12 minutes with 10 reserve; you have 12."),
+    (11, "tight", "Warning, oxygen margin is tight: home takes 2 minutes plus 10 reserve, 12 in all; you have 11."),
+    (1, "cannot_reach", "Warning, you cannot reach home on your oxygen: 2 minutes; you have 1."),
 ])
 def test_home_as_destination_skips_the_return_leg_and_never_says_cannot_return(minutes, outcome, tail):
     rig, out = nav(minutes, text="take me home")
