@@ -1,5 +1,6 @@
 """voice_server with a fake converse and a fake router loader: localhost ephemeral port only, no mic, no TTS, no model."""
 import json
+import sys
 import threading
 import time
 import urllib.error
@@ -245,7 +246,7 @@ def test_start_while_the_stopped_run_is_still_shutting_down_is_refused(serve):
     assert call(base, "/voice/start", "POST")[1]["started"] is True
 
 
-def test_converse_exception_becomes_error_state_without_the_secret(serve, monkeypatch):
+def test_converse_exception_becomes_error_state_without_the_secret(serve, monkeypatch, capsys):
     monkeypatch.setenv(stt.KEY_VAR, "sk-supersecret-123")
 
     def script(on_event, on_turn, stop_event):
@@ -257,13 +258,21 @@ def test_converse_exception_becomes_error_state_without_the_secret(serve, monkey
     status = call(base, "/voice/status")[1]
     assert "SttError" in status["error"] and "sk-supersecret-123" not in json.dumps(status)
     session.join(3)
+    console = capsys.readouterr().err
+    assert "voice session failed: SttError:" in console
+    assert "sk-supersecret-123" not in console
     assert call(base, "/voice/start", "POST")[1]["started"] is True  # an error session can be restarted
 
 
-def test_playback_failure_is_reported_without_ending_the_session(serve):
+def test_playback_failure_is_reported_without_ending_the_session(serve, monkeypatch, capsys):
+    monkeypatch.setenv(stt.KEY_VAR, "secret-playback-key")
+    emitted = threading.Event()
+
     def script(on_event, on_turn, stop_event):
         on_event("listening...")
-        on_event("(speech failed: RuntimeError: no audio device)")
+        on_event("(speech failed: RuntimeError: no audio device secret-playback-key)")
+        on_event("(silence - ending conversation)")
+        emitted.set()
         stop_event.wait(5)
         return []
 
@@ -272,6 +281,12 @@ def test_playback_failure_is_reported_without_ending_the_session(serve):
     assert wait_for(lambda: call(base, "/voice/status")[1]["error"] is not None)
     status = call(base, "/voice/status")[1]
     assert status["state"] == "listening" and "no audio device" in status["error"]
+    assert emitted.wait(3)
+    console = capsys.readouterr().err
+    assert "(speech failed: RuntimeError: no audio device" in console
+    assert "(silence - ending conversation)" in console
+    assert "listening..." not in console
+    assert "secret-playback-key" not in console + status["error"]
 
 
 def test_router_is_prewarmed_at_construction_and_ready_flag_is_reported(serve):
@@ -285,7 +300,8 @@ def test_router_is_prewarmed_at_construction_and_ready_flag_is_reported(serve):
 
     base, _, _ = serve(blocking_until_stopped, router_loader=slow_loader)
     assert wait_for(lambda: loads)  # loading began before any /voice/start
-    assert call(base, "/voice/status")[1]["router_ready"] is False
+    status = call(base, "/voice/status")[1]
+    assert status["router_ready"] is False and status["router_error"] is None
     gate.set()
     assert wait_for(lambda: call(base, "/voice/status")[1]["router_ready"] is True)
     call(base, "/voice/start", "POST")
@@ -395,3 +411,71 @@ def test_server_never_uses_an_llm(monkeypatch):
     for flag in ("--no-llm", "--runtime", "--base-url", "--llm-model", "--deadline-ms"):
         with pytest.raises(SystemExit):  # the LLM flags no longer exist
             voice_server.main([flag, "x"])
+
+
+def test_router_load_failure_is_visible_before_start_and_redacted(serve, monkeypatch, capsys):
+    monkeypatch.setenv(stt.KEY_VAR, "secret-router-key")
+
+    def bad_loader():
+        raise RuntimeError("bad checkpoint secret-router-key")
+
+    base, session, calls = serve(blocking_until_stopped, router_loader=bad_loader)
+    assert wait_for(lambda: call(base, "/voice/status")[1]["router_error"] is not None)
+    status = call(base, "/voice/status")[1]
+    assert status["router_ready"] is False
+    assert "RuntimeError: bad checkpoint" in status["router_error"]
+    assert calls == []
+    with pytest.raises(RuntimeError):
+        session._router.get(timeout=3)
+    console = capsys.readouterr().err
+    assert "router load failed: RuntimeError: bad checkpoint" in console
+    assert "secret-router-key" not in console + json.dumps(status)
+
+
+@pytest.mark.parametrize("kind", ["missing", "file"])
+def test_main_rejects_model_that_is_not_a_directory(tmp_path, monkeypatch, capsys, kind):
+    model = tmp_path / kind
+    if kind == "file":
+        model.write_text("not a checkpoint directory")
+    monkeypatch.setattr(voice_server, "VoiceSession", lambda *a, **kw: pytest.fail("must not start loading"))
+    assert voice_server.main(["--model", str(model)]) == 2
+    assert f"model path is not an existing directory: {model}" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("key", ["", "secret-startup-key"])
+@pytest.mark.parametrize("sounddevice_available", [True, False])
+def test_main_prints_startup_diagnostics(tmp_path, monkeypatch, capsys, key, sounddevice_available):
+    env = tmp_path / ".env"
+    env.write_text(f"ELEVENLABS_API_KEY={key}\n")
+    monkeypatch.setattr(stt, "ENV_PATH", env)
+    monkeypatch.delenv(stt.KEY_VAR, raising=False)
+    monkeypatch.setattr(stt, "_load_router", lambda *a: "ROUTER")
+    monkeypatch.setitem(sys.modules, "sounddevice", object() if sounddevice_available else None)
+
+    class Server:
+        server_address = ("127.0.0.1", 8766)
+
+        def serve_forever(self):
+            raise KeyboardInterrupt
+
+        def server_close(self):
+            pass
+
+    monkeypatch.setattr(voice_server, "make_server", lambda *a, **kw: Server())
+    assert voice_server.main(["--model", str(tmp_path)]) == 0
+    console = capsys.readouterr().err
+    assert f"router model: {tmp_path.resolve()}" in console
+    assert f".env path: {env.resolve()}" in console
+    assert f"ELEVENLABS_API_KEY: {'found' if key else 'missing'}" in console
+    assert f"sounddevice import: {'OK' if sounddevice_available else 'failed'}" in console
+    assert "voice server on http://127.0.0.1:8766" in console
+    assert "secret-startup-key" not in console
+
+
+def test_main_flag_help_clarifies_device_and_timeout(capsys):
+    with pytest.raises(SystemExit) as exc:
+        voice_server.main(["--help"])
+    assert exc.value.code == 0
+    help_text = " ".join(capsys.readouterr().out.split())
+    assert "torch device for the router (not the microphone)" in help_text
+    assert "seconds of silence that end a conversation" in help_text
