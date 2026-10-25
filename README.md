@@ -66,6 +66,21 @@ Generated terrain assets stay in `Assets/JezeroTerrain/Generated/`
 - Right pinch to open the hand map
 - Telephone pose or V to toggle voice
 
+## Voice setup
+
+ModernBERT picks tool routes and its checkpoint files stay outside Git
+Pass your local checkpoint path when starting the server
+Gemini writes replies and backs BERT up when it isn't sure which tool to use
+Add `--no-llm` to the server for offline replies only
+Keep shared keys in the root `.env`
+
+The optional wake listener hears Hey Nova and starts the same Unity voice session
+It needs a separate environment and the custom `hey_nova.onnx` model
+
+[Router and Gemini setup](router/README.md)
+
+[Wake word on Windows](wakeword/README.md#windows-setup)
+
 ## Shared readings
 
 Keep shared keys and settings in the root `.env`

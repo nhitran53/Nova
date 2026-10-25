@@ -6,7 +6,8 @@ Tool selection stays in Python
 
 ## Start from the repo folder
 
-Keep PostgreSQL and Ollama running
+Keep PostgreSQL running for shared readings
+Ollama isn't needed
 Put credentials in the root `.env` and keep that file out of Git
 Voice needs `sounddevice` and an ElevenLabs key
 
@@ -18,14 +19,28 @@ Run the simulator in one terminal
 
 Run the voice server in another terminal
 
-```sh
-cd /home/isaach/Nova-wakeword && /home/isaach/Nova/router/.venv/bin/python -m router.voice_server
+```powershell
+.\router\.venv\Scripts\python.exe -m router.voice_server --model "$HOME\models\Nova\router\ModernBERT-v4.2" --datasource postgres
 ```
 
-The default model on this machine is `/home/isaach/models/Nova/router/v1`; `--model` is optional.
-Append `--datasource postgres` to enable the shared HUD and wrist telemetry described below.
-Server `--device` selects the torch device, not the mic; `--timeout` is seconds of silence that end a conversation.
+Change the model path if your trained checkpoint is somewhere else
+Wait for `router_ready` at `http://127.0.0.1:8765/voice/status` before starting voice
+Without `--datasource postgres` the server uses its separate built-in simulation
+Server `--device` selects the torch device rather than the mic
+`--timeout` sets how many seconds of silence end a conversation
 Restart both processes after code updates
+
+## Wake word and Gemini
+
+Start the optional [wake listener](../../../wakeword/README.md#windows-setup) after the voice server is ready
+It listens for Hey Nova and releases the mic while the server handles the conversation
+Use the same default Windows mic for both processes
+Unity notices new sessions through its existing status polling
+Lower **Idle Check Seconds** on **Voice Session Client** if that delay is too long
+
+Gemini generates replies with an offline fallback
+Add `--no-llm` to the server for offline replies only
+More in the [router setup](../../../router/README.md#gemini)
 
 ## In Unity
 

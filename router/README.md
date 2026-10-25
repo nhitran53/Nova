@@ -1,7 +1,7 @@
 # Nova router
 
 ModernBERT chooses the route for a request
-Python tools read telemetry and the local LLM handles supported conversation
+Python tools read telemetry and Gemini can generate supported replies
 The voice server connects this to Unity
 
 ## Setup
@@ -20,7 +20,8 @@ Keep the trained label order matched to `labels.json`
 
 Put keys and database settings in the root `.env`
 Never commit that file
-Microphone and Windows playback need `sounddevice`
+Microphone and Windows playback use `sounddevice` which is included in the router dependencies
+To update an existing Windows venv run `.\router\.venv\Scripts\python.exe -m pip install -e .\router` from the repo folder
 
 ## Run with Unity
 
@@ -31,13 +32,15 @@ Run these in separate terminals from the repo folder
 .\router\.venv\Scripts\python.exe simulator.py
 ```
 
-```sh
-cd /home/isaach/Nova-wakeword && /home/isaach/Nova/router/.venv/bin/python -m router.voice_server
+```powershell
+.\router\.venv\Scripts\python.exe -m router.voice_server --model "$HOME\models\Nova\router\ModernBERT-v4.2" --datasource postgres
 ```
 
-The default model on this machine is `/home/isaach/models/Nova/router/v1`; `--model` is optional.
-Append `--datasource postgres` for the shared simulator telemetry (the default is `sim`).
-Server `--device` is the torch device, not the microphone; `--timeout` is seconds of silence that end a conversation.
+This example uses the local Windows checkpoint
+Change `--model` if your checkpoint is somewhere else
+The server defaults to `sim` when `--datasource` is omitted
+Server `--device` selects the torch device rather than the mic
+`--timeout` sets how many seconds of silence end a conversation
 Keep the simulator running so readings stay fresh
 Use `--datasource sim` for voice without PostgreSQL
 That mode does not supply the shared HUD telemetry
@@ -46,6 +49,51 @@ The server uses localhost on port 8765
 Unity reads voice status and telemetry from it
 Wrist demo buttons update the simulator oxygen value through the server
 No database credentials go to Unity
+
+## BERT model
+
+ModernBERT chooses tool routes and Gemini does not retrain it
+Model files stay outside Git and need to be copied separately
+Pass the trained checkpoint folder with `--model`
+Its label order must match `router/labels.json`
+Without `--model` the server uses `NOVA_MODELS_DIR/v1`
+The current fallback is `/home/isaach/models/Nova/router/v1` which is a Linux path
+
+ModernBERT-v4.2 is still marked as a candidate in its metadata
+Using it does not promote or retrain the model
+
+Check readiness from PowerShell after starting the server
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8765/voice/status
+```
+
+Wait for `router_ready` to be true
+A failed load reports `router_error`
+
+## Gemini
+
+Keep `GEMINI_API_KEY` and `ELEVENLABS_API_KEY` in the root `.env`
+Each teammate needs their own local file
+Ollama is optional and is not needed for the Gemini setup
+
+The voice server uses Gemini for replies and as a second routing layer
+Gemini can choose a tool when BERT does not
+Critical alerts bypass this second routing layer
+Gemini is checked when each conversation starts and falls back to offline replies if it's down
+Add `--no-llm` to the server to skip Gemini entirely
+Model names and routing policy in `turn_policy.json` are still provisional
+
+Voice and wake word can use another file through `NOVA_ENV_FILE`
+The simulator and Stage 1 API still use the root `.env`
+Environment variables take priority over file values
+
+## Wake word
+
+The listener starts a conversation through the same voice server used by Unity
+It releases the mic during the conversation and resumes afterward
+The custom `hey_nova.onnx` model is not in Git
+See [wake-word setup](../wakeword/README.md#windows-setup) for the separate environment and Windows commands
 
 ## Demo controls
 
@@ -74,7 +122,7 @@ Keep released datasets and their provenance records unchanged
 ## More detail
 
 [Unity voice and wrist setup](../Assets/Scripts/Voice/README.md)
-[Local LLM demo](docs/live-demo.md)
+[LLM demo details](docs/live-demo.md)
 [Response generation](docs/post-tool-generation.md)
 [Reference datasets and units](docs/reference-data.md)
 [Trip clarification](docs/trip-clarification-implementation.md)
@@ -226,7 +274,8 @@ from `pipeline_config.json`. Demo note: on `Get me the coolant level.` v1 gives 
 
 ## Live LLM demo (`llm_generator.py`, `demo_live.py`, 2026-10-24)
 `uv run python -m router.demo_live [--fake-router] [--no-llm] [--script FILE]` runs the turn stack on the offline FixtureDatasource with an
-HTTP chat generator (llama-server / mlx / ollama) behind chitchat and call_llm, falling back to the FillerGenerator when no server answers.
+HTTP chat generator with Gemini as the current default behind chitchat and call_llm
+It falls back to the FillerGenerator when the service is unavailable and does not wire up the second routing layer
 Config: PLACEHOLDER `live_llm` in `turn_policy.json`. Only tested against a fake local server. See `docs/live-demo.md`.
 
 ## Speech (`tts.py`, 2026-10-24)
@@ -234,7 +283,7 @@ Config: PLACEHOLDER `live_llm` in `turn_policy.json`. Only tested against a fake
 The final spoken line (`result["spoken"]`: after the number verifier and blocked-line substitution, every route incl.
 alerts) can also be spoken aloud. Text output is unchanged. Off by default (tests make no API call).
 
-- Setup: `uv sync` (adds `elevenlabs`, `python-dotenv`); put `ELEVENLABS_API_KEY=...` in `router/.env` (gitignored; the
+- Setup: `uv sync` (adds `elevenlabs`, `python-dotenv`); put `ELEVENLABS_API_KEY=...` in the root `.env` (gitignored; the
   path is resolved from the file, not the cwd). Optional overrides: `ELEVENLABS_VOICE_ID` (default `VmPkIaPdP997cjIfBWRB`),
   `ELEVENLABS_MODEL_ID` (default `eleven_v4`, accepted by the API; the key lacks `models_read`, so the list endpoint is not usable).
 - One client per process (`tts.init()` at startup, else lazy on first `speak`); PCM 24 kHz piped to `paplay` (else `aplay`);
@@ -247,7 +296,7 @@ alerts) can also be spoken aloud. Text output is unchanged. Off by default (test
 - `uv run --with sounddevice python -m router.stt` (conversation: listen, route, speak reply, repeat until 10 s of silence or Ctrl-C; `--once`, `--no-speak`, `--model DIR`): loads the router checkpoint on a background thread, streams the mic to
   ElevenLabs Scribe realtime (`scribe_v2_realtime`, server VAD, 1 s silence ends the utterance), then runs the first transcript
   through `TurnHandler`. `stt.listen_and_route()` is the same as a function; `stt.transcribe(frames)` is the STT part alone.
-- Same key handling as `tts.py` (`router/.env`, never in errors). `sounddevice` is not in `pyproject.toml` yet (needs PortAudio).
+- Same key handling as `tts.py` (the root `.env`, never in errors). `sounddevice` is included in `pyproject.toml`.
 - Tests: `tests/test_stt.py` (fake client). Verified live with TTS-generated audio; mic capture itself not tried.
 - Not built: streaming synthesis, interrupting speech for a critical alert, Unity/Quest audio path, voice-activity handling.
 
