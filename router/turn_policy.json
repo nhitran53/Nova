@@ -281,6 +281,21 @@
     "phrases": ["thank you", "thanks", "thank you nova", "thanks nova", "that's all", "goodbye", "bye"],
     "line": "Happy to help!"
   },
+  "fast_replies": {
+    "status": "PLACEHOLDER - pending user sign-off (whole-utterance phrases answered with a fixed line before the router: no tool, no LLM, no interim; wake_prefixes are stripped only when the utterance is not already a phrase; set enabled=false to restore the router path; wording is not owner-approved)",
+    "enabled": true,
+    "wake_prefixes": ["hey nova", "hi nova", "hello nova", "okay nova", "ok nova", "nova", "hey", "hi", "hello"],
+    "intents": {
+      "greeting": {
+        "phrases": ["hi", "hello", "hey", "hi nova", "hello nova", "hey nova", "good morning", "good morning nova"],
+        "line": "Hello. How can I help?"
+      },
+      "identity": {
+        "phrases": ["who are you", "what is your name", "what's your name", "whats your name"],
+        "line": "I'm Nova, your assistant."
+      }
+    }
+  },
   "_comment_generation": "Post-tool-call generation (router/generation.py). The whole 'generation' section is PLACEHOLDER pending user sign-off: persona, style limits, attempt/deadline budget, passage-number provenance (default 'digits'; 'off' available; 'quote_span' documented but unbuilt and refused by the loader; risk_term_passage_override forces 'off' for a grounded turn whose question or passage hits llm_scope.risk_terms; attribution_prefix is prepended by code to a grounded answer that speaks a passage number), history length, refusal and fallback wording, retry wording, deny-lists, slot formats/units and the raw-output size cap (max_raw_chars). Qualitative tier labels (critical/warning/normal) are NOT configured here: they are derived from the human-owned sim_fields thresholds. No real model, mission document or suit rule backs any value.",
   "generation": {
     "status": "PLACEHOLDER - pending user sign-off (every value; passage_numbers 'digits' is the default, 'off' bans model-written numbers from documents, 'quote_span' is unbuilt; risk_term_passage_override and attribution_prefix are new)",

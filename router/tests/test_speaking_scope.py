@@ -1,4 +1,5 @@
 """Owner-requested speaking scope, without a model/server or router substitution in production."""
+import copy
 import json
 
 import pytest
@@ -9,11 +10,14 @@ from router.turn import TurnHandler, load_policy
 from router.tests.test_turn import FakeRouter
 
 
-def handler(label="call_llm", confidence=0.99, reply="Cloud droplets scatter light.", retriever=None):
+def handler(label="call_llm", confidence=0.99, reply="Cloud droplets scatter light.", retriever=None, fast_replies=False):
+    """fast_replies=False turns the pre-router fast path off so these tests keep exercising speaking_scope.greetings."""
+    policy = copy.deepcopy(load_policy())
+    policy["fast_replies"]["enabled"] = fast_replies
     sim = SimState()
     generator = FillerGenerator(script=[json.dumps({"refusal": None, "text": reply})])
     h = TurnHandler(FakeRouter(label, confidence), sim.snapshot, default_registry(sim),
-                    generator=generator, retriever=retriever)
+                    generator=generator, retriever=retriever, policy=policy)
     return h, generator
 
 

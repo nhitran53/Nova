@@ -238,7 +238,7 @@ def test_default_checkpoint_is_v2_with_a_message_fallback_to_v1(capsys, tmp_path
 
 def test_hi_deterministic_and_keyboard_interrupt_exits_cleanly(capsys, tmp_path):
     out = run(capsys, ["--no-llm"], "hi\n", tmp_path)
-    assert "Hey, I'm Nova, your navigation and observation voice assistant." in out
+    assert "Hello. How can I help?" in out  # fast_replies greeting (policy PLACEHOLDER line)
     assert "llm     : CALLED" not in out
 
     class InterruptedInput:

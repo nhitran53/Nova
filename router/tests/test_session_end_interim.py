@@ -117,7 +117,7 @@ def test_interim_is_spoken_before_generation_for_llm_kinds_and_tts_stays_once(la
 def test_no_interim_on_tool_template_greeting_or_alert_routes():
     for label, conf, text, snapshot, route in [("call_o2", .99, "how is my oxygen", None, "tool"),
                                               ("call_o2", .1, "blorp", None, "low_confidence"),
-                                              ("NO_TOOL", .97, "hi", None, "greeting"),
+                                              ("NO_TOOL", .97, "hi", None, "fast_reply"),
                                               ("NO_TOOL", .97, "hello there", CRITICAL, "alert")]:
         rig = Rig(label, conf, snapshot=snapshot)
         out = rig.say(text)

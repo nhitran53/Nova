@@ -198,7 +198,7 @@ def test_llm_output_with_an_unsupported_number_is_blocked():
 
 def test_llm_output_with_a_spelled_out_number_is_blocked_too():
     rig = Rig("NO_TOOL", 0.97, llm=FakeLLM("You have about twenty one minutes left."))
-    assert rig.say("hello")["blocked_text"] is not None
+    assert rig.say("hello there")["blocked_text"] is not None
 
 
 # ---- 4. one call per turn, tool limit, schemas ----
@@ -750,7 +750,7 @@ def test_chitchat_without_a_risk_term_still_reaches_the_llm_stub(text):
 def test_chitchat_never_consults_the_retriever():
     calls = []
     rig = Rig("NO_TOOL", 0.97, retriever=lambda text: calls.append(text) or [PASSAGE])
-    rig.say("hello")
+    rig.say("hello there")
     assert calls == []
 
 

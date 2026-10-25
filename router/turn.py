@@ -58,7 +58,7 @@ passage forces "off" for a grounded turn), "attribution_prefixed"}. The whole di
 GenerationRequest object of the latest request is `TurnHandler.last_generation_request` (None when a turn built none).
 
 Result keys: text, route ("alert"|"tool"|"slot_question"|"clarify"|"llm"|"ood"|"low_confidence"|"risk_diverted"|
-"no_document"|"greeting"|"repair_offer"|"destination_safety"|"confirmed_yes"|"confirmed_no"|"refill_not_needed"|"session_end"), pipeline (the Pipeline.handle dict or None), alerts, tool_call
+"no_document"|"greeting"|"repair_offer"|"destination_safety"|"confirmed_yes"|"confirmed_no"|"refill_not_needed"|"session_end"|"fast_reply"), pipeline (the Pipeline.handle dict or None), alerts, tool_call
 ({"name","args"} or None), tool_result, tool_calls (0 or 1), llm_called, spoken, verifier, blocked_text,
 pending_confirmation (the offer stored by THIS turn, or None), tool_error / llm_error (only when the tool or the LLM
 raised: templates.tool_error is spoken, nothing is retried; an alert_source failure still propagates), passages (grounded call_llm only), end_session (true only on a whole-utterance goodbye/thanks),
@@ -77,6 +77,7 @@ from pathlib import Path
 from .generation import (NUMBER_VIOLATIONS, FillerGenerator, LegacyLLMAdapter, attribute_passage_numbers, build_request,
                          render_prompt, risk_terms_in, run_generation, validate_generation_policy)
 from .clarification import normalized, select_choice
+from .fast_replies import match_fast_reply, validate_fast_replies
 from .pipeline import Pipeline, load_config
 from .places import resolve_destination
 from .tools import default_registry
@@ -143,6 +144,8 @@ def load_policy(path=POLICY_PATH):
         if isinstance(flags, dict) and flags.get("preempts_router") and flags.get("uses_llm"):
             raise ValueError(f"{path}: severity tier {tier!r} preempts the router, so it cannot use the LLM")
     validate_generation_policy(policy.get("generation"), path)
+    if "fast_replies" in policy:
+        validate_fast_replies(policy["fast_replies"], path)
     return policy
 
 
@@ -293,6 +296,11 @@ class TurnHandler:
             answer = match_confirmation(text, self.policy)
             if answer is not None:
                 return self._confirmation_turn(result, pending, answer, snapshot)
+
+        fast = match_fast_reply(text, self.policy)  # whole utterance only; after alert, clarification and confirmation answers
+        if fast is not None:
+            result["fast_intent"] = fast[0]
+            return self._speak(result, "fast_reply", fast[1], {})
 
         out = result["pipeline"] = self.pipeline.handle(text)
         if out["route"] == "tool":
