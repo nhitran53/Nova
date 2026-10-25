@@ -13,7 +13,7 @@ using Debug = UnityEngine.Debug;
 //
 // Add it with Tools > Nova > Minimap > Add Minimap To Scene and press Play.
 // It builds its own small round map and follows whichever camera is active:
-//   - Quest rig: docks into the bottom-left of Cardin's Helmet HUD (same visor material, always on top)
+//   - Quest rig: docks into the bottom-right of the Helmet HUD (same visor material, always on top)
 //   - desktop rig (no Helmet HUD): drawn flat in the bottom-left corner of the screen
 //   - the ground is a shaded-relief picture drawn from the real Jezero terrain heights
 //   - every MapMarker in the scene (and any pins from the API) is drawn as a colored dot
@@ -30,10 +30,10 @@ public class MarsMinimap : MonoBehaviour
     [Header("Docking into the Helmet HUD (Quest rig)")]
     [Tooltip("If the active camera has a Helmet HUD, put the minimap inside it.")]
     public bool dockIntoHelmetHud = true;
-    [Tooltip("Center of the minimap in Helmet HUD canvas units (canvas is 1280 x 800, center = 0,0). Bottom-left is free.")]
-    public Vector2 hudSlot = new Vector2(-430f, -190f);
+    [Tooltip("Center of the minimap in Helmet HUD canvas units. Keep clear of the center alerts and AI orb.")]
+    public Vector2 hudSlot = new Vector2(430f, -245f);
     [Tooltip("Diameter of the minimap in Helmet HUD canvas units.")]
-    public float hudDiameter = 300f;
+    public float hudDiameter = 200f;
 
     [Header("Desktop rig (no Helmet HUD): drawn flat on the screen")]
     [Tooltip("Map diameter in pixels for a 1080p-tall window (scales with the window).")]
@@ -71,6 +71,7 @@ public class MarsMinimap : MonoBehaviour
     public float ViewMeters => zoomLevelsMeters[Mathf.Clamp(zoomIndex, 0, zoomLevelsMeters.Length - 1)];
     public bool Visible => canvasGO != null && canvasGO.activeSelf;
     public bool DockedInHelmetHud { get; private set; }
+    public bool Holographic { get; private set; }
 
     const float PX = 512f;      // the map circle is 512 units wide inside `content`, then scaled to fit
     const float IconPx = 26f;
@@ -84,6 +85,9 @@ public class MarsMinimap : MonoBehaviour
     GameObject canvasGO;
     RectTransform content;   // holds everything; this is what gets placed and scaled
     CanvasScaler scaler;
+    CanvasGroup presentationGroup;
+    Coroutine transition;
+    Vector3 presentationScale = Vector3.one;
     RectTransform rotator, zoneLayer, markerLayer, arrow, north;
     RawImage terrainImage;
     Image frame;
@@ -170,13 +174,18 @@ public class MarsMinimap : MonoBehaviour
         ScanTerrains();
     }
 
-    void OnEnable() { if (canvasGO != null) canvasGO.SetActive(true); }
+    void OnEnable()
+    {
+        if (canvasGO != null) canvasGO.SetActive(true);
+        FinishTransition();
+    }
 
     void OnDisable()
     {
         if (canvasGO != null) canvasGO.SetActive(false);
         StopAllCoroutines();
         building = null;
+        FinishTransition();
     }
 
     void OnDestroy()
@@ -195,7 +204,7 @@ public class MarsMinimap : MonoBehaviour
             head = Camera.main != null ? Camera.main.transform : null;
         if (head == null) return;
         if (attachedTo != head) Attach();
-        if (!DockedInHelmetHud) ApplyScreenLayout();
+        if (!DockedInHelmetHud && !Holographic) ApplyScreenLayout();
         HandleKeys();
 
         // Always track the astronaut, even while the map is hidden (the API link reads these).
@@ -226,11 +235,16 @@ public class MarsMinimap : MonoBehaviour
     // Dock into the Helmet HUD if this camera has one, otherwise float in front of the eye.
     void Attach()
     {
+        Holographic = false;
         attachedTo = head;
         var root = (RectTransform)canvasGO.transform;
+        var canvas = canvasGO.GetComponent<Canvas>();
+        canvas.worldCamera = head.GetComponent<Camera>();
         HelmetHUD hud = dockIntoHelmetHud ? head.GetComponentInChildren<HelmetHUD>(true) : null;
         if (hud != null)
         {
+            canvas.renderMode = RenderMode.WorldSpace;
+            canvas.overrideSorting = false;
             // Inside another canvas our Canvas becomes a nested one and follows the HUD's world-space canvas.
             root.SetParent(hud.transform, false);       // HelmetHUD sits on the HUD's Canvas
             root.anchorMin = Vector2.zero;
@@ -250,12 +264,79 @@ public class MarsMinimap : MonoBehaviour
             // Desktop: a flat screen overlay. A panel floating in 3D at the edge of a wide desktop
             // camera gets stretched into a tilted oval, so draw it on the screen instead.
             root.SetParent(transform, false);
+            root.localScale = Vector3.one;
+            root.localRotation = Quaternion.identity;
             canvasGO.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
             SetMaterial(null);
             DockedInHelmetHud = false;
             ApplyScreenLayout();
         }
+        presentationScale = content.localScale;
+        FinishTransition();
         Debug.Log(DockedInHelmetHud ? $"[Minimap] Docked into Helmet HUD on '{head.name}'." : $"[Minimap] Drawn on screen (desktop rig, camera '{head.name}').");
+    }
+
+    public bool PresentOnHand(Transform anchor, float diameterMeters)
+    {
+        if (canvasGO == null || !DockedInHelmetHud || anchor == null || !isActiveAndEnabled) return false;
+        FinishTransition();
+        var root = (RectTransform)canvasGO.transform;
+        root.SetParent(anchor, false);
+        var canvas = canvasGO.GetComponent<Canvas>();
+        canvas.renderMode = RenderMode.WorldSpace;
+        canvas.overrideSorting = false;
+        root.anchorMin = root.anchorMax = root.pivot = new Vector2(.5f, .5f);
+        root.sizeDelta = content.sizeDelta;
+        root.anchoredPosition3D = Vector3.zero;
+        root.localRotation = Quaternion.identity;
+        root.localScale = Vector3.one * (Mathf.Clamp(diameterMeters, .18f, .5f) / PX);
+        content.anchorMin = content.anchorMax = new Vector2(.5f, .5f);
+        content.anchoredPosition3D = Vector3.zero;
+        presentationScale = Vector3.one;
+        content.localScale = presentationScale;
+        SetMaterial(null); // World-space depth-tested UI; critical visor alerts render above it.
+        DockedInHelmetHud = false;
+        Holographic = true;
+        Show(true);
+        transition = StartCoroutine(AnimatePresentation());
+        return true;
+    }
+
+    public void ReturnToHud()
+    {
+        if (!Holographic || canvasGO == null) return;
+        if (head == null)
+        {
+            canvasGO.transform.SetParent(transform, false);
+            Holographic = DockedInHelmetHud = false;
+            attachedTo = null;
+            return;
+        }
+        Attach();
+        if (isActiveAndEnabled) transition = StartCoroutine(AnimatePresentation());
+    }
+
+    IEnumerator AnimatePresentation()
+    {
+        float start = Time.unscaledTime;
+        while (Time.unscaledTime - start < .16f)
+        {
+            float t = Mathf.SmoothStep(0, 1, (Time.unscaledTime - start) / .16f);
+            presentationGroup.alpha = Mathf.Lerp(.35f, 1, t);
+            content.localScale = presentationScale * Mathf.Lerp(.85f, 1, t);
+            yield return null;
+        }
+        presentationGroup.alpha = 1;
+        content.localScale = presentationScale;
+        transition = null;
+    }
+
+    void FinishTransition()
+    {
+        if (transition != null) StopCoroutine(transition);
+        transition = null;
+        if (presentationGroup != null) presentationGroup.alpha = 1;
+        if (content != null) content.localScale = presentationScale;
     }
 
     // Reuse the HUD's "Nova/Visor UI" material: always drawn on top of terrain, and it supports the round mask.
@@ -340,6 +421,8 @@ public class MarsMinimap : MonoBehaviour
 
         var root = NewRect("Content", canvasGO.transform, new Vector2(PX + 80f, PX + 120f));
         content = root;
+        presentationGroup = root.gameObject.AddComponent<CanvasGroup>();
+        presentationGroup.interactable = presentationGroup.blocksRaycasts = false;
 
         frame = NewImage("Rim", root, ringSprite, PX + 18f);
 
@@ -415,7 +498,7 @@ public class MarsMinimap : MonoBehaviour
 
     void UpdateFrame()
     {
-        Color normal = new Color(0.85f, 0.92f, 1f, 0.6f);
+        Color normal = new Color(0.35f, 0.9f, 1f, 0.75f);
         if (Time.unscaledTime < highlightUntil)
         {
             float pulse = 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 8f);
@@ -557,6 +640,9 @@ public class MarsMinimap : MonoBehaviour
         if (list.Count == 0) { minY = 0f; maxY = 1f; }
         else if (terrains.Length == 0) Debug.Log($"[Minimap] Found {list.Count} terrain tiles, elevation {minY:0} to {maxY:0} m.");
         terrainsChanged = list.Count != terrains.Length;
+        // Prefer finer terrain where footprints overlap (HiRISE replaces holes in CTX).
+        list.Sort((a, b) => (a.sx * a.sz / (a.data.heightmapResolution * a.data.heightmapResolution)).CompareTo(
+            b.sx * b.sz / (b.data.heightmapResolution * b.data.heightmapResolution)));
         terrains = list.ToArray();
     }
 
@@ -677,13 +763,19 @@ public class MarsMinimap : MonoBehaviour
 
     float SampleHeight(float x, float z, ref int tile, out bool ok)
     {
-        if (tile < 0 || !Inside(terrains[tile], x, z))
+        tile = -1;
+        for (int t = 0; t < terrains.Length; t++)
         {
-            tile = -1;
-            for (int t = 0; t < terrains.Length; t++)
-                if (Inside(terrains[t], x, z)) { tile = t; break; }
-            if (tile < 0) { ok = false; return 0f; }
+            var candidate = terrains[t];
+            if (!Inside(candidate, x, z)) continue;
+            int holes = candidate.data.holesResolution;
+            int hx = Mathf.Clamp((int)((x - candidate.x) / candidate.sx * holes), 0, holes - 1);
+            int hz = Mathf.Clamp((int)((z - candidate.z) / candidate.sz * holes), 0, holes - 1);
+            if (candidate.data.IsHole(hx, hz)) continue;
+            tile = t;
+            break;
         }
+        if (tile < 0) { ok = false; return 0f; }
         TerrainInfo info = terrains[tile];
         float h = info.data.GetInterpolatedHeight((x - info.x) / info.sx, (z - info.z) / info.sz);
         ok = !(zeroHeightIsNoData && h <= info.sy * 1e-5f);
