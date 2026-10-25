@@ -30,7 +30,8 @@ def run(capsys, argv, script="", tmp_path=None):
     return capsys.readouterr().out
 
 
-SCRIPT = "hello there\nhow much oxygen do I have left\nhow far away is the moon\nwhat is the capital of france\n/quit\nhi again after quit\n"
+# A tool call or a generated statement ends the session, so each of these utterances is its own one-turn session.
+SESSION_LINES = ["hello there", "how much oxygen do I have left", "how far away is the moon", "what is the capital of france"]
 
 
 def test_keyword_router_labels():
@@ -43,13 +44,22 @@ def test_keyword_router_labels():
 
 def test_no_server_says_so_in_one_line_and_runs_the_scripted_turns_offline(capsys, tmp_path):
     url = closed_port_url()
-    out = run(capsys, ["--base-url", url], SCRIPT, tmp_path)
-    fallback = [line for line in out.splitlines() if line.startswith("LLM:")]
-    assert len(fallback) == 1 and f"no LLM server reachable at {url}" in fallback[0] and "falling back to the offline FillerGenerator" in fallback[0]
-    assert out.count("\n[turn ") == 4  # /quit stops the session; the line after it is never run
-    assert "Hello. I'm here whenever you need me." in out and "Oxygen at 99.9 percent" in out
-    assert "llm     : CALLED" in out and "llm     : no (tool turn: template line only)" in out and "general_explanation" in out
-    assert "session over: 4 turn(s); generator FillerGenerator (offline)" in out
+    outs = []
+    for line in SESSION_LINES:
+        out = run(capsys, ["--base-url", url], f"{line}\nthis line is never run\n", tmp_path)
+        fallback = [row for row in out.splitlines() if row.startswith("LLM:")]
+        assert len(fallback) == 1 and f"no LLM server reachable at {url}" in fallback[0] and "falling back to the offline FillerGenerator" in fallback[0]
+        assert out.count("\n[turn ") == 1 and "(session ended by the user)" in out  # the answer ends the session
+        assert "session over: 1 turn(s); generator FillerGenerator (offline)" in out and "this line is never run" not in out.split("you> ", 1)[1].split("\n", 1)[1]
+        outs.append(out)
+    assert "Oxygen at 99.9 percent" in outs[1] and "llm     : no (tool turn: template line only)" in outs[1]
+    assert all("llm     : CALLED" in o and "general_explanation" in o for o in (outs[0], outs[3])) and "grounded_answer" in outs[2]
+    assert "route=llm (llm)" in outs[0] and "route=llm (llm)" in outs[3]  # no ood / no_document route any more
+
+
+def test_quit_stops_the_session_before_any_turn(capsys, tmp_path):
+    out = run(capsys, ["--no-llm"], "/quit\nhi again after quit\n", tmp_path)
+    assert "[turn " not in out and "session over: 0 turn(s)" in out
 
 
 def test_no_llm_flag_never_contacts_the_server(capsys, tmp_path, llm_server):
@@ -59,13 +69,17 @@ def test_no_llm_flag_never_contacts_the_server(capsys, tmp_path, llm_server):
 
 def test_fake_server_session_shows_raw_output_spoken_line_and_latency(capsys, tmp_path, llm_server):
     llm_server.reply = chat_completion("<think>x</think>" + reply_json("Hello from the fake model."), reasoning_content="hidden")
-    out = run(capsys, ["--base-url", llm_server.base_url], "hello there\nhow much oxygen do I have left\n", tmp_path)
+    out = run(capsys, ["--base-url", llm_server.base_url], "hello there\n", tmp_path)
     assert "using llama-server" in out and "HTTPChatGenerator (llama-server)" in out
     assert "raw #1  : '{\"refusal\": null, \"text\": \"Hello from the fake model.\"}'" in out and "hidden" not in out
-    assert "spoken  : Hello from the fake model." in out and "request : chitchat   mode=generated" in out
+    assert "spoken  : Hello from the fake model." in out and "request : general_explanation   mode=generated" in out
     assert "latency : generator-reported" in out and "turn wall" in out and "verify  : ok=True" in out
-    assert len(llm_server.requests) == 1  # the tool turn never reached the server
-    assert llm_server.requests[0]["chat_template_kwargs"] == {"enable_thinking": False}
+    assert len(llm_server.requests) == 2  # llm label: the structured tool self-check, then the answer
+    assert "Decide whether an available tool answers" in llm_server.requests[0]["messages"][0]["content"]
+    assert llm_server.requests[-1]["chat_template_kwargs"] == {"enable_thinking": False}
+    assert "(session ended by the user)" in out  # a generated statement ends the session
+    run(capsys, ["--base-url", llm_server.base_url], "how much oxygen do I have left\n", tmp_path)
+    assert len(llm_server.requests) == 2  # the tool turn never reached the server
 
 
 def test_fake_server_bad_number_is_blocked_and_shown(capsys, tmp_path, llm_server):
@@ -75,11 +89,13 @@ def test_fake_server_bad_number_is_blocked_and_shown(capsys, tmp_path, llm_serve
     assert "I can't read that out reliably right now." in out
 
 
-def test_server_failing_mid_session_shows_llm_error_and_keeps_going(capsys, tmp_path, llm_server):
+def test_failing_server_shows_llm_error_and_a_tool_turn_still_works(capsys, tmp_path, llm_server):
     llm_server.reply = (500, {"error": "boom"})
-    out = run(capsys, ["--base-url", llm_server.base_url], "hello there\nhow much oxygen do I have left\n", tmp_path)
+    out = run(capsys, ["--base-url", llm_server.base_url], "hello there\n", tmp_path)
     assert "llm_error: LLMRequestError: HTTP 500" in out and "I could not complete that request." in out
-    assert "Oxygen at 99.9 percent" in out and "session over: 2 turn(s)" in out
+    assert "session over: 1 turn(s)" in out
+    out = run(capsys, ["--base-url", llm_server.base_url], "how much oxygen do I have left\n", tmp_path)
+    assert "Oxygen at 99.9 percent" in out and "session over: 1 turn(s)" in out
 
 
 def test_runtime_flags_reach_the_request(capsys, tmp_path, llm_server):
@@ -100,7 +116,7 @@ def test_critical_alert_bypasses_the_llm(capsys, tmp_path, llm_server):
 
 
 def test_advance_flag_and_command_move_the_sim(capsys, tmp_path):
-    out = run(capsys, ["--no-llm", "--advance", "3000"], "how much oxygen do I have left\n/advance 3000\n/sim\n", tmp_path)
+    out = run(capsys, ["--no-llm", "--advance", "3000"], "/advance 3000\n/sim\nhow much oxygen do I have left\n", tmp_path)
     assert "Oxygen at 99.9 percent" not in out and "advanced 3000 sim s" in out
     assert out.count("sim: o2=") >= 4
 
@@ -221,9 +237,10 @@ def test_completion_echoing_the_api_key_never_reaches_the_output(capsys, tmp_pat
 
 
 def test_pos_command_in_a_script_changes_the_distance_and_help_lists_it(capsys, tmp_path):
-    out = run(capsys, ["--no-llm"], "how far is home\n/pos 500 0\nhow far is home\n/pos nope\n/help\n", tmp_path)
-    assert "homebase is 0 minutes away" in out and "astronaut moved to x=500 z=0" in out
-    assert "homebase is 9 minutes away" in out
+    near = run(capsys, ["--no-llm"], "how far is home\n", tmp_path)  # the answer ends the session, so one turn per run
+    assert "homebase is 0 minutes away" in near
+    out = run(capsys, ["--no-llm"], "/help\n/pos nope\n/pos 500 0\nhow far is home\n", tmp_path)
+    assert "astronaut moved to x=500 z=0" in out and "homebase is 9 minutes away" in out
     assert "usage: /pos X Z" in out and "/pos X Z (astronaut position in meters)" in out
 
 
@@ -256,8 +273,9 @@ def test_hi_deterministic_and_keyboard_interrupt_exits_cleanly(capsys, tmp_path)
     assert "session interrupted" in capsys.readouterr().out
 
 
-def test_interim_line_is_printed_and_thank_you_ends_the_session(capsys, tmp_path):
-    out = run(capsys, ["--no-llm"], "explain gravity\nthank you\nhow is my oxygen\n", tmp_path)
-    assert "nova (interim): Let me think." in out and out.index("nova (interim)") < out.index("[turn 1]")
+def test_no_interim_line_is_printed_and_thank_you_ends_the_session(capsys, tmp_path):
+    out = run(capsys, ["--no-llm"], "explain gravity\n", tmp_path)
+    assert "nova (interim)" not in out and "Let me think" not in out and "(session ended by the user)" in out
+    out = run(capsys, ["--no-llm"], "thank you\nhow is my oxygen\n", tmp_path)
     assert "spoken  : Happy to help!" in out and "(session ended by the user)" in out
-    assert "how is my oxygen" not in out.split("(session ended by the user)")[1] and "session over: 2 turn(s)" in out
+    assert "how is my oxygen" not in out.split("(session ended by the user)")[0] and "session over: 1 turn(s)" in out

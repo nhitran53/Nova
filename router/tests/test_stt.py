@@ -306,7 +306,7 @@ def test_converse_on_turn_gets_each_turn_and_stop_between_turns_ends_it():
 
     class Handler:
         def handle(self, text):
-            return {"route": "tool", "spoken": "re: " + text}
+            return {"route": "tool", "spoken": "re: " + text, "expect_followup": True}  # a session only continues on follow-up
 
     def on_turn(out):
         seen.append(out["transcript"])

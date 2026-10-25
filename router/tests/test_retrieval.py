@@ -305,10 +305,11 @@ def _handler(retriever, reply="The wheel hub slides onto the drive shaft."):
                        retriever=retriever), generator
 
 
-def test_turn_handler_unrelated_question_is_no_document_and_never_calls_the_generator(sawppy):
+def test_turn_handler_unrelated_question_has_no_passages_and_is_answered_ungrounded_by_the_llm_route(sawppy):
     h, generator = _handler(sawppy)
     result = h.handle("capital of france please")
-    assert result["route"] == "no_document" and not generator.calls
+    assert result["route"] == "llm" and result["route"] != "no_document" and "passages" not in result
+    assert len(generator.calls) == 1 and generator.calls[0].passages == () and generator.calls[0].kind == "general_explanation"
 
 
 def test_turn_handler_wheel_question_reaches_the_generator_with_passages(sawppy):

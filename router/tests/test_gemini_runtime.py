@@ -107,6 +107,6 @@ def test_all_down_gives_fixed_error_line_not_exception():
 
 def test_persona_sets_mars_and_identity_line():
     persona = POLICY["generation"]["persona"]
-    assert "Mars" in persona and "I'm Nova, your navigation and observation voice assistant" in persona
+    assert "Mars base" in persona and "sky is grey" in persona and "You are Nova" in persona
     assert POLICY["fast_replies"]["intents"]["identity"]["line"] == "I'm Nova, your navigation and observation voice assistant."
     assert not any(c.isdigit() for c in persona)

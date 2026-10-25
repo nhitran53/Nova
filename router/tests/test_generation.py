@@ -521,13 +521,13 @@ class Rig:
         return self.handler.handle(text)
 
 
-def test_chitchat_goes_through_build_request_generator_postprocess_and_speak():
-    rig = Rig("NO_TOOL", 0.97)
+def test_llm_label_goes_through_build_request_generator_postprocess_and_speak():
+    rig = Rig("llm", 0.97, generator=FillerGenerator(script=[text_reply("Hello. I'm here whenever you need me.")]))
     out = rig.say("hello there")
     assert out["route"] == "llm" and out["llm_called"] and out["spoken"] == "Hello. I'm here whenever you need me."
     gen = out["generation"]
     assert gen["mode"] == "generated" and gen["status"] == "ok" and gen["attempts"] == 1 and gen["violations"] == []
-    assert gen["request"]["kind"] == "chitchat" and rig.handler.last_generation_request.user_text == "hello there"
+    assert gen["request"]["kind"] == "general_explanation" and rig.handler.last_generation_request.user_text == "hello there"
     assert json.loads(gen["raw"])["text"] == out["spoken"] and gen["prompt"][1]["content"].endswith("<utterance>hello there</utterance>")
     assert len(rig.generator.calls) == 1
 
@@ -640,9 +640,10 @@ def test_confirmation_turn_exposes_a_confirmation_request():
 
 
 def test_turns_without_a_request_have_no_generation_key():
-    for label, conf, text in (("call_navigation", 0.99, "take me there"), ("OOD", 0.97, "capital of france"), ("call_o2", 0.3, "hm")):
-        assert "generation" not in Rig(label, conf).say(text)
-    assert "generation" not in Rig("NO_TOOL", 0.97).say("my suit is comfy")  # risk term: template, no LLM
+    assert "generation" not in Rig("call_navigation", 0.99).say("take me there")
+    assert "generation" in Rig("llm", 0.97).say("capital of france")  # no ood route any more: the llm label always generates
+    assert "generation" in Rig("call_o2", 0.3).say("hm")  # below tau_lo falls to the llm self-check and answer
+    assert "generation" not in Rig("llm", 0.97).say("my suit is comfy")  # risk term, no document: refused, no LLM
 
 
 @pytest.mark.parametrize("label", ["call_o2", "call_navigation", "NO_TOOL", "call_llm"])
@@ -658,12 +659,14 @@ def test_critical_alert_never_builds_a_request_or_calls_the_generator(label):
 def test_history_is_kept_only_when_enabled_and_is_masked_in_the_next_request():
     policy = copy.deepcopy(POLICY)
     policy["generation"]["history_turns"] = 1
-    rig = Rig("NO_TOOL", 0.97, policy=policy, generator=FillerGenerator(script=[text_reply("Fine thanks."), text_reply("Good.")]))
-    rig.say("hello there")
+    # The request carries history only for grounded_answer (and legacy chitchat) kinds, so use a retrieved document.
+    rig = Rig("llm", 0.97, policy=policy, retriever=lambda t: [MOON],
+              generator=FillerGenerator(script=[text_reply("Fine thanks."), text_reply("Good.")]))
+    first = rig.say("how far away is the moon")
     rig.say("and you")
-    assert rig.generator.calls[0].history == () and rig.generator.calls[1].history[0].spoken == "Fine thanks."
-    stateless = Rig("NO_TOOL", 0.97)
-    stateless.say("hello there")
+    assert rig.generator.calls[0].history == () and rig.generator.calls[1].history[0].spoken == first["spoken"]
+    stateless = Rig("llm", 0.97, retriever=lambda t: [MOON])
+    stateless.say("how far away is the moon")
     stateless.say("and you")
     assert stateless.generator.calls[1].history == () and stateless.handler.history == []
 
@@ -751,7 +754,7 @@ def test_nested_json_through_the_handler_retries_once_then_falls_back_without_ra
 def test_stored_history_is_trimmed_to_history_turns_and_the_request_carries_the_same_window():
     policy = copy.deepcopy(POLICY)
     policy["generation"]["history_turns"] = 2
-    rig = Rig("NO_TOOL", 0.97, policy=policy)
+    rig = Rig("llm", 0.97, policy=policy, retriever=lambda t: [MOON])
     for text in ("hello one", "hello two", "hello three", "hello four"):
         assert rig.say(text)["blocked_text"] is None
     assert [u for u, _ in rig.handler.history] == ["hello three", "hello four"]
@@ -1228,9 +1231,15 @@ def test_the_last_generation_request_is_reset_each_turn():
     rig = Rig("call_o2")
     rig.say("how much oxygen")
     assert rig.handler.last_generation_request.kind == "tool_result"
-    rig.handler.pipeline.router.label = "OOD"
+    rig.handler.pipeline.router.label = "llm"
     rig.say("capital of france")
-    assert rig.handler.last_generation_request is None
+    assert rig.handler.last_generation_request.kind == "general_explanation"  # replaced, not stale
+    assert rig.handler.last_generation_request.user_text == "capital of france"
+    rig.handler.pipeline.router.label = "call_navigation"
+    rig.say("take me to the airlock")
+    assert rig.handler.last_generation_request.kind == "tool_result"
+    rig.say("thank you")
+    assert rig.handler.last_generation_request is None  # session_end builds no request
 
 
 # ---- unicode compatibility characters (third pass: review2 P1) ----

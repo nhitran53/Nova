@@ -14,6 +14,6 @@ def test_fake_demo_runs_sixteen_turns_and_shows_alert_slot_clarify_and_blocked_l
     assert "Okay, I sent the refill request to crater rim, marked urgent." in out
     assert "You have enough oxygen to get there, but not back" in out
     # A live clarification consumes fragments instead of sending them into chitchat;
-    # speaking-scope now uses a restricted offer for the subsequent risky turn.
+    # speaking-scope now refuses the subsequent unknown risky turn.
     assert "No action taken. Please make a new request." in out
-    assert "What is wrong? Would you like to contact base?" in out
+    assert "Please contact base." in out  # unknown safety/repair question: refused

@@ -122,8 +122,9 @@ def test_missing_navigation_slot_asks_without_calling_tool():
 def test_existing_quick_response_text_is_preserved():
     policy = load_policy()
     turn = handler(policy=policy).handle("hi")
-    assert turn["spoken"] == policy["llm_scope"]["speaking_scope"]["greeting"]
-    assert not turn["llm_called"] and not turn["expect_followup"]
+    assert turn["spoken"] == policy["fast_replies"]["intents"]["greeting"]["line"] == "Hello. How can I help?"
+    assert not turn["llm_called"]
+    assert turn["expect_followup"] and not turn["end_session"]  # the greeting ends with a question, so the session stays open
 
 
 def test_http_self_check_then_generation_uses_mars_context(llm_server):

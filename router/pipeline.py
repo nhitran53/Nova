@@ -93,7 +93,7 @@ class Pipeline:
             second = self._second_layer(text, label, confidence, second_layer)
             if second is not None:
                 return second
-            return self._llm(text, label, confidence, "NO_TOOL", self.config["llm_labels"]["NO_TOOL"])
+            return self._llm(text, label, confidence, "NO_TOOL", self.config["llm_labels"]["llm"])
         return self._clarify_intent(label, confidence, topk, reason=verdict)
 
     def _arbitrate(self, text, label, topk):

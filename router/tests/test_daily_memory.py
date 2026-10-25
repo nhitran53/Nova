@@ -53,8 +53,8 @@ def test_gemini_generation_and_self_check_use_same_endpoint_and_memory(llm_serve
     assert gen.url == llm_server.base_url.rstrip("/") + "/chat/completions"
 
 
-def test_gemini_default_and_missing_credentials(monkeypatch):
-    monkeypatch.setattr("router.llm_generator.load_dotenv", lambda path: None)
+def test_gemini_default_and_missing_credentials(monkeypatch, tmp_path):
+    monkeypatch.setenv("NOVA_ENV_FILE", str(tmp_path / "absent.env"))  # build_generator must not read the repo .env
     for name in ("GEMINI_API_KEY", "NOVA_LLM_API_KEY", "NOVA_LLM_RUNTIME", "NOVA_LLM_BASE_URL", "NOVA_LLM_MODEL"):
         monkeypatch.delenv(name, raising=False)
     config = load_live_llm_config()
@@ -62,7 +62,8 @@ def test_gemini_default_and_missing_credentials(monkeypatch):
     assert HTTPChatGenerator(config).url == "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
     messages = []
     _, label = build_generator(messages.append)
-    assert "credentials missing" in label and "GEMINI_API_KEY" in messages[0]
+    assert label == "FillerGenerator (offline)"
+    assert len(messages) == 1 and "no API key" in messages[0] and "GEMINI_API_KEY" in messages[0]
 
 
 @pytest.mark.parametrize("entry", ["pipeline", "stt"])

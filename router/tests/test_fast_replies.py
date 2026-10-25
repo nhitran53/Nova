@@ -78,7 +78,7 @@ def test_disabled_flag_restores_the_router_path():
     policy["fast_replies"]["enabled"] = False
     rig = Rig("NO_TOOL", 0.97, policy=policy)
     out = rig.say("hello")
-    assert out["route"] != "fast_reply" and rig.router.seen == ["hello"] and ("interim", "Let me think.", "llm_interim") in rig.events
+    assert out["route"] != "fast_reply" and rig.router.seen == ["hello"] and rig.events == [("generate", "general_explanation")]
     assert Rig("NO_TOOL", 0.97, policy=policy).say("hi")["route"] == "greeting"  # speaking_scope.greetings still works
 
 
