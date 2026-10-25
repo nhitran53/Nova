@@ -84,20 +84,21 @@
     "home_places": [
       "homebase"
     ],
-    "lines": {
-      "comfortable": "Oxygen check: the round trip needs {required_min} minutes with {reserve_min} reserve; you have {o2_minutes_remaining}.",
-      "comfortable_home": "Oxygen check: home needs {required_min} minutes with {reserve_min} reserve; you have {o2_minutes_remaining}.",
-      "tight": "Warning, oxygen margin is tight: {outbound_min} out, {return_min} back, {reserve_min} reserve is {required_min} minutes; you have {o2_minutes_remaining}.",
-      "tight_home": "Warning, oxygen margin is tight: home takes {outbound_min} minutes plus {reserve_min} reserve, {required_min} in all; you have {o2_minutes_remaining}.",
-      "cannot_return": "Warning, you cannot get back home without a refill: {outbound_min} out plus {return_min} back is {trip_min}; you have {o2_minutes_remaining}.",
-      "cannot_reach": "Warning, you cannot reach it on your oxygen: {outbound_min} minutes out; you have {o2_minutes_remaining}.",
-      "cannot_reach_home": "Warning, you cannot reach home on your oxygen: {outbound_min} minutes; you have {o2_minutes_remaining}."
+    "concise": {
+      "comfortable": "{place_name} is {outbound_min} minutes away. You have enough oxygen for the round trip.",
+      "comfortable_home": "{place_name} is {outbound_min} minutes away. You have enough oxygen to get home.",
+      "tight": "{place_name} is {outbound_min} minutes away. Your oxygen margin for the round trip is tight.",
+      "tight_home": "{place_name} is {outbound_min} minutes away. Your oxygen margin for getting home is tight.",
+      "cannot_return": "{place_name} is {outbound_min} minutes away. You have enough oxygen to get there, but not back.",
+      "cannot_reach": "{place_name} is {outbound_min} minutes away. You do not have enough oxygen to get there.",
+      "cannot_reach_home": "{place_name} is {outbound_min} minutes away. You do not have enough oxygen to get home.",
+      "unavailable": "{place_name}: oxygen feasibility is unavailable."
     }
   },
   "confirmation": {
     "status": "PLACEHOLDER - pending user sign-off (expiry, vocabulary, offer and reply wording)",
     "expiry_turns": 2,
-    "offer": "Do you want me to call {place_name} and check if they have oxygen refills?",
+    "offer": "Do you want me to call {recipient_label} to check for refills?",
     "yes_phrases": [
       "yes",
       "yeah",
@@ -142,12 +143,22 @@
     ],
     "yes_spoken": "Okay, I sent the refill request to {recipient_name}, marked {urgency}.",
     "no_spoken": "Okay, I won't call. Say so if you change your mind.",
-    "no_longer_needed": "Your oxygen margin has changed, so a refill is no longer needed. I did not send the request."
+    "no_longer_needed": "Your oxygen margin has changed, so a refill is no longer needed. I did not send the request.",
+    "accept_as_order": [
+      "no just navigate",
+      "just navigate",
+      "just go",
+      "no just go",
+      "go anyway",
+      "navigate anyway",
+      "skip it",
+      "no just do it"
+    ],
+    "decline_proceed_spoken": "Okay, not calling. Continuing to {place_name}."
   },
   "send_message": {
     "status": "PLACEHOLDER - pending user sign-off (urgency is decided here, by feasibility outcome, never by the LLM)",
     "urgency_by_outcome": {
-      "tight": "normal",
       "cannot_return": "urgent",
       "cannot_reach": "urgent"
     },

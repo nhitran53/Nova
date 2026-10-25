@@ -235,3 +235,13 @@ def test_default_handler_docs_dir_option_overrides_the_default_corpus(stt_env, t
     handler = stt._default_handler(FakeRouter("NO_TOOL", 0.97), speak=False, llm_options={"demo_scene": True, "docs_dir": str(tmp_path)})
     handler.handle("what is this")
     assert "display" not in handler.handle("yes")
+
+
+@pytest.mark.parametrize('phrase', ['no just navigate', 'just go'])
+def test_accept_as_order_during_print_offer_only_declines(phrase):
+    rig = Rig()
+    rig.say('what is this')
+    out = rig.say(phrase)
+    assert out['route'] == 'print_declined' and out['spoken'] == DECLINED
+    assert out['tool_calls'] == 0 and rig.registry.log == []
+    assert 'accepted_as_order' not in out and rig.handler.pending_confirmation is None

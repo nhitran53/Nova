@@ -85,7 +85,7 @@ def test_missing_oxygen_is_explicit_without_a_contact_offer():
     h.alert_source = lambda: {'bpm': 72}
     r = h.handle('navigation')
     assert r['tool_result']['data']['feasibility']['outcome'] == 'unavailable'
-    assert 'not trip clearance' in r['spoken'] and r['pending_confirmation'] is None
+    assert 'oxygen feasibility is unavailable' in r['spoken'] and r['pending_confirmation'] is None
 
 
 @pytest.mark.parametrize('answer', ['2', 'option 2', 'call_navigation'])
@@ -120,7 +120,7 @@ def test_distance_context_and_two_destinations():
     h, _, _ = rig('how far is base 2')
     r = h.handle('navigation')
     assert r['tool_result']['data']['response_mode'] == 'distance'
-    assert r['spoken'].startswith('base 2 is about')
+    assert r['spoken'].startswith('base 2 is 17 minutes away.')
     h, _, _ = rig('can i make it to the rover or home')
     assert h.handle('navigation')['tool_calls'] == 0
     assert h.handle('second')['tool_call']['args'] == {'place': 'homebase'}
@@ -176,10 +176,7 @@ def test_navigation_budget_phrasings_choose_assessment_without_changing_tool(tex
     data = result['tool_result']['data']
     assert data['response_mode'] == mode and not result['llm_called']
     assert result['verifier']['ok'] and result['blocked_text'] is None
-    if mode != 'distance':
-        assert result['spoken'].startswith(load_policy()['clarification'][mode].format(**data))
-    else:
-        assert result['spoken'].startswith('base 2 is about')
+    assert result['spoken'].startswith(f"base 2 is {data['feasibility']['outbound_min']} minutes away.")
     assert 'Oxygen budget' not in result['spoken'] and data['feasibility']['margin_min'] is not None
 
 

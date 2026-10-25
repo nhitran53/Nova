@@ -20,10 +20,10 @@ Follow-up additions (all values PLACEHOLDER in turn_policy.json):
  * Return-to-home feasibility: after an ok navigation tool_result, `assess_feasibility` computes outbound / return /
    required minutes (distance / walking speed, plus a reserve) against the sim's O2 minutes remaining, adds the numbers
    to `tool_result["data"]["feasibility"]` and speaks one outcome line (comfortable / tight / cannot_return /
-   cannot_reach) after the route line. It only reports; it never refuses the route (the safety loop owns go/no-go).
+   cannot_reach) instead of a separate route line. It only reports; it never refuses the route (the safety loop owns go/no-go).
  * Demo scene (policy `demo_scene`, off by default): whole-utterance "what is this" -> fixed line from snapshot["rover_faults"], arms a `print_offer`
    confirmation; yes -> one simulated `queue_print` call + result["display"]; no -> nothing queued. No router/LLM/retrieval for speech.
- * Refill-call offer: tight / cannot_return / cannot_reach also speak an offer and store `self.pending_confirmation`
+ * Refill-call offer: cannot_return / cannot_reach also speak an offer and store `self.pending_confirmation`
    (per session, expires after `confirmation.expiry_turns` turns). On the next turn - after the alert poll, before
    the router - a deterministic yes/no matcher answers it: yes -> ONE send_message call (urgency from the feasibility
    outcome, never the LLM; recomputed from THIS turn's snapshot - if no refill is needed any more nothing is sent and
@@ -43,9 +43,8 @@ Follow-up additions (all values PLACEHOLDER in turn_policy.json):
  * Navigation scope vetoes unsupported resource trip budgets and projected non-oxygen readings before execution,
    including retained-slot/choice dispatch. Oxygen-only trip assessment and ordinary current readings are unchanged.
 
-Distance questions: a navigation tool turn whose utterance contains "how far" / "distance to" / "distance from" speaks
-`distance_templates.navigation_distance` (PLACEHOLDER) instead of "Heading to ...". Same tool call, same tool_result and
-feasibility suffix; the phrase only picks the template, the router still picks the tool.
+Navigation uses `feasibility.concise` for guidance, assessment and distance questions alike. The response_mode
+metadata is retained, but spoken minutes always come from feasibility.outbound_min, never eta_min.
 
 Post-tool-call generation (router/generation.py; wording in turn_policy.json "generation", all PLACEHOLDER): the LLM
 paths (NO_TOOL chitchat, call_llm) go build_request -> Generator -> postprocess (parse, slot check, prose-number scan,
@@ -73,6 +72,7 @@ import json
 import math
 import re
 import time
+from string import Formatter
 from dataclasses import replace
 from pathlib import Path
 
@@ -87,7 +87,7 @@ from .retrieval import find_section
 from .tools import default_registry
 from .verifier import verify_numbers
 
-DISTANCE_PHRASES = ("how far", "distance to", "distance from")  # picks the navigation LINE only; the router still chooses the tool
+DISTANCE_PHRASES = ("how far", "distance to", "distance from")  # response-mode metadata; never selects a tool
 HERE = Path(__file__).parent
 POLICY_PATH = HERE / "turn_policy.json"
 
@@ -154,6 +154,36 @@ def load_policy(path=POLICY_PATH):
     for key in ("menu", "menu_destination_note"):
         if not isinstance(clarification.get(key), str) or not clarification[key].strip():
             raise ValueError(f"{path}: clarification.{key} must be a non-empty string")
+    concise = policy["feasibility"].get("concise")
+    required = {"comfortable", "comfortable_home", "tight", "tight_home", "cannot_return",
+                "cannot_reach", "cannot_reach_home", "unavailable"}
+    fields = {"place_name", "outbound_min", "return_min", "trip_min", "reserve_min",
+              "required_min", "o2_minutes_remaining", "margin_min"}
+    if not isinstance(concise, dict) or set(concise) != required:
+        raise ValueError(f"{path}: feasibility.concise needs all outcome lines")
+    for key, line in concise.items():
+        try:
+            if not isinstance(line, str) or not line.strip():
+                raise ValueError("empty line")
+            parsed = list(Formatter().parse(line))
+            if any(field is not None and (field not in fields or spec or conversion)
+                   for _, field, spec, conversion in parsed):
+                raise ValueError("unsupported placeholder")
+        except (ValueError, TypeError) as exc:
+            raise ValueError(f"{path}: invalid feasibility.concise.{key}") from exc
+    phrases = policy["confirmation"].get("accept_as_order")
+    if (not isinstance(phrases, list) or not phrases
+            or any(not isinstance(p, str) or not p.strip() for p in phrases)):
+        raise ValueError(f"{path}: confirmation.accept_as_order needs non-empty phrases")
+    ack = policy["confirmation"].get("decline_proceed_spoken")
+    try:
+        if not isinstance(ack, str) or not ack.strip():
+            raise ValueError("empty acknowledgement")
+        if any(field is not None and (field != "place_name" or spec or conversion)
+               for _, field, spec, conversion in Formatter().parse(ack)):
+            raise ValueError("unsupported placeholder")
+    except (ValueError, TypeError) as exc:
+        raise ValueError(f"{path}: invalid confirmation.decline_proceed_spoken") from exc
     validate_generation_policy(policy.get("generation"), path)
     if "demo_scene" in policy:
         validate_demo_scene(policy["demo_scene"], path)
@@ -220,7 +250,7 @@ def assess_feasibility(nav_data, snapshot, policy):
 
 
 def match_confirmation(text, policy):
-    """-> "yes" | "no" | None. Every word must be a yes/no phrase word or filler; both kinds at once is None."""
+    """-> "yes" | "no" | "decline_proceed" | None. Every word must be a yes/no phrase word or filler; both kinds at once is None."""
     cfg = policy["confirmation"]
 
     def words(phrase):
@@ -234,6 +264,8 @@ def match_confirmation(text, policy):
     no = [words(p) for p in cfg["no_phrases"]]
     vocabulary = {w for phrase in yes + no for w in phrase} | {w for f in cfg["filler_words"] for w in words(f)}
     tokens = words(text)
+    if tokens and any(tokens == words(p) for p in cfg["accept_as_order"]):
+        return "decline_proceed"
     if not tokens or any(t not in vocabulary for t in tokens):
         return None
     said_yes, said_no = any(contains(tokens, p) for p in yes), any(contains(tokens, p) for p in no)
@@ -469,8 +501,11 @@ class TurnHandler:
         """yes -> feasibility is recomputed from THIS turn's snapshot (the offer's numbers may be stale); the message and
         urgency come from the fresh outcome. If no refill is needed any more, nothing is sent and a fixed line is spoken."""
         if pending.get("kind") == "print_offer":
-            return self._print_turn(result, pending, answer)
+            return self._print_turn(result, pending, "no" if answer == "decline_proceed" else answer)
         confirmation = self.policy["confirmation"]
+        if answer == "decline_proceed":
+            result["accepted_as_order"] = True
+            return self._speak(result, "confirmed_no", confirmation["decline_proceed_spoken"].format(**pending), pending)
         if answer == "no":
             return self._speak(result, "confirmed_no", confirmation["no_spoken"], {})
         send = self.policy["send_message"]
@@ -478,7 +513,7 @@ class TurnHandler:
         if feasibility is None or feasibility["outcome"] not in send["urgency_by_outcome"]:
             return self._speak(result, "refill_not_needed", confirmation["no_longer_needed"], {})
         message = send["message"].format(place_name=pending["place_name"], **feasibility)
-        if not self.verifier(message, feasibility)["ok"]:  # a message with an untraceable number is never sent
+        if not self.verifier(message, {"place_name": pending["place_name"], "feasibility": feasibility})["ok"]:  # a message with an untraceable number is never sent
             return self._block(result, "confirmed_yes", message)
         args = {"recipient": pending["place"], "urgency": send["urgency_by_outcome"][feasibility["outcome"]],
                 "message": message}
@@ -654,22 +689,14 @@ class TurnHandler:
             return self._speak(result, "tool", templates["tool_error"], {})
         offer = None
         try:
-            template = templates[tool]
-            distance_templates = self.policy.get("distance_templates")
-            if tool == "navigation" and distance_templates and any(p in normalized(context) for p in DISTANCE_PHRASES):
-                template = distance_templates["navigation_distance"]  # "how far is X": same tool_result, no "Heading to" line
             if tool == "navigation":
                 mode = 'assessment' if _contains_phrase(normalized(context), self.policy['clarification']['assessment_phrases']) else 'guidance'
-                if not any(p in normalized(context) for p in DISTANCE_PHRASES):
-                    template = self.policy['clarification'][mode]
                 tool_result['data']['response_mode'] = 'distance' if any(p in normalized(context) for p in DISTANCE_PHRASES) else mode
-            spoken = template.format(**tool_result["data"])
-            if selected_safety:
-                spoken = self.policy['clarification']['selected_safety'].format(**tool_result['data'])
-            if tool == "navigation":
-                tool_result, suffix, offer = self._navigation_feasibility(tool_result, snapshot)
+                tool_result, spoken, offer = self._navigation_feasibility(tool_result, snapshot)
                 result["tool_result"] = tool_result
-                spoken += suffix
+            else:
+                template = self.policy['clarification']['selected_safety'] if selected_safety else templates[tool]
+                spoken = template.format(**tool_result["data"])
         except (KeyError, IndexError, ValueError):  # a template that does not fit the tool_result is never spoken
             return self._block(result, "tool", f"[template {tool!r} does not fit tool_result]")
         self._expose_request(result, "tool_result", "tool", "", tool, tool_result)
@@ -680,23 +707,23 @@ class TurnHandler:
         return result
 
     def _navigation_feasibility(self, tool_result, snapshot):
-        """-> (tool_result with data["feasibility"] added, text to append to the route line, refill-call offer or None).
-        Explicit unavailable when there is no O2 data. No offer for a home place or a comfortable trip."""
+        """-> (tool_result with data["feasibility"] added, concise result line, refill-call offer or None).
+        Explicit unavailable when there is no O2 data. No offer for a home place, comfortable trip or tight margin."""
         feasibility = assess_feasibility(tool_result["data"], snapshot, self.policy)
         if feasibility is None:
             tool_result = {**tool_result, "data": {**tool_result["data"], "feasibility": {"outcome": "unavailable"}}}
-            return tool_result, self.policy["clarification"]["unavailable"], None
+            return tool_result, self.policy["feasibility"]["concise"]["unavailable"].format(place_name=tool_result["data"]["place_name"]), None
         feasibility["margin_min"] = feasibility["o2_minutes_remaining"] - feasibility["required_min"]
         data = tool_result["data"]
         tool_result = {**tool_result, "data": {**data, "feasibility": feasibility}}
         key = feasibility["outcome"] + ("_home" if feasibility["is_home"] else "")
-        lines = self.policy["feasibility"]["lines"]
-        suffix = " " + lines.get(key, lines[feasibility["outcome"]]).format(**feasibility)
+        lines = self.policy["feasibility"]["concise"]
+        suffix = lines.get(key, lines[feasibility["outcome"]]).format(place_name=data["place_name"], **feasibility)
         offer = None
         if feasibility["outcome"] in self.policy["send_message"]["urgency_by_outcome"] and not feasibility["is_home"]:  # no refill call to the home base itself
             offer = {"kind": "refill_call", "turn": self.turn_index, "place": data["place"], "place_name": data["place_name"],
                      "distance_m": data["distance_m"], "outcome": feasibility["outcome"], "feasibility": feasibility}
-            suffix += " " + self.policy["confirmation"]["offer"].format(place_name=offer["place_name"])
+            suffix += " " + self.policy["confirmation"]["offer"].format(recipient_label=offer["place_name"])
         return tool_result, suffix, offer
 
     def _speak(self, result, route, line, source):

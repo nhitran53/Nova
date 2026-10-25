@@ -214,8 +214,8 @@ def test_completion_echoing_the_api_key_never_reaches_the_output(capsys, tmp_pat
 
 def test_pos_command_in_a_script_changes_the_distance_and_help_lists_it(capsys, tmp_path):
     out = run(capsys, ["--no-llm"], "how far is home\n/pos 500 0\nhow far is home\n/pos nope\n/help\n", tmp_path)
-    assert "homebase is about 0 meters away" in out and "astronaut moved to x=500 z=0" in out
-    assert "homebase is about 500 meters away, roughly 9 minutes on foot" in out
+    assert "homebase is 0 minutes away" in out and "astronaut moved to x=500 z=0" in out
+    assert "homebase is 9 minutes away" in out
     assert "usage: /pos X Z" in out and "/pos X Z (astronaut position in meters)" in out
 
 

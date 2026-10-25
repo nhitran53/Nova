@@ -67,7 +67,7 @@ def test_blocked_turn_speaks_the_safe_fallback_not_the_unverified_text():
 
 def test_confirmation_turns_are_spoken_once_each():
     tts = Recorder()
-    handler, router = rig(tts, minutes_remaining=55)
+    handler, router = rig(tts, minutes_remaining=45)
     offer = say(handler, router, "take me to the outpost", "call_navigation")
     assert offer["pending_confirmation"] and tts.calls[-1] == (offer["spoken"], "tool")
     yes = say(handler, router, "yes please", "call_o2")

@@ -164,7 +164,7 @@ def test_navigation_with_a_place_runs_one_tool_and_speaks_the_tool_result():
     rig = Rig("call_navigation")
     out = rig.say("go from the rover to the airlock")
     assert rig.registry.log == [("navigation", {"place": "airlock"})] and out["tool_calls"] == 1
-    assert out["spoken"].startswith("Navigation information for airlock: estimated straight-line distance 80 meters, walking time 1 minutes. ") and out["verifier"]["ok"]
+    assert out["spoken"].startswith("airlock is 2 minutes away. ") and out["verifier"]["ok"]
 
 
 # ---- 5. low confidence / OOD / llm ----
@@ -450,36 +450,32 @@ def test_feasibility_outcome_boundaries_for_a_round_trip(minutes, outcome):
     assert out["tool_calls"] == 1 and out["tool_call"] == {"name": "navigation", "args": {"place": "outpost"}}
 
 
-@pytest.mark.parametrize("minutes, tail", [
-    (212, "Oxygen check: the round trip needs 60 minutes with 10 reserve; you have 212."),
-    (55, "Warning, oxygen margin is tight: 25 out, 25 back, 10 reserve is 60 minutes; you have 55. "
-         "Do you want me to call outpost and check if they have oxygen refills?"),
-    (45, "Warning, you cannot get back home without a refill: 25 out plus 25 back is 50; "
-         "you have 45. Do you want me to call outpost and check if they have oxygen refills?"),
-    (20, "Warning, you cannot reach it on your oxygen: 25 minutes out; you have 20. "
-         "Do you want me to call outpost and check if they have oxygen refills?"),
+@pytest.mark.parametrize("minutes, report", [
+    (212, "You have enough oxygen for the round trip."),
+    (55, "Your oxygen margin for the round trip is tight."),
+    (45, "You have enough oxygen to get there, but not back. Do you want me to call outpost to check for refills?"),
+    (20, "You do not have enough oxygen to get there. Do you want me to call outpost to check for refills?"),
 ])
-def test_feasibility_line_is_spoken_after_the_route_line_with_numbers_from_the_tool_result(minutes, tail):
+def test_feasibility_concise_line_uses_only_tool_feasibility_numbers(minutes, report):
     rig, out = nav(minutes)
-    expected = load_policy()['clarification']['guidance'].format(**out['tool_result']['data'])
-    assert 'budget' not in load_policy()['clarification'] and 'Oxygen budget' not in out['spoken']
-    assert out['spoken'] == expected + ' ' + tail
-    assert out["verifier"]["ok"] and out["blocked_text"] is None
-    spoken = set(out["verifier"]["spoken"])
-    assert spoken <= {1500.0, 25.0, 50.0, 10.0, 60.0, float(minutes), float(minutes - 60)}
+    assert out['spoken'] == 'outpost is 25 minutes away. ' + report
+    assert out['verifier']['ok'] and out['blocked_text'] is None
+    assert set(out['verifier']['spoken']) == {float(feasibility(out)['outbound_min'])}
+    if minutes == 55:
+        assert out['pending_confirmation'] is None and rig.handler.pending_confirmation is None
 
 
 def test_the_route_is_never_refused_even_when_the_destination_cannot_be_reached():
     rig, out = nav(5)
     assert feasibility(out)["outcome"] == "cannot_reach" and out["route"] == "tool"
-    assert rig.registry.log == [("navigation", {"place": "outpost"})] and out["spoken"].startswith("Navigation information for outpost:")
+    assert rig.registry.log == [("navigation", {"place": "outpost"})] and out["spoken"].startswith("outpost is 25 minutes away.")
 
 
 @pytest.mark.parametrize("minutes, outcome, tail", [
-    (212, "comfortable", "Oxygen check: home needs 12 minutes with 10 reserve; you have 212."),
-    (12, "comfortable", "Oxygen check: home needs 12 minutes with 10 reserve; you have 12."),
-    (11, "tight", "Warning, oxygen margin is tight: home takes 2 minutes plus 10 reserve, 12 in all; you have 11."),
-    (1, "cannot_reach", "Warning, you cannot reach home on your oxygen: 2 minutes; you have 1."),
+    (212, "comfortable", "homebase is 2 minutes away. You have enough oxygen to get home."),
+    (12, "comfortable", "homebase is 2 minutes away. You have enough oxygen to get home."),
+    (11, "tight", "homebase is 2 minutes away. Your oxygen margin for getting home is tight."),
+    (1, "cannot_reach", "homebase is 2 minutes away. You do not have enough oxygen to get home."),
 ])
 def test_home_as_destination_skips_the_return_leg_and_never_says_cannot_return(minutes, outcome, tail):
     rig, out = nav(minutes, text="take me home")
@@ -501,7 +497,7 @@ def test_o2_minutes_fall_back_to_the_percent_rate_and_no_o2_data_means_no_feasib
 def test_without_o2_data_navigation_explicitly_reports_unavailable_and_no_offer_is_pending():
     rig = Rig("call_navigation", snapshot={"bpm": 72})
     out = rig.say("take me to the outpost")
-    assert out["spoken"].endswith(load_policy()["clarification"]["unavailable"])
+    assert out["spoken"] == "outpost: oxygen feasibility is unavailable."
     assert out["tool_result"]["data"]["feasibility"]["outcome"] == "unavailable" and rig.handler.pending_confirmation is None
 
 
@@ -513,7 +509,7 @@ def test_legs_are_rounded_up_and_remaining_down_so_the_check_is_conservative():
 
 def test_a_feasibility_line_with_a_number_not_in_the_tool_result_is_blocked_and_no_offer_is_stored():
     policy = copy.deepcopy(load_policy())
-    policy["feasibility"]["lines"]["tight"] = "Warning, tight: {required_min} needed, 99 available."
+    policy["feasibility"]["concise"]["tight"] = "Warning, tight: {required_min} needed, 99 available."
     rig, out = nav(55, policy=policy)
     assert out["spoken"] == policy["templates"]["verifier_blocked"] and out["verifier"]["unsupported"] == [99.0]
     assert rig.handler.pending_confirmation is None and out["pending_confirmation"] is None
@@ -527,7 +523,7 @@ def test_comfortable_navigation_and_non_navigation_tools_store_no_offer():
 
 
 # ---- B. refill-call offer: stateful confirmation ----
-@pytest.mark.parametrize("minutes, urgency", [(55, "normal"), (45, "urgent"), (20, "urgent")])
+@pytest.mark.parametrize("minutes, urgency", [(45, "urgent"), (20, "urgent")])
 def test_yes_makes_exactly_one_send_message_with_urgency_from_the_feasibility_outcome(minutes, urgency):
     rig, offer = nav(minutes)
     assert offer["pending_confirmation"]["kind"] == "refill_call" and rig.handler.pending_confirmation is not None
@@ -543,8 +539,8 @@ def test_yes_makes_exactly_one_send_message_with_urgency_from_the_feasibility_ou
 
 
 def test_confirming_recomputes_feasibility_from_the_current_snapshot():
-    rig, offer = nav(55)  # outpost: tight, "normal" urgency at offer time
-    assert offer["pending_confirmation"]["outcome"] == "tight" and offer["pending_confirmation"]["distance_m"] == 1500
+    rig, offer = nav(45)
+    assert offer["pending_confirmation"]["outcome"] == "cannot_return" and offer["pending_confirmation"]["distance_m"] == 1500
     rig.sim.values["minutes_remaining"] = 20  # oxygen dropped while the offer was pending: cannot_reach now
     out = rig.say("yes")
     message = ("Nova relay: an astronaut heading to outpost has 20 minutes of oxygen and the trip needs 60. "
@@ -556,7 +552,7 @@ def test_confirming_recomputes_feasibility_from_the_current_snapshot():
 
 @pytest.mark.parametrize("override", [{"minutes_remaining": 212}, {"minutes_remaining": 60}], ids=["recovered", "boundary"])
 def test_confirming_when_no_refill_is_needed_any_more_sends_nothing_and_speaks_the_fixed_line(override):
-    rig, _ = nav(55)
+    rig, _ = nav(45)
     rig.sim.values.update(override)
     out = rig.say("yes")
     assert out["route"] == "refill_not_needed" and out["spoken"] == load_policy()["confirmation"]["no_longer_needed"]
@@ -565,7 +561,7 @@ def test_confirming_when_no_refill_is_needed_any_more_sends_nothing_and_speaks_t
 
 
 def test_confirming_without_o2_data_any_more_sends_nothing():
-    rig, _ = nav(55)
+    rig, _ = nav(45)
     rig.snapshot = {"bpm": 72}
     out = rig.say("yes")
     assert out["route"] == "refill_not_needed" and len(rig.registry.log) == 1
@@ -811,3 +807,78 @@ def test_ood_and_low_confidence_never_reach_the_retriever_or_llm():
 
 def test_new_policy_sections_exist():  # that every section is labelled PLACEHOLDER is pinned by the loader test above
     assert {"feasibility", "confirmation", "send_message", "llm_scope"} <= set(load_policy())
+
+
+@pytest.mark.parametrize('phrase', load_policy()['confirmation']['accept_as_order'])
+def test_accept_as_order_declines_refill_without_routing_or_sending(phrase):
+    rig, _ = nav(20, text='take me to base 2')
+    seen = list(rig.router.seen)
+    out = rig.say(phrase)
+    assert out['accepted_as_order'] is True
+    assert out['spoken'] == 'Okay, not calling. Continuing to base 2.'
+    assert out['verifier']['ok'] and out['blocked_text'] is None
+    assert out['tool_calls'] == 0 and len(rig.registry.log) == 1
+    assert rig.router.seen == seen and rig.handler.pending_confirmation is None
+
+
+@pytest.mark.parametrize('phrase', ['go', 'please just navigate', 'no just navigate to base', 'just go yes'])
+def test_accept_as_order_requires_the_whole_utterance(phrase):
+    assert match_confirmation(phrase, load_policy()) is None
+    rig, _ = nav(45)
+    out = rig.say(phrase)
+    assert rig.router.seen[-1] == phrase and out['pipeline'] is not None
+    assert not any(name == 'send_message' for name, _ in rig.registry.log)
+
+
+@pytest.mark.parametrize('minutes', [212, 40, 30, 10])
+def test_every_concise_outcome_traces_digits_to_feasibility_and_place_not_eta(minutes):
+    rig, out = nav(minutes, text='navigate to base 2')
+    data = out['tool_result']['data']
+    source = {'place_name': data['place_name'], 'feasibility': data['feasibility']}
+    assert out['spoken'].startswith(f"base 2 is {data['feasibility']['outbound_min']} minutes away.")
+    assert verify_numbers(out['spoken'], source)['ok']
+    assert out['spoken'].count('?') <= 1 and 'meters' not in out['spoken']
+    assert 'Not a hazard' not in out['spoken']
+
+
+@pytest.mark.parametrize('section,key,value', [
+    ('feasibility', 'concise', {}),
+    ('confirmation', 'accept_as_order', 'just go'),
+    ('confirmation', 'accept_as_order', ['']),
+    ('confirmation', 'decline_proceed_spoken', '{eta_min}'),
+    ('confirmation', 'decline_proceed_spoken', ''),
+])
+def test_concise_policy_loader_rejects_invalid_fields(tmp_path, section, key, value):
+    policy = load_policy()
+    policy[section][key] = value
+    path = tmp_path / 'policy.json'
+    path.write_text(json.dumps(policy))
+    with pytest.raises(ValueError, match=section):
+        load_policy(path)
+
+
+@pytest.mark.parametrize('line', ['', '{eta_min}', '{place_name.bad}', '{outbound_min:03}', '{'])
+def test_concise_policy_loader_rejects_invalid_line_placeholders(tmp_path, line):
+    policy = load_policy()
+    policy['feasibility']['concise']['comfortable'] = line
+    path = tmp_path / 'policy.json'
+    path.write_text(json.dumps(policy))
+    with pytest.raises(ValueError, match='feasibility.concise'):
+        load_policy(path)
+
+
+def test_confirming_a_now_tight_trip_does_not_send_a_message():
+    rig, _ = nav(45)
+    rig.sim.values['minutes_remaining'] = 55
+    out = rig.say('yes')
+    assert out['route'] == 'refill_not_needed' and out['tool_calls'] == 0
+    assert len(rig.registry.log) == 1
+
+
+def test_yes_sends_one_refill_message_to_the_numbered_destination():
+    rig, _ = nav(20, text='navigate to base 2')
+    out = rig.say('yes please')
+    assert out['route'] == 'confirmed_yes' and out['tool_calls'] == 1
+    assert out['tool_call']['args']['recipient'] == 'base_2'
+    assert [name for name, _ in rig.registry.log] == ['navigation', 'send_message']
+    assert out['verifier']['ok'] and out['blocked_text'] is None
