@@ -53,7 +53,7 @@ This adds a **557 × 633 m high-resolution terrain area** around the player's st
 
 The importer automatically adds the detailed terrain to the existing Jezero prefab. Open `SampleScene.unity` to see it. **Do not add another terrain instance.**
 
-The HiRISE area uses 1 m elevation data and 25 cm grayscale imagery. Its edges blend into the surrounding CTX terrain to create a smoother transition.
+The HiRISE area uses 1 m elevation data and 25 cm grayscale imagery, tinted so its average matches the CTX ground color. It's an approximation, not a true-color photo. Its edges blend into the surrounding CTX terrain to create a smoother transition.
 
 All generated files are stored in `Assets/JezeroTerrain/Generated/HiRISE/` and are ignored by Git. Each teammate will need to generate the terrain locally.
 
@@ -62,6 +62,35 @@ All generated files are stored in `Assets/JezeroTerrain/Generated/HiRISE/` and a
 - Both desktop and VR player rigs start inside the detailed area.
 - Test the terrain's appearance, collision, and performance in Quest Link and on standalone Quest 3.
 - To restore the original CTX-only terrain, select **Tools > Jezero > Import Terrain**.
+
+### Ground Detail and Rocks
+
+Use **Tools > Jezero > Build Surface Detail** to generate or update the ground textures and rocks. This also runs automatically when importing HiRISE terrain.
+
+The system adds dust, gravel, and realistic-looking rocks while preserving the original satellite imagery.
+
+To customize the rocks, select **HiRISE Test Area** and find **Jezero Rock Field** in the Inspector.
+
+- **Radius:** Size of the rocky area.
+- **Seed:** Changes the rock layout.
+- **Rock Counts:** Controls the number of rocks.
+- **Draw Distance:** Controls how far rocks are visible.
+- **LOD Distance:** Controls when simpler rock models appear.
+- **Max Slope:** Prevents rocks from appearing on steep terrain.
+
+By default, rocks cover an 80 m radius around the starting area. Only large boulders have collision.
+
+After changing settings, run **Build Surface Detail** again.
+
+### Testing
+
+**Quest Link:** Open `SampleScene` using the Windows profile and press Play.
+
+**Standalone Quest 3:** Switch to the Android profile and select Build and Run.
+
+Check ground textures, rock placement, and performance. The target is a stable 72 FPS on Quest 3.
+
+Generated assets are stored in `Assets/JezeroTerrain/Generated/SurfaceDetail/` and are ignored by Git.
 
 ## Running in VR
 

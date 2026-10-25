@@ -133,7 +133,11 @@ public static class JezeroTerrainImporter
                         x + 1 < map.columns ? terrains[x + 1, z] : null,
                         z > 0 ? terrains[x, z - 1] : null);
 
-            if (detail != null) AddHiRise(root, terrains[detail.ctxTileX, detail.ctxTileZ], map, detail);
+            if (detail != null)
+            {
+                AddHiRise(root, terrains[detail.ctxTileX, detail.ctxTileZ], map, detail);
+                JezeroSurfaceDetail.Apply(root);
+            }
 
             AssetDatabase.SaveAssets();
             PrefabUtility.SaveAsPrefabAsset(root, PrefabPath);
