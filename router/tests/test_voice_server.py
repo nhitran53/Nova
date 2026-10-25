@@ -1,5 +1,4 @@
 """voice_server with a fake converse and a fake router loader: localhost ephemeral port only, no mic, no TTS, no model."""
-import copy
 import json
 import sys
 import threading
@@ -371,25 +370,6 @@ def test_unknown_paths_and_methods_are_404(serve):
     assert call(base, "/voice/start")[0] == 404  # start is POST only
 
 
-def test_real_stt_converse_goes_to_ended_after_a_statement_reply_without_followup(serve, monkeypatch):
-    """Tool calls and generated statements end the session on their own (no expect_followup): state becomes 'ended', not 'idle'."""
-    def fake_listen(timeout_s=None, background=None, handler=None, stop_event=None, **kwargs):
-        return {"transcript": "hello", "turn": {"spoken": "Glad to help.", "route": "llm", "end_session": True, "expect_followup": False}}
-
-    monkeypatch.setattr(stt, "listen_and_route", fake_listen)
-    session = voice_server.VoiceSession(lambda: "R", converse_options={"speak": False, "handler_factory": lambda r: None})
-    server = voice_server.make_server(session, "127.0.0.1", 0)
-    threading.Thread(target=server.serve_forever, daemon=True).start()
-    try:
-        base = f"http://127.0.0.1:{server.server_address[1]}"
-        call(base, "/voice/start", "POST")
-        assert wait_for(lambda: call(base, "/voice/status")[1]["state"] == "ended")
-        assert call(base, "/voice/status")[1]["last_reply"] == "Glad to help."
-    finally:
-        server.shutdown()
-        server.server_close()
-
-
 def test_real_stt_converse_honours_the_stop_flag_through_the_session(serve, monkeypatch):
     """The real stt.converse with a fake listen_and_route: stop between turns ends it with on_turn called per turn."""
     session_events = []
@@ -399,8 +379,7 @@ def test_real_stt_converse_honours_the_stop_flag_through_the_session(serve, monk
         stop_holder["event"] = stop_event
         if len(session_events) == 0:
             session_events.append("turn")
-            # a reply ending in '?' keeps the session open (expect_followup); statements and tool calls end it
-            return {"transcript": "hello", "turn": {"spoken": "Hi.", "route": "llm", "expect_followup": True}}
+            return {"transcript": "hello", "turn": {"spoken": "Hi.", "route": "NO_TOOL"}}
         stop_event.wait(5)
         return {"transcript": "", "turn": None}
 
@@ -538,7 +517,7 @@ def _fake_gemini(*replies):
     ])
 
 
-def _server_handler(monkeypatch, generator, label="llm", confidence=0.99):
+def _server_handler(monkeypatch, generator, label="NO_TOOL", confidence=0.99):
     """Build a server conversation with a fake generator."""
     from router import llm_generator
     from test_turn import FakeRouter
@@ -547,21 +526,8 @@ def _server_handler(monkeypatch, generator, label="llm", confidence=0.99):
     return stt._default_handler(router=FakeRouter(label, confidence), speak=False, llm_options=voice_server.llm_options())
 
 
-def test_server_conversation_wires_gemini_with_the_second_layer_disabled_and_the_self_check_recovering_a_tool(monkeypatch):
-    handler = _server_handler(monkeypatch, _fake_gemini('{"decision": "tool", "tool": "o2"}'))
-    assert handler.generator_label == "fake gemini" and handler.pipeline.tool_classifier_fn is None  # policy second_layer.enabled=false
-    turn = handler.handle("how much air do I have")
-    assert turn["route"] == "tool" and turn["tool_call"]["name"] == "o2" and turn["pipeline"].get("gate") != "llm_second_layer"
-    assert turn["end_session"] is True  # a tool call ends the voice session
-
-
-def test_server_conversation_wires_the_second_routing_layer_only_when_the_policy_enables_it(monkeypatch):
-    from router import turn as turn_module
-
-    policy = copy.deepcopy(turn_module.load_policy())
-    policy["second_layer"]["enabled"] = True
-    monkeypatch.setattr(turn_module, "load_policy", lambda *a, **k: policy)
-    handler = _server_handler(monkeypatch, _fake_gemini('{"tool": "call_o2"}'), label="call_o2", confidence=0.3)
+def test_server_conversation_wires_gemini_and_its_second_routing_layer(monkeypatch):
+    handler = _server_handler(monkeypatch, _fake_gemini('{"tool": "call_o2"}'))
     assert handler.generator_label == "fake gemini" and handler.pipeline.tool_classifier_fn is not None
     turn = handler.handle("how much air do I have")
     assert turn["route"] == "tool" and turn["pipeline"]["gate"] == "llm_second_layer"

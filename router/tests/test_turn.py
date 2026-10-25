@@ -25,7 +25,7 @@ class FakeRouter:
         rest = (1 - self.confidence) / 2
         return {"label": self.label, "confidence": self.confidence,
                 "topk": [{"label": self.label, "p": self.confidence}, {"label": "call_data", "p": rest},
-                         {"label": "llm", "p": rest}]}
+                         {"label": "NO_TOOL", "p": rest}]}
 
 
 class FakeArbiter:
@@ -98,7 +98,7 @@ def test_critical_alert_preempts_every_class_and_calls_neither_router_nor_llm(la
     assert rig.router.seen and rig.llm.calls == [] and generator.calls == 0 and not out["llm_called"]
     assert all(name in {"navigation", "map", "data", "o2", "safety"} for name, _ in rig.registry.log)
     assert rig.handler.pending_confirmation is None and rig.handler.pending_clarification is None
-    if label in {"llm"} and confidence == .99:
+    if label in {"NO_TOOL", "call_llm"} and confidence == .99:
         assert out["lines"][1] == rig.handler.policy["templates"]["alert_active_deferred"]
 
 
@@ -179,22 +179,21 @@ def test_navigation_with_a_place_runs_one_tool_and_speaks_the_tool_result():
 
 
 # ---- 5. low confidence / OOD / llm ----
-def test_low_confidence_tool_prediction_goes_to_the_llm_and_runs_no_tool():
+def test_low_confidence_gets_a_template_reply_not_the_llm():
     rig = Rig("call_navigation", 0.3)
     out = rig.say("hmm take me")
-    assert out["route"] == "llm" and out["pipeline"]["reason"] == "low_confidence" and out["spoken"] == "Hello there!"
-    assert len(rig.llm.calls) == 1 and rig.registry.log == [] and out["tool_calls"] == 0
+    assert out["route"] == "low_confidence" and out["spoken"] == load_policy()["templates"]["low_confidence"]
+    assert rig.llm.calls == [] and rig.registry.log == []
 
 
-def test_out_of_domain_question_is_an_llm_label_answered_by_the_llm():
-    rig = Rig("llm", 0.97)
+def test_ood_gets_the_template_reply_not_the_llm():
+    rig = Rig("OOD", 0.97)
     out = rig.say("what is the capital of france")
-    assert out["route"] == "llm" and out["spoken"] == "Hello there!" and len(rig.llm.calls) == 1
-    assert out["route"] != "ood" and rig.registry.log == []
+    assert out["route"] == "ood" and out["spoken"] == load_policy()["templates"]["ood"] and rig.llm.calls == []
 
 
 def test_chitchat_uses_the_injected_llm_stub_ungrounded():
-    rig = Rig("llm", 0.97, llm=FakeLLM("Hello there!"))
+    rig = Rig("NO_TOOL", 0.97, llm=FakeLLM("Hello there!"))
     out = rig.say("hello there")
     assert out["route"] == "llm" and out["spoken"] == "Hello there!" and out["llm_called"]
     assert len(rig.llm.calls) == 1 and rig.llm.calls[0][0] == "hello there" and rig.registry.log == []
@@ -202,14 +201,14 @@ def test_chitchat_uses_the_injected_llm_stub_ungrounded():
 
 
 def test_llm_output_with_an_unsupported_number_is_blocked():
-    rig = Rig("llm", 0.97, llm=FakeLLM("Your oxygen is 99 percent."), retriever=lambda text: [PASSAGE])
+    rig = Rig("call_llm", 0.97, llm=FakeLLM("Your oxygen is 99 percent."), retriever=lambda text: [PASSAGE])
     out = rig.say("how is my oxygen")
     assert out["spoken"] == load_policy()["templates"]["verifier_blocked"]
     assert out["blocked_text"] == "Your oxygen is 99 percent." and out["verifier"]["unsupported"] == [99.0]
 
 
 def test_llm_output_with_a_spelled_out_number_is_blocked_too():
-    rig = Rig("llm", 0.97, llm=FakeLLM("You have about twenty one minutes left."))
+    rig = Rig("NO_TOOL", 0.97, llm=FakeLLM("You have about twenty one minutes left."))
     assert rig.say("hello there")["blocked_text"] is not None
 
 
@@ -303,10 +302,10 @@ def test_verifier_hook_is_injectable_and_applies_to_every_route():
         seen.append((text, source))
         return {"ok": True, "spoken": [], "unsupported": []}
 
-    for label, conf in (("call_o2", 0.99), ("llm", 0.97), ("llm", 0.99), ("call_o2", 0.3), ("call_o2", 0.7)):
+    for label, conf in (("call_o2", 0.99), ("call_llm", 0.97), ("OOD", 0.97), ("call_o2", 0.3), ("call_o2", 0.7)):
         before = len(seen)
         Rig(label, conf, verifier=spy).say("take me to the airlock")
-        assert len(seen) > before  # at least one verification per route (generated answers are verified more than once)
+        assert len(seen) == before + 1
     Rig(snapshot=CRITICAL, verifier=spy).say("x")
     # Deliberately two verifications now: alert/snapshot, then answer/tool result (not a merged source).
     assert seen[-2][1] == CRITICAL and seen[-1][1]["tool"] == "o2"
@@ -692,12 +691,12 @@ class RaisingLLM(FakeLLM):
         raise Boom("model offline")
 
 
-def test_a_raising_llm_speaks_the_tool_error_line_for_chitchat_and_grounded_llm():
+def test_a_raising_llm_speaks_the_tool_error_line_for_chitchat_and_call_llm():
     expected = load_policy()["templates"]["tool_error"]
-    chat = Rig("llm", 0.99, llm=RaisingLLM())
+    chat = Rig("NO_TOOL", 0.99, llm=RaisingLLM())
     out = chat.say("hello there")
     assert out["route"] == "llm" and out["spoken"] == expected and out["llm_error"].startswith("Boom") and len(chat.llm.calls) == 1
-    grounded = Rig("llm", 0.97, llm=RaisingLLM(), retriever=lambda t: [PASSAGE])
+    grounded = Rig("call_llm", 0.97, llm=RaisingLLM(), retriever=lambda t: [PASSAGE])
     out = grounded.say("how far away is the moon")
     assert out["route"] == "llm" and out["spoken"] == expected and out["llm_called"] and len(grounded.llm.calls) == 1
 
@@ -715,13 +714,13 @@ def test_a_raising_llm_speaks_the_tool_error_line_for_chitchat_and_grounded_llm(
     lambda t: 5,
 ], ids=["none", "empty-iterator", "string-score", "none-score", "nan-score", "bool-score", "no-score", "non-string-text", "one-bad-passage", "not-iterable"])
 def test_malformed_retrieval_output_means_no_document(retriever):
-    rig = Rig("llm", 0.97, retriever=retriever)
+    rig = Rig("call_llm", 0.97, retriever=retriever)
     out = rig.say("how far away is the moon")
-    assert out["route"] == "llm" and len(rig.llm.calls) == 1 and rig.llm.passages_seen == [None] and "passages" not in out
+    assert out["route"] == "no_document" and rig.llm.calls == []
 
 
 def test_retrieval_accepts_a_generator_and_materializes_it_once():
-    rig = Rig("llm", 0.97, llm=FakeLLM("Moon facts."), retriever=lambda t: (p for p in [PASSAGE]))
+    rig = Rig("call_llm", 0.97, llm=FakeLLM("Moon facts."), retriever=lambda t: (p for p in [PASSAGE]))
     out = rig.say("tell me about the moon")
     assert out["route"] == "llm" and rig.llm.passages_seen == [[PASSAGE["text"]]]
 
@@ -745,80 +744,80 @@ def test_match_confirmation_word_lists(text, answer):
 # ---- C. LLM scope: router class + retrieval score + risk terms ----
 @pytest.mark.parametrize("text", ["how is my oxygen", "tell me a joke about my suit", "is this Radiation bad", "what dose is safe",
                                   "my battery is dying lol", "any emergency", "o2 chat", "suit pressure"])
-def test_llm_with_a_risk_term_and_no_document_is_refused_and_the_llm_is_not_called(text):
-    rig = Rig("llm", 0.97)
+def test_chitchat_with_a_risk_term_gets_the_template_and_the_llm_is_not_called(text):
+    rig = Rig("NO_TOOL", 0.97)
     out = rig.say(text)
-    assert out["route"] == "risk_diverted" and out["spoken"] == "Please contact base."
+    assert out["route"] in ("risk_diverted", "repair_offer") and out["spoken"] == load_policy()["llm_scope"]["speaking_scope"]["repair_offer"]
     assert rig.llm.calls == [] and not out["llm_called"] and rig.registry.log == [] and out["verifier"]["ok"]
 
 
 @pytest.mark.parametrize("text", ["hello there", "tell me a joke", "thanks, nice work"])
 def test_chitchat_without_a_risk_term_still_reaches_the_llm_stub(text):
-    rig = Rig("llm", 0.97, llm=FakeLLM("Glad to help!"))
+    rig = Rig("NO_TOOL", 0.97, llm=FakeLLM("Glad to help!"))
     out = rig.say(text)
     assert out["route"] == "llm" and out["spoken"] == "Glad to help!" and len(rig.llm.calls) == 1
 
 
-def test_llm_label_consults_the_retriever_for_every_utterance():
+def test_chitchat_never_consults_the_retriever():
     calls = []
-    rig = Rig("llm", 0.97, retriever=lambda text: calls.append(text) or [PASSAGE])
+    rig = Rig("NO_TOOL", 0.97, retriever=lambda text: calls.append(text) or [PASSAGE])
     rig.say("hello there")
-    assert calls == ["hello there"]
+    assert calls == []
 
 
-def test_llm_without_a_retriever_answers_generically_without_a_no_document_route():
-    rig = Rig("llm", 0.97)
+def test_call_llm_without_a_retriever_says_no_document_and_does_not_call_the_llm():
+    rig = Rig("call_llm", 0.97)
     out = rig.say("how far away is the moon")
-    assert out["route"] == "llm" and out["spoken"] == "Hello there!" and out["llm_called"] and out["verifier"]["ok"]
-    assert rig.llm.passages_seen == [None]
+    assert out["route"] == "no_document" and out["spoken"] == "I don't have a document for that yet."
+    assert rig.llm.calls == [] and not out["llm_called"] and out["verifier"]["ok"]
 
 
 @pytest.mark.parametrize("retriever", [lambda t: [], lambda t: [{"text": "weak", "score": 0.49}], lambda t: 1 / 0], ids=["empty", "below-threshold", "raises"])
-def test_llm_with_no_usable_passage_answers_generically(retriever):
-    rig = Rig("llm", 0.97, retriever=retriever)
+def test_call_llm_with_no_usable_passage_says_no_document(retriever):
+    rig = Rig("call_llm", 0.97, retriever=retriever)
     out = rig.say("how far away is the moon")
-    assert out["route"] == "llm" and len(rig.llm.calls) == 1 and rig.llm.passages_seen == [None]
+    assert out["route"] == "no_document" and rig.llm.calls == []
 
 
-def test_llm_with_passages_calls_the_llm_with_them_best_first_and_top_k_only():
+def test_call_llm_with_passages_calls_the_llm_with_them_best_first_and_top_k_only():
     passages = [{"text": f"p{i}", "score": s} for i, s in enumerate([0.6, 0.9, 0.2, 0.7, 0.8])]
-    rig = Rig("llm", 0.97, llm=FakeLLM("Moon facts."), retriever=lambda text: passages)
+    rig = Rig("call_llm", 0.97, llm=FakeLLM("Moon facts."), retriever=lambda text: passages)
     out = rig.say("tell me about the moon")
     assert out["route"] == "llm" and out["llm_called"] and out["spoken"] == "Moon facts."
     assert rig.llm.passages_seen == [["p1", "p4", "p3"]] and [p["text"] for p in out["passages"]] == ["p1", "p4", "p3"]
 
 
-def test_llm_output_may_use_numbers_that_are_in_the_retrieved_passages():
-    rig = Rig("llm", 0.97, llm=FakeLLM("The Moon is about 384400 kilometers away."), retriever=lambda t: [PASSAGE])
+def test_call_llm_output_may_use_numbers_that_are_in_the_retrieved_passages():
+    rig = Rig("call_llm", 0.97, llm=FakeLLM("The Moon is about 384400 kilometers away."), retriever=lambda t: [PASSAGE])
     out = rig.say("how far away is the moon")
     assert out["spoken"] == "According to the document, the Moon is about 384400 kilometers away." and out["verifier"]["ok"]
 
 
-def test_llm_output_with_a_number_missing_from_the_passages_is_blocked():
-    rig = Rig("llm", 0.97, llm=FakeLLM("The Moon is 400000 kilometers away."), retriever=lambda t: [PASSAGE])
+def test_call_llm_output_with_a_number_missing_from_the_passages_is_blocked():
+    rig = Rig("call_llm", 0.97, llm=FakeLLM("The Moon is 400000 kilometers away."), retriever=lambda t: [PASSAGE])
     out = rig.say("how far away is the moon")
     assert out["spoken"] == load_policy()["templates"]["verifier_blocked"] and out["verifier"]["unsupported"] == [400000.0]
 
 
 def test_a_number_only_in_a_below_threshold_passage_is_not_a_source():
     weak = {"text": "Mars is 227900000 kilometers from the Sun.", "score": 0.1}
-    rig = Rig("llm", 0.97, llm=FakeLLM("Mars is 227900000 kilometers away."), retriever=lambda t: [PASSAGE, weak])
+    rig = Rig("call_llm", 0.97, llm=FakeLLM("Mars is 227900000 kilometers away."), retriever=lambda t: [PASSAGE, weak])
     assert rig.say("how far is mars")["blocked_text"] is not None
 
 
-def test_risk_terms_do_not_divert_llm_when_a_document_matches_which_is_scoped_by_retrieval_instead():
-    rig = Rig("llm", 0.97, llm=FakeLLM("Per the document."), retriever=lambda t: [PASSAGE])
+def test_risk_terms_do_not_divert_call_llm_which_is_scoped_by_retrieval_instead():
+    rig = Rig("call_llm", 0.97, llm=FakeLLM("Per the document."), retriever=lambda t: [PASSAGE])
     out = rig.say("what is the oxygen pressure rule")
     assert out["route"] == "llm" and out["spoken"] == "Per the document."
 
 
-def test_llm_and_low_confidence_tool_predictions_both_reach_the_retriever_and_llm_with_no_tool():
+def test_ood_and_low_confidence_never_reach_the_retriever_or_llm():
     calls = []
-    for label, conf in (("llm", 0.97), ("call_navigation", 0.3)):
+    for label, conf in (("OOD", 0.97), ("call_llm", 0.3)):
         rig = Rig(label, conf, retriever=lambda text: calls.append(text) or [PASSAGE])
-        out = rig.say("how far away is the moon")
-        assert out["route"] == "llm" and len(rig.llm.calls) == 1 and rig.registry.log == []
-    assert calls == ["how far away is the moon"] * 2
+        rig.say("how far away is the moon")
+        assert rig.llm.calls == []
+    assert calls == []
 
 
 def test_new_policy_sections_exist():  # that every section is labelled PLACEHOLDER is pinned by the loader test above
@@ -1093,12 +1092,3 @@ def test_critical_alert_delivered_before_routing_survives_blocked_answer():
     assert out['alert_verifier']['ok'] and not out['verifier']['ok']
     assert out['blocked_text'] == 'Oxygen at 99 percent.'
     assert out['tool_calls'] == 1 and out.get('interim') is None
-
-
-def test_session_end_follows_tool_calls_and_question_replies():
-    tool = Rig("call_o2", 0.99).say("how is my oxygen")
-    assert tool["tool_calls"] == 1 and tool["end_session"] and not tool["expect_followup"]
-    statement = Rig("llm", 0.97, llm=FakeLLM("Glad to help.")).say("hello there")
-    assert statement["end_session"] and not statement["expect_followup"]
-    question = Rig("llm", 0.97, llm=FakeLLM("What would you like to know?")).say("hello there")
-    assert question["expect_followup"] and not question["end_session"]

@@ -45,7 +45,7 @@ from .pipeline import load_config
 
 HERE = Path(__file__).parent
 ACTION_LABELS = ("call_safety", "call_navigation", "call_map", "call_data", "call_o2")
-NON_TOOL_LABELS = ("llm", "call_llm", "NO_TOOL", "OOD")
+NON_TOOL_LABELS = ("call_llm", "NO_TOOL", "OOD")
 TAU_HI_GRID = (0.5, 0.6, 0.7, 0.8, 0.85, 0.9, 0.92, 0.94, 0.95, 0.96, 0.97, 0.98, 0.99)
 DEFAULT_TARGET = 0.005
 

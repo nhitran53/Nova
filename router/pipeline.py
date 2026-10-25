@@ -1,4 +1,9 @@
-"""Six-class ModernBERT routing with direct tool dispatch and an LLM self-check handoff."""
+"""Route a request to a tool or clarification or LLM handoff.
+
+Confidence gates come from pipeline_config.json.
+Check required slots before calling a tool.
+Resolve destinations with explicit spans before fuzzy matching.
+"""
 import argparse
 import json
 import sys
@@ -70,10 +75,6 @@ class Pipeline:
     def handle(self, text, second_layer=True):
         prediction = self.router.predict(text)
         label, confidence = prediction["label"], prediction["confidence"]
-        if label in {"call_llm", "NO_TOOL", "OOD"}:
-            label = "llm"  # Legacy non-tool predictions share the single LLM policy.
-        if label == "llm":
-            return self._llm(text, label, confidence, "llm", self.config["llm_labels"]["llm"])
         topk = (prediction.get("topk") or [{"label": label, "p": confidence}])[:3]
         tool_cfg = self.config["tool_labels"].get(label)
         if confidence < self.tau_lo or tool_cfg is None:
@@ -93,7 +94,7 @@ class Pipeline:
             second = self._second_layer(text, label, confidence, second_layer)
             if second is not None:
                 return second
-            return self._llm(text, label, confidence, "NO_TOOL", self.config["llm_labels"]["llm"])
+            return self._llm(text, label, confidence, "NO_TOOL", self.config["llm_labels"]["NO_TOOL"])
         return self._clarify_intent(label, confidence, topk, reason=verdict)
 
     def _arbitrate(self, text, label, topk):
@@ -137,13 +138,7 @@ class Pipeline:
                 "confidence": confidence, "label": label}
 
 
-def require_router_checkpoint(checkpoint):
-    if not Path(checkpoint).is_dir():
-        raise SystemExit(f"six-class router checkpoint missing - retrain required: {checkpoint}")
-
-
 def load_pipeline(checkpoint, labels_path=HERE / "labels.json", device="cpu", **kwargs):
-    require_router_checkpoint(checkpoint)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         router = Router.load(checkpoint, labels_path, device=device)
@@ -155,7 +150,7 @@ def load_pipeline(checkpoint, labels_path=HERE / "labels.json", device="cpu", **
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--text", action="append", required=True, help="utterance (repeatable)")
-    ap.add_argument("--checkpoint", default=str(models_dir() / "binary"), help="default: %(default)s (set NOVA_MODELS_DIR to move)")
+    ap.add_argument("--checkpoint", default=str(models_dir() / "v1"), help="default: %(default)s (set NOVA_MODELS_DIR to move)")
     ap.add_argument("--tau-hi", type=float, default=None, help="default: pipeline_config.json")
     ap.add_argument("--tau-lo", type=float, default=None, help="default: pipeline_config.json")
     ap.add_argument("--device", default="cpu")

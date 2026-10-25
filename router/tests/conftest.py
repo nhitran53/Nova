@@ -91,9 +91,3 @@ def llm_server():
 def clean_llm_env(monkeypatch):
     for name in ("NOVA_LLM_RUNTIME", "NOVA_LLM_BASE_URL", "NOVA_LLM_MODEL", "NOVA_LLM_CONSTRAIN", "NOVA_LLM_API_KEY"):
         monkeypatch.delenv(name, raising=False)
-
-
-@pytest.fixture(autouse=True)
-def isolated_daily_memory(tmp_path, monkeypatch):
-    from router.memory import DailyMemory
-    monkeypatch.setattr("router.turn.DailyMemory", lambda: DailyMemory(tmp_path / "memory"))

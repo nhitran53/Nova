@@ -21,7 +21,6 @@ from .generation import (NUMBER_VIOLATIONS, FillerGenerator, LegacyLLMAdapter, a
 from .clarification import normalized, select_choice
 from .demo_scene import PRINTER_SOURCE, match_demo_scene, printable_fault, validate_demo_scene
 from .fast_replies import match_fast_reply, validate_fast_replies
-from .memory import DailyMemory
 from .pipeline import Pipeline, load_config
 from .places import resolve_destination
 from .retrieval import find_section
@@ -240,8 +239,7 @@ def match_confirmation(text, policy):
 class TurnHandler:
     def __init__(self, router, alert_source, registry=None, llm_fn=stub_llm, arbiter_fn=None, policy=None,
                  pipeline_config=None, verifier=verify_numbers, retriever=None, tts_fn=None, generator=None, clock=time.monotonic,
-                 interim_fn=None, tool_classifier_fn=None, memory=None):
-        self.memory = DailyMemory() if memory is None else memory
+                 interim_fn=None, tool_classifier_fn=None):
         self.interim_fn = interim_fn  # interim_fn(line, "llm_interim") speaks the short wait line before a slow generation; None = silent
         self.retriever = retriever
         self.last_generation_request = None  # the GenerationRequest object of the latest request (not part of the result dict)
@@ -273,10 +271,7 @@ class TurnHandler:
         """Deliver independently verified lines in order; spoken joins them with a space for older clients.
         Alert callbacks run before routing. Playback cannot interrupt an already playing line."""
         self.last_generation_request = None
-        try:
-            result = self._run_turn(text)
-        finally:
-            self.memory.append(text)
+        result = self._run_turn(text)
         # Generation already re-polls before accepting its answer. Non-LLM paths must do so too.
         if not result["llm_called"]:
             snapshot = self.alert_source()
@@ -304,11 +299,6 @@ class TurnHandler:
             result["lines"] = ([result["alert_line"]] if result.get("alert_line") else []) + [answer]
             self._deliver(result, answer, result["route"])
         result["spoken"] = " ".join(result["lines"])
-        question = (result["spoken"].rstrip().endswith("?")
-                    or self.pending_clarification is not None or self.pending_confirmation is not None)
-        result["expect_followup"] = not result.get("end_session", False) and question
-        result["listen_timeout_s"] = 10.0 if result["expect_followup"] else None
-        result["end_session"] = not result["expect_followup"]
         return result
 
     def _deliver(self, result, line, route):
@@ -385,8 +375,13 @@ class TurnHandler:
             return self._clarify_turn(result, out)
         cfg = self.policy['clarification']
         fragments = set(cfg['ordinals']) | {'1', '2', '3', 'option 1', 'option 2', 'option 3', 'both'}
+        fragments.update(name for names in cfg['names'].values() for name in names)
         if normalized(text) in fragments:
             return self._speak(result, 'clarify', cfg['disregard'], {})
+        if out["reason"] == "OOD":
+            return self._speak(result, "ood", self.policy["templates"]["ood"], {})
+        if out["reason"] == "low_confidence":
+            return self._speak(result, "low_confidence", self.policy["templates"]["low_confidence"], {})
         return self._llm_turn(result, text, out)
 
     def _critical_alert_line(self, alerts):
@@ -401,45 +396,27 @@ class TurnHandler:
             return self._speak(result, "alert_active_deferred", self.policy["templates"]["alert_active_deferred"], {})
         scope = self.policy["llm_scope"]
         speaking = scope["speaking_scope"]
-        if normalized(text) in speaking["greetings"]:
-            return self._speak(result, "greeting", speaking["greeting"], {})
-        passages = [] if out["reason"] == "NO_TOOL" else self._retrieve(text, scope)
-        safety_terms = scope["risk_terms"] + speaking["repair_terms"] + speaking["consequential_terms"]
+        # Restrict only already-authorized LLM turns; never select a tool or bypass router gates.
+        normalized = " ".join(re.findall(r"[a-z0-9']+", text.lower()))
         if risk_terms_in(text, speaking["repair_terms"] + speaking["consequential_terms"]):
-            if passages:
-                result["passages"] = passages
-                return self._llm_reply(result, "grounded_answer", text, out["prompt_policy"], passages=passages)
-            return self._speak(result, "risk_diverted", speaking["unknown_safety_refusal"], {})
-        decide = getattr(self.generator, "decide", None)
-        if decide is not None and out["reason"] in {"llm", "low_confidence"}:
-            result["llm_called"] = True
-            req = build_request(turn_id=self.turn_index, kind="general_explanation", route="llm", user_text=text,
-                                policy=self.policy, prompt_policy=out["prompt_policy"])
-            catalog = self.pipeline.config["tool_labels"]
-            schemas = {cfg["tool"]: self.registry.schema(cfg["tool"]) for cfg in catalog.values()}
-            try:
-                req = replace(req, daily_memory=self.memory.load())
-                decision = decide(req, schemas)
-                if not isinstance(decision, dict):
-                    raise ValueError("self-check must return an object")
-                if decision.get("decision") == "tool":
-                    label = next(name for name, cfg in catalog.items() if cfg["tool"] == decision.get("tool"))
-                    # Re-resolve slots from the user's utterance, never from model-supplied arguments.
-                    selected = self.pipeline._tool(text, label, out["confidence"], catalog[label], "llm_self_check")
-                    result["pipeline"] = selected
-                    return (self._tool_turn(result, selected, self.alert_source()) if selected["route"] == "tool"
-                            else self._clarify_turn(result, selected))
-                if decision.get("decision") != "none":
-                    raise ValueError("unknown self-check decision")
-            except Exception as exc:
-                result["self_check_error"] = f"{type(exc).__name__}: {exc}"[:300]
-        if passages:
-            result["passages"] = passages
-            return self._llm_reply(result, "grounded_answer", text, out["prompt_policy"], passages=passages)
-        if risk_terms_in(text, safety_terms):
-            return self._speak(result, "risk_diverted", speaking["unknown_safety_refusal"], {})
-        kind = "chitchat" if out["reason"] == "NO_TOOL" else "general_explanation"
-        return self._llm_reply(result, kind, text, out["prompt_policy"])
+            # Manual reading/procedure execution is not built. Offer contact, without sending or arming confirmation.
+            return self._speak(result, "repair_offer", speaking["repair_offer"], {})
+        if out["reason"] == "NO_TOOL":
+            if risk_terms_in(text, scope["risk_terms"]):
+                return self._speak(result, "risk_diverted", speaking["repair_offer"], {})
+            if normalized in speaking["greetings"]:
+                return self._speak(result, "greeting", speaking["greeting"], {})
+            return self._llm_reply(result, "chitchat", text, out["prompt_policy"])
+        passages = self._retrieve(text, scope)
+        if not passages:
+            if (not risk_terms_in(text, scope["risk_terms"])
+                    and any((normalized + " ").startswith(prefix) for prefix in speaking["general_prefixes"])):
+                return self._llm_reply(result, "general_explanation", text, out["prompt_policy"])
+            if risk_terms_in(text, scope["risk_terms"]):
+                return self._speak(result, "risk_diverted", speaking["repair_offer"], {})
+            return self._speak(result, "no_document", scope["no_document"], {})
+        result["passages"] = passages
+        return self._llm_reply(result, "grounded_answer", text, out["prompt_policy"], passages=passages)
 
     def _llm_reply(self, result, kind, text, prompt_policy, passages=()):
         """The one generation: build_request -> generator (retry/fallback in run_generation) -> _speak.
@@ -454,9 +431,11 @@ class TurnHandler:
         keep = gen["history_turns"]
         req = build_request(turn_id=self.turn_index, kind=kind, route="llm", user_text=text, policy=self.policy,
                             passages=passages, history=self.history[-keep:] if keep else (), prompt_policy=prompt_policy)
-        req = replace(req, daily_memory=self.memory.load())
         source = [p.text for p in req.passages] if req.passage_numbers == "digits" else {}
         self.last_generation_request = req
+        interim = gen.get("interim")
+        if interim and interim["enabled"] and kind in INTERIM_KINDS:
+            self._speak_interim(result, interim["line"])
         outcome = run_generation(req, self.generator, self.policy, gen["neutral_chitchat"], error_text=templates["tool_error"],
                                  verifier=self.verifier)
         if outcome.status == "fallback" and (kind == "grounded_answer" or NUMBER_VIOLATIONS & set(outcome.violations)):

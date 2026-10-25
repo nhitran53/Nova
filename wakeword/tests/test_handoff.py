@@ -338,12 +338,9 @@ def load_real_voice_session():
     llm.API_KEY_ENV = "NOVA_LLM_API_KEY"
     llm.GEMINI_KEY_ENV = "GEMINI_API_KEY"
     llm.redact_secrets = lambda text, secret: text
-    hazard = types.ModuleType(package + ".hazard")
-    hazard.inactive_hazard = lambda: dict(active=False, kind="meteor", center_x_m=None, center_z_m=None,
-                                          radius_m=None, eta_s=None, inside=False, edge_distance_m=None)
     root = types.ModuleType(package)
     root.__path__ = []
-    stubs = {package: root, package + ".stt": stt, package + ".llm_generator": llm, package + ".hazard": hazard}
+    stubs = {package: root, package + ".stt": stt, package + ".llm_generator": llm}
     sys.modules.update(stubs)
     try:
         spec = importlib.util.spec_from_file_location(package + ".voice_server", path)
@@ -351,8 +348,7 @@ def load_real_voice_session():
         sys.modules[spec.name] = module
         spec.loader.exec_module(module)
     finally:
-        # the package root and .hazard stay registered: VoiceSession imports .hazard lazily when constructed
-        for name in [package + ".stt", package + ".llm_generator", package + ".voice_server"]:
+        for name in [*stubs, package + ".voice_server"]:
             sys.modules.pop(name, None)
     return module.VoiceSession
 

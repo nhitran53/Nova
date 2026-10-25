@@ -1,6 +1,4 @@
 """report_gate: high-confidence-wrong accounting on action tools, tau_hi sweep and dev-only choice (no model needed)."""
-from pathlib import Path
-
 import numpy as np
 import pytest
 
@@ -10,13 +8,13 @@ LABELS = ["call_safety", "call_navigation", "call_map", "call_data", "call_o2", 
 TOOLS = LABELS[:5]
 
 
-def probs_for(rows, labels=LABELS):
+def probs_for(rows):
     """rows: [(predicted label, confidence, true label)] -> (probs, y_true) with the rest of the mass spread evenly."""
-    probs = np.zeros((len(rows), len(labels)))
+    probs = np.zeros((len(rows), len(LABELS)))
     for i, (pred, conf, _) in enumerate(rows):
-        probs[i] = (1 - conf) / (len(labels) - 1)
-        probs[i, labels.index(pred)] = conf
-    return probs, np.array([labels.index(t) for _, _, t in rows])
+        probs[i] = (1 - conf) / (len(LABELS) - 1)
+        probs[i, LABELS.index(pred)] = conf
+    return probs, np.array([LABELS.index(t) for _, _, t in rows])
 
 
 ROWS = [
@@ -81,9 +79,6 @@ def test_wilson_upper_bound():
 
 def test_report_override_does_not_change_dev_only_suggestion(tmp_path, monkeypatch, capsys):
     from router import report_gate
-    from router.core import load_labels
-
-    active_labels = load_labels(Path(__file__).parents[1] / "labels.json")  # six-class head: llm replaces NO_TOOL
 
     class FakeRouter:
         untrained = False
@@ -93,8 +88,8 @@ def test_report_override_does_not_change_dev_only_suggestion(tmp_path, monkeypat
         def load(cls, *args, **kwargs):
             return cls()
 
-    dev = probs_for([("call_navigation", 0.91, "llm")], active_labels)
-    test = probs_for([("call_navigation", 0.99, "llm")], active_labels)
+    dev = probs_for([("call_navigation", 0.91, "NO_TOOL")])
+    test = probs_for([("call_navigation", 0.99, "NO_TOOL")])
     monkeypatch.setattr(report_gate, "Router", FakeRouter)
     monkeypatch.setattr(report_gate, "split_probs", lambda router, data_dir, split, labels, batch_size=4:
                         (*(dev if split == "dev" else test), ["example"]))

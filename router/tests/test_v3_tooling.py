@@ -14,9 +14,6 @@ from router.training_tools import calibration_input, checked_device, reserve_che
 
 DATA = Path(__file__).parents[1] / 'data/v3-trip'
 
-frozen_8class = pytest.mark.skip(reason='frozen 8-class release; needs separate migration')
-
-
 
 def make_splits(tmp_path):
     root = tmp_path / 'v3-trip'
@@ -173,7 +170,6 @@ def test_acceptance_cli_fails_closed_on_load_error(tmp_path, monkeypatch):
     assert 'candidate load failed' in report['failures'][0]
 
 
-@frozen_8class
 def test_v3_gate_suggests_only_from_threshold_and_reports_current_separately(tmp_path, monkeypatch):
     from router.core import load_labels
     labels = load_labels(Path(__file__).parents[1] / 'labels.json')
@@ -306,7 +302,6 @@ def test_acceptance_unsuccessful_menu_answer_blocks_coverage(monkeypatch, fault)
     assert f'{name}: required menu-answer replay missing or unsuccessful' in report['unmet_required_coverage']
 
 
-@frozen_8class
 @pytest.mark.parametrize('split', ['heldout_scenarios', 'regression'])
 def test_evaluate_frozen_expected_labels_require_explicit_field(tmp_path, monkeypatch, split):
     from router.core import load_labels

@@ -10,7 +10,7 @@ from router.turn import TurnHandler, load_policy
 from router.tests.test_turn import FakeRouter
 
 
-def handler(label="llm", confidence=0.99, reply="Cloud droplets scatter light.", retriever=None, fast_replies=False):
+def handler(label="call_llm", confidence=0.99, reply="Cloud droplets scatter light.", retriever=None, fast_replies=False):
     """fast_replies=False turns the pre-router fast path off so these tests keep exercising speaking_scope.greetings."""
     policy = copy.deepcopy(load_policy())
     policy["fast_replies"]["enabled"] = fast_replies
@@ -23,7 +23,7 @@ def handler(label="llm", confidence=0.99, reply="Cloud droplets scatter light.",
 
 @pytest.mark.parametrize("text", ["Hi!", "who are you", "what is your name"])
 def test_hi_is_exact_user_wording_without_generator_and_still_verified(text):
-    h, generator = handler("llm")
+    h, generator = handler("NO_TOOL")
     result = h.handle(text)
     assert result["spoken"] == "Hey, I'm Nova, your navigation and observation voice assistant."
     assert result["route"] == "greeting" and result["verifier"]["ok"]
@@ -59,28 +59,24 @@ def test_general_explanation_reuses_number_action_live_and_directive_gates(text,
     assert not result.ok and violation in result.violations
 
 
+@pytest.mark.parametrize("label", ["NO_TOOL", "call_llm"])
 @pytest.mark.parametrize("text", ["how can i fix this", "fix the leak", "repair my battery", "it is broken"])
-def test_repair_never_synthesizes_instructions_or_arms_contact(text):
-    h, generator = handler("llm", reply="Invented repair instructions.")
+def test_repair_never_synthesizes_instructions_or_arms_contact(label, text):
+    h, generator = handler(label, reply="Invented repair instructions.", retriever=lambda _: [{"text": "Unrelated facts", "score": 0.99}])
     result = h.handle(text)
-    assert result["route"] == "risk_diverted"
-    assert result["spoken"] == load_policy()["llm_scope"]["speaking_scope"]["unknown_safety_refusal"] == "Please contact base."
+    assert result["route"] == "repair_offer"
+    assert result["spoken"] == load_policy()["llm_scope"]["speaking_scope"]["repair_offer"]
     assert result["verifier"]["ok"] and result["tool_calls"] == 0 and not generator.calls
     assert h.pending_confirmation is None
     assert h.handle("yes")["tool_calls"] == 0
 
 
-@pytest.mark.parametrize("text", ["why is the sky grey", "how can i fix this"])
-@pytest.mark.parametrize("label,confidence", [("llm", 0.99), ("llm", 0.2), ("call_navigation", 0.2)])
-def test_scope_does_not_bypass_router_gates(text, label, confidence):
-    """Unknown safety/repair questions are refused even for llm / below-tau_lo predictions; no tool executes."""
+@pytest.mark.parametrize("text", ["hi", "why is the sky grey", "how can i fix this"])
+@pytest.mark.parametrize("label,confidence,route", [("OOD", 0.99, "ood"), ("call_llm", 0.2, "low_confidence")])
+def test_scope_does_not_bypass_router_gates(text, label, confidence, route):
     h, generator = handler(label, confidence)
     result = h.handle(text)
-    assert result["tool_calls"] == 0
-    if "fix" in text:
-        assert result["route"] == "risk_diverted" and result["spoken"] == "Please contact base." and not generator.calls
-    else:
-        assert result["route"] == "llm" and result["spoken"] == "Cloud droplets scatter light."
+    assert result["route"] == route and not generator.calls and result["tool_calls"] == 0
 
 
 def test_general_prefers_available_document_and_risky_questions_stay_retrieval_only():
@@ -137,8 +133,8 @@ def test_generic_safety_still_uses_existing_tool_and_wording():
 def test_consequential_no_source_offers_base_without_claiming_source_or_contact(text):
     h, generator = handler()
     result = h.handle(text)
-    assert result["route"] == "risk_diverted" and not generator.calls
-    assert result["spoken"] == "Please contact base."
+    assert result["route"] in ("repair_offer", "risk_diverted") and not generator.calls
+    assert result["spoken"] == load_policy()["llm_scope"]["speaking_scope"]["repair_offer"]
     assert result["tool_calls"] == 0 and h.pending_confirmation is None
 
 
@@ -180,12 +176,3 @@ def test_affirmative_travel_or_destination_still_vetoes_generic_safety(mention):
     result = h.handle(f"Check the basic oxygen-pressure condition; {mention}.")
     assert result["route"] == "destination_safety" and result["tool_calls"] == 0
     assert result["verifier"]["ok"] and not generator.calls
-
-
-def test_unknown_safety_is_refused_but_a_matching_document_is_answered():
-    h, generator = handler("llm", retriever=lambda _: [{"text": "Seal the leak with the patch kit.", "score": 0.9}])
-    result = h.handle("how can i fix this")
-    assert result["route"] == "llm" and generator.calls and result["passages"]
-    h, generator = handler("llm", retriever=lambda _: [])
-    result = h.handle("how can i fix this")
-    assert result["route"] == "risk_diverted" and result["spoken"] == "Please contact base." and not generator.calls

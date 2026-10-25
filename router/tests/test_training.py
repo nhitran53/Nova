@@ -31,7 +31,7 @@ def test_generator_covers_every_label_with_requested_sizes():
         counts = {label: 0 for label in labels}
         for row in data[split]:
             counts[row["label"]] += 1
-        assert counts == {label: n * (3 if label == "llm" else 1) for label in labels}
+        assert counts == {label: n for label in labels}
 
 
 def test_generator_is_deterministic_and_seed_sensitive():
@@ -48,8 +48,7 @@ def test_generator_texts_unique_across_splits_and_labels():
 
 
 def test_template_pools_disjoint_across_splits_and_cover_labels():
-    assert set(load_labels(LABELS_PATH)) - {"llm"} <= set(gen.TEMPLATES)
-    assert {"call_llm", "NO_TOOL", "OOD"} <= set(gen.TEMPLATES)
+    assert set(load_labels(LABELS_PATH)) <= set(gen.TEMPLATES)
     for label, pools in gen.TEMPLATES.items():
         train, dev, test = (set(pools[s]) for s in ("train", "dev", "test"))
         assert not (train & dev or train & test or dev & test), label
@@ -62,7 +61,7 @@ def test_committed_jsonl_matches_label_file_and_sizes():
         if not path.is_file():
             pytest.skip("run data/gen_synthetic.py first")
         _, ys = load_jsonl(path, labels)
-        assert np.bincount(ys, minlength=len(labels)).tolist() == [n * (3 if label == "llm" else 1) for label in labels]
+        assert np.bincount(ys, minlength=len(labels)).tolist() == [n] * len(labels)
 
 
 def test_load_jsonl_rejects_unknown_label(tmp_path):

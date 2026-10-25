@@ -67,11 +67,18 @@ def test_other_tools_have_empty_args_even_with_a_place_in_text(label, tool):
     assert out["route"] == "tool" and out["tool"] == tool and out["args"] == {}
 
 
-@pytest.mark.parametrize("label", ["llm", "NO_TOOL", "call_llm", "OOD"])
-def test_llm_and_legacy_aliases_share_single_llm_policy(label):
+@pytest.mark.parametrize("label", ["NO_TOOL", "call_llm", "OOD"])
+def test_llm_labels_route_to_llm_with_distinct_policies(label):
     out = run(label, "hi")
-    assert out["route"] == "llm" and out["reason"] == "llm" and "tool" not in out
+    assert out["route"] == "llm" and out["reason"] == label and "tool" not in out
     assert out["response"].startswith("[LLM placeholder]")
+
+
+def test_prompt_policies_are_distinct_per_class_and_ood_is_out_of_scope():
+    policies = {label: run(label, "x")["prompt_policy"] for label in ("NO_TOOL", "call_llm", "OOD")}
+    policies["low"] = run("call_o2", "x", confidence=0.1)["prompt_policy"]
+    assert len(set(policies.values())) == 4
+    assert "out of scope" in policies["OOD"]
 
 
 def test_low_confidence_goes_to_llm_even_for_tool_label():
@@ -151,14 +158,14 @@ def test_non_tool_top_classes_keep_llm_routing_and_never_call_arbiter(label):
     arbiter = FakeArbiter("none")
     for confidence in (0.99, 0.7, 0.5):
         out = gate(confidence, arbiter, label=label)
-        assert out["route"] == "llm" and out["reason"] == "llm"
-    assert gate(0.3, arbiter, label=label)["reason"] == "llm"
+        assert out["route"] == "llm" and out["reason"] == label
+    assert gate(0.3, arbiter, label=label)["reason"] == "low_confidence"
     assert arbiter.calls == []
 
 
 def test_ood_never_reaches_a_tool_even_at_full_confidence():
     out = gate(1.0, FakeArbiter("call_o2"), label="OOD")
-    assert out["route"] == "llm" and out["reason"] == "llm"
+    assert out["route"] == "llm" and out["prompt_policy"].startswith("out_of_scope")
 
 
 def test_thresholds_are_configurable_and_validated():

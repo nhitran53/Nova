@@ -10,9 +10,6 @@ import sys
 import pytest
 
 HERE = Path(__file__).resolve().parents[1] / 'data' / 'v4-trip'
-
-frozen_8class = pytest.mark.skip(reason='frozen 8-class release; needs separate migration')
-
 spec = importlib.util.spec_from_file_location('v4_trip_release', HERE / 'release.py')
 release = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(release)
@@ -23,7 +20,6 @@ def artifacts():
     return release.artifacts()
 
 
-@frozen_8class
 def test_v4_trip_determinism_and_checked_bytes(artifacts):
     output, manifest = artifacts
     assert release.build() == release.build()
@@ -93,7 +89,6 @@ def test_v4_trip_old_seed_exclusion_is_enforced():
         release.audit(groups, release.load_families())
 
 
-@frozen_8class
 def test_v4_trip_near_duplicate_review_and_hard_gate(artifacts, monkeypatch):
     assert artifacts[1]['near_duplicate_summary']['hard_pairs'] == 0
     a = {'text': 'Please read oxygen now at base 2', 'row_id': 'a', 'label': 'call_o2'}
@@ -108,7 +103,6 @@ def test_v4_trip_near_duplicate_review_and_hard_gate(artifacts, monkeypatch):
         release.artifacts()
 
 
-@frozen_8class
 def test_v4_trip_frozen_hash_change_detected(tmp_path, monkeypatch):
     root = tmp_path / 'router'
     dest = root / 'data' / 'v4-trip'
@@ -157,7 +151,6 @@ def test_v4_trip_contrast_vocabulary_and_semantic_coverage():
     assert any('base2' in r['text'] for r in train)
 
 
-@frozen_8class
 def test_v4_trip_v4_2_short_commands_cancellations_and_scope_twins(artifacts):
     groups = release.build()
     train = groups['train']
@@ -200,7 +193,6 @@ def test_v4_trip_v4_2_short_commands_cancellations_and_scope_twins(artifacts):
     assert all(len(value) == 64 for value in superseded['sha256'].values())
 
 
-@frozen_8class
 def test_v4_trip_token_purity_diagnostic_and_gate(artifacts):
     rows = [{'text': 'incidental incidental explain', 'label': 'call_llm'} for _ in range(24)]
     report = release.token_purity(rows)
@@ -225,7 +217,6 @@ def test_v4_trip_token_purity_diagnostic_and_gate(artifacts):
         assert len(labels) != 1, token
 
 
-@frozen_8class
 def test_v4_trip_within_train_construction_crossing(artifacts):
     groups = release.build()
     contingency = release.construction_label_counts(groups['train'])
@@ -290,7 +281,6 @@ def test_v4_trip_overlap_cli_counts_only_and_does_not_mutate(tmp_path):
     assert not result.stderr and 'private' not in result.stdout
 
 
-@frozen_8class
 def test_v4_trip_release_check_detects_byte_drift(tmp_path, artifacts):
     for name, content in artifacts[0].items():
         (tmp_path / name).write_bytes(content)

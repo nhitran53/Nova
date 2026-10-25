@@ -40,9 +40,9 @@ def say(handler, router, text, label, confidence=0.99):
 SCENARIOS = [
     ("tool", "how much oxygen", "call_o2", 0.99, {}, "tool"),
     ("slot_question", "take me there", "call_navigation", 0.97, {}, "slot_question"),
-    ("out_of_domain_llm", "capital of france", "llm", 0.95, {}, "llm"),  # no ood route: the llm label answers
-    ("low_confidence_llm", "mumble", "call_o2", 0.2, {}, "llm"),  # below tau_lo falls to the llm self-check and answer
-    ("llm", "nice weather today", "llm", 0.97, {}, "llm"),
+    ("ood", "capital of france", "OOD", 0.95, {}, "ood"),
+    ("low_confidence", "mumble", "call_o2", 0.2, {}, "low_confidence"),
+    ("llm", "nice weather today", "NO_TOOL", 0.97, {}, "llm"),
     ("alert", "take me home", "call_navigation", 0.99, {"o2_pct": 14.2}, "tool"),
 ]
 

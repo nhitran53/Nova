@@ -117,8 +117,7 @@ def test_converse_loops_until_silence_and_reuses_one_handler():
     class Handler:
         def handle(self, text):
             texts.append(text)
-            return {"route": "clarify", "spoken": "re: " + text + "?",
-                    "expect_followup": True, "listen_timeout_s": 0.2}
+            return {"route": "tool", "spoken": "re: " + text}
 
     scripts = iter(["one", "two", ""])
 
@@ -205,7 +204,6 @@ def test_speech_queue_error_is_kept_surfaced_once_and_does_not_stop_later_lines(
 
 
 def test_default_handler_gets_the_http_generator_when_the_server_is_healthy(monkeypatch, capsys):
-    monkeypatch.setenv("NOVA_LLM_RUNTIME", "llama-server")
     healthy_server(monkeypatch)
     handler = stt._default_handler(FakeRouter("NO_TOOL", 0.97), speak=False)
     primary = handler.generator.generators[0] if isinstance(handler.generator, llm_generator.FailoverGenerator) else handler.generator
@@ -226,7 +224,7 @@ def test_default_handler_options_no_llm_and_deadline(monkeypatch):
     assert isinstance(handler.generator, FillerGenerator) and handler.policy["generation"]["deadline_ms"] == 9000
 
 
-def test_converse_generated_statement_closes_without_interim_or_extra_listen(monkeypatch):
+def test_converse_plays_interim_then_final_while_generation_overlaps_and_ends_on_thank_you(monkeypatch):
     healthy_server(monkeypatch)
     tts = FakeTts(delay=0.1)
     speech = stt.SpeechQueue(tts)
@@ -241,11 +239,12 @@ def test_converse_generated_statement_closes_without_interim_or_extra_listen(mon
     turns = stt.converse(router_loader=lambda: FakeRouter("NO_TOOL", 0.97), handler_factory=factory, speech_queue=speech,
                          client_factory=scripted_client("tell me something", "thank you", "never reached"), frames=AUDIO,
                          timeout_s=2.0, on_event=events.append)
-    assert [t["transcript"] for t in turns] == ["tell me something"]
-    assert turns[0]["turn"]["route"] == "llm" and turns[0]["turn"]["end_session"] is True
-    assert generator.interim_playing_during_generation is False
-    assert tts.events == [("start", "Hello there."), ("end", "Hello there.")]
-    assert sum(e == "listening..." for e in events) == 1
+    assert [t["transcript"] for t in turns] == ["tell me something", "thank you"]
+    assert turns[0]["turn"]["route"] == "llm" and turns[1]["turn"]["end_session"] is True
+    assert generator.interim_playing_during_generation is True  # generation started while the interim line was still playing
+    assert tts.events == [("start", "Let me think."), ("end", "Let me think."), ("start", "Hello there."), ("end", "Hello there."),
+                          ("start", "Happy to help!"), ("end", "Happy to help!")]  # everything played before converse returned
+    assert any("goodbye" in e for e in events) and sum(e == "listening..." for e in events) == 2
 
 
 def test_converse_surfaces_a_tts_error_from_the_queue(monkeypatch):
@@ -306,7 +305,7 @@ def test_converse_on_turn_gets_each_turn_and_stop_between_turns_ends_it():
 
     class Handler:
         def handle(self, text):
-            return {"route": "tool", "spoken": "re: " + text, "expect_followup": True}  # a session only continues on follow-up
+            return {"route": "tool", "spoken": "re: " + text}
 
     def on_turn(out):
         seen.append(out["transcript"])

@@ -285,15 +285,15 @@ def test_check_server_messages_never_carry_the_key_or_a_response_body(llm_server
 
 # ---- through run_generation / TurnHandler ----
 class FakeRouter:
-    def __init__(self, label="llm", confidence=0.97):
+    def __init__(self, label="NO_TOOL", confidence=0.97):
         self.label, self.confidence = label, confidence
 
     def predict(self, text):
         return {"label": self.label, "confidence": self.confidence,
-                "topk": [{"label": self.label, "p": self.confidence}, {"label": "call_data", "p": 0.02}, {"label": "llm", "p": 0.01}]}
+                "topk": [{"label": self.label, "p": self.confidence}, {"label": "call_data", "p": 0.02}, {"label": "OOD", "p": 0.01}]}
 
 
-def handler_for(server, label="llm", retriever=None, **overrides):
+def handler_for(server, label="NO_TOOL", retriever=None, **overrides):
     sim = SimState()
     generator = make(server, **overrides)
     return TurnHandler(FakeRouter(label), sim.snapshot, default_registry(sim), generator=generator, retriever=retriever), generator
@@ -304,8 +304,7 @@ def test_chitchat_turn_through_the_server_is_verified_and_spoken(llm_server):
     out = handler.handle("hello there")
     assert out["route"] == "llm" and out["llm_called"] and out["spoken"] == "Hello, happy to help." and out["blocked_text"] is None
     assert out["verifier"]["ok"] and out["generation"]["status"] == "ok" and out["generation"]["attempt_log"][0]["raw"] == reply_json("Hello, happy to help.")
-    assert llm_server.requests[1]["messages"] == out["generation"]["prompt"] and generator.calls == 2
-    assert "Available tool schemas:" in llm_server.requests[0]["messages"][0]["content"]
+    assert llm_server.requests[0]["messages"] == out["generation"]["prompt"] and generator.calls == 1
 
 
 def test_bad_number_reply_is_blocked_retried_and_falls_back(llm_server):
@@ -314,7 +313,7 @@ def test_bad_number_reply_is_blocked_retried_and_falls_back(llm_server):
     out = handler.handle("hello there")
     assert out["spoken"] == POLICY["templates"]["verifier_blocked"] and out["blocked_text"] == "It is 384400 kilometers."
     assert out["generation"]["status"] == "fallback" and out["generation"]["attempts"] == 2 and "digit_in_prose" in out["generation"]["violations"]
-    assert len(llm_server.requests) == 3 and "RETRY" in llm_server.requests[2]["messages"][1]["content"]  # the corrective retry reached the server
+    assert len(llm_server.requests) == 2 and "RETRY" in llm_server.requests[1]["messages"][1]["content"]  # the corrective retry reached the server
 
 
 def test_grounded_answer_with_a_passage_number_is_verified_against_the_passage(llm_server):
@@ -332,7 +331,7 @@ def test_server_error_becomes_llm_error_and_the_tool_error_line(llm_server):
     llm_server.reply = (500, {"error": "boom"})
     handler, _ = handler_for(llm_server)
     out = handler.handle("hello there")
-    assert out["spoken"] == POLICY["templates"]["tool_error"] and "HTTP 500" in out["llm_error"] and len(llm_server.requests) == 2  # self-check then generation, neither request retried
+    assert out["spoken"] == POLICY["templates"]["tool_error"] and "HTTP 500" in out["llm_error"] and len(llm_server.requests) == 1  # never retried
 
 
 def test_unreachable_server_is_the_error_line_too():
@@ -362,13 +361,3 @@ def test_run_generation_accepts_the_adapter_directly(llm_server):
     outcome = run_generation(request(), make(llm_server), POLICY, "fallback line")
     assert outcome.status == "ok" and outcome.text == "Hello, happy to help." and outcome.latency_ms >= 0 and outcome.wall_ms >= 0
     assert FillerGenerator().generate(request()).raw  # the offline stand-in still works next to it
-
-
-@pytest.mark.parametrize("disable_thinking", [True, False])
-def test_gemini_thinking_effort_and_default_model(llm_server, disable_thinking):
-    config = load_live_llm_config(runtime="gemini", base_url=llm_server.base_url, disable_thinking=disable_thinking)
-    body = HTTPChatGenerator(config, api_key="fake").build_body(request())
-    assert config["model"] == "gemini-3.5-flash-lite"
-    assert POLICY["generation"]["deadline_ms"] == 8000
-    assert body.get("reasoning_effort") == ("minimal" if disable_thinking else None)
-    assert "seed" not in body
