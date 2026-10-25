@@ -40,7 +40,7 @@ public class WristComputer : MonoBehaviour
         var origin = GetComponentInParent<XROrigin>();
         trackingSpace = origin.CameraFloorOffsetObject.transform;
         panel.GetComponent<Canvas>().worldCamera = origin.Camera;
-        // Live in tracking space so walking and snap turns don't get smoothed.
+        // Smooth wrist tracking without smoothing walking or snap turns.
         panel.SetParent(trackingSpace, false);
         telemetry.Changed += Refresh;
         Refresh(telemetry.Current);
@@ -84,7 +84,7 @@ public class WristComputer : MonoBehaviour
         var targetPosition = trackingSpace.InverseTransformPoint(wristPosition + wristRotationWorld * wristOffset);
         var targetRotation = Quaternion.Inverse(trackingSpace.rotation) * wristRotationWorld * Quaternion.Euler(wristRotation);
 
-        // This runs twice a frame, so deltaTime would be wrong here.
+        // Use elapsed time because this runs twice per frame.
         float now = Time.realtimeSinceStartup;
         float dt = now - lastSample;
         lastSample = now;

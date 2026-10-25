@@ -44,6 +44,9 @@ Hand tracking and readability still need testing in the headset
 - Colored dots: `MapMarker` objects. Cyan habitat, green rover, yellow sample site, white landmark/crater,
   amber caution, red danger. Circles show `radius_m` zones. Far-away markers stick to the rim.
 - Bottom line: view size, grid size, and the nearest oxygen refill with distance.
+- Cyan line: the navigation route (same points as the trail on the ground, see `../Navigation/README.md`).
+  Faint while previewing or stopped, bright while navigating, grey behind you.
+  Destinations with a route always show as a pin, even without a `MapMarker`. Poke or click the pin to pick it.
 
 ## Keeping the database in sync
 

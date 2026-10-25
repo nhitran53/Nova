@@ -60,7 +60,7 @@ public class HelmetHUD : MonoBehaviour
         GetComponent<Canvas>().worldCamera = viewCamera;
         ApplyLayout();
         UpdateCompass();
-        // The camera gets a fresher head pose right before rendering, so read it then.
+        // Read the latest head pose just before rendering.
         Application.onBeforeRender += UpdateCompass;
         telemetry.Changed += Refresh;
         Refresh(telemetry.Current);
@@ -118,7 +118,7 @@ public class HelmetHUD : MonoBehaviour
         float width = Mathf.Clamp(compassWidth, 240, 640);
         float pixelsPerDegree = width / Mathf.Clamp(compassSpan, 45, 160);
         compassViewport.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, width);
-        // The 180-degree wrap happens outside the clipped ribbon, never at north.
+        // Wrap outside the visible ribbon so north scrolls smoothly.
         for (int i = 0; i < compassLabels.Length; i++)
             compassLabels[i].anchoredPosition = new Vector2(Mathf.DeltaAngle(Heading, i * 45) * pixelsPerDegree, 4);
         for (int i = 0; i < compassTicks.Length; i++)

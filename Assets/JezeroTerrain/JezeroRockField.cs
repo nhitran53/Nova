@@ -113,7 +113,7 @@ public class JezeroRockField : MonoBehaviour
                 }
                 y = Mathf.Min(y, supportHeight);
             }
-            // A little embed gives the irregular underside a visible point of contact.
+            // Sink the base slightly so uneven rocks touch the ground.
             y -= scale.y * .06f;
             rocks.Add(new Rock { position = new Vector3(x,y,z), rotation = rotation, scale = scale, variant = variant, kind = kind });
             made++;

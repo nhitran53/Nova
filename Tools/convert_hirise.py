@@ -170,7 +170,7 @@ def main():
     tz = (np.arange(texture_size) + .5) / texture_size * length
     grey = ortho.read(*to_source(ctx["west"] + x + tx, ctx["south"] + z + tz, ctx, ortho)) / 255
     texture_weight = blend_weight(tx, tz, width, length)
-    # HiRISE is greyscale; tint it so its average matches the CTX ground colour.
+    # Tint the grayscale image to match the surrounding CTX ground.
     tint = GROUND / grey[texture_weight == 1].mean()
     rgb = GROUND + texture_weight[..., None] * (grey[..., None] * tint - GROUND)
     # PNG rows run north to south; terrain height rows run south to north.

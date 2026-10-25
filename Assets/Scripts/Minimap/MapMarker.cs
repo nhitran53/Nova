@@ -2,13 +2,12 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-// Same values as the CHECK constraints on map_locations in schema.sql.
-// Lower-case on purpose so ToString() is exactly the database value.
+// Match the map_locations values in schema.sql.
+// Keep lowercase names so ToString() matches the database.
 public enum MapLocationType { habitat, rover, sample_site, landmark, crater, hazard, waypoint }
 public enum MapHazardLevel { safe, caution, danger }
 
-// One point on the minimap. Field names match the map_locations columns,
-// so JsonUtility can read GET /map straight into it later.
+// Map point fields match the database columns and GET /map response.
 [Serializable]
 public class MapPoint
 {
@@ -23,9 +22,8 @@ public class MapPoint
     public string source;
 }
 
-// Put this on an empty GameObject in the scene (habitat, rover, sample site...).
-// The minimap draws every enabled MapMarker, and Tools > Nova > Minimap > Copy map_locations SQL
-// turns them into INSERT rows so the database uses the same coordinates as the scene.
+// Add to an empty scene object to mark a location on the minimap.
+// Copy map_locations SQL exports these markers with their scene coordinates.
 [DisallowMultipleComponent]
 public class MapMarker : MonoBehaviour
 {
@@ -77,7 +75,7 @@ public class MapMarker : MonoBehaviour
     }
 }
 
-// Colors shared by the minimap and the scene gizmos.
+// Shared colors for map markers and scene gizmos.
 public static class MinimapStyle
 {
     public static Color ColorFor(string locationType, string hazardLevel)

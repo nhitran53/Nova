@@ -292,7 +292,7 @@ public static class JezeroTerrainImporter
                     float h = reader.ReadUInt16() / 65535f;
                     float cx = map.ctxCellX + x / (map.resolution - 1f) * map.ctxCells;
                     float cz = map.ctxCellZ + z / (map.resolution - 1f) * map.ctxCells;
-                    // Match Unity's stored CTX heights in the collar, including its import quantization.
+                    // Match the stored CTX heights along the patch edge to avoid seams.
                     float sourceY = ctx.baseElevation + Sample(coarse, cx, cz) * ctx.heightRange;
                     float unityY = ctx.baseElevation + original.GetInterpolatedHeight(cx / 1024, cz / 1024);
                     heights[z, x] = h + (unityY - sourceY) * (1 - CollarWeight(x, z, map)) / map.heightRange;

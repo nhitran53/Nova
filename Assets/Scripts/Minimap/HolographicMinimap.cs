@@ -11,12 +11,15 @@ public class HolographicMinimap : MonoBehaviour
     [Tooltip("Adjustment after choosing an upright, viewer-facing orientation when opening.")]
     [SerializeField] Vector3 rotationOffset;
     [SerializeField, Range(.18f, .5f)] float diameterMeters = .32f;
+    [Tooltip("Open the map over the right hand as soon as that hand is first tracked.")]
+    [SerializeField] bool startOnHand;
 
     MarsMinimap map;
     XRHandTrackingEvents rightHand;
     Transform wrist, anchor, boundHead, trackingSpace;
     Quaternion palmRotation;
     float nextSearch;
+    bool openedAtStart;
 
     public bool RightHandTracked => rightHand != null && rightHand.isActiveAndEnabled &&
         rightHand.handIsTracked && wrist != null && wrist.gameObject.activeInHierarchy;
@@ -50,6 +53,11 @@ public class HolographicMinimap : MonoBehaviour
             }
         }
         if (map.Holographic && !RightHandTracked) ReturnToHud();
+        if (startOnHand && !openedAtStart && !map.Holographic && RightHandTracked && map.DockedInHelmetHud)
+        {
+            openedAtStart = true;   // only the first time; after that the pinch decides
+            Toggle();
+        }
     }
 
     [ContextMenu("Toggle Holographic Map")]
@@ -62,7 +70,7 @@ public class HolographicMinimap : MonoBehaviour
             anchor = new GameObject("Right Palm Map Anchor").transform;
             anchor.SetParent(trackingSpace, false);
         }
-        // Freeze the readable orientation at opening; subsequent rotation belongs to the hand.
+        // Face the user when opened then rotate with the hand.
         Vector3 normal = map.head.position - wrist.TransformPoint(palmOffset);
         if (normal.sqrMagnitude < .001f) normal = -map.head.forward;
         normal.Normalize();
