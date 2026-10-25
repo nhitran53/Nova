@@ -11,8 +11,8 @@ class MenuRouter:
 
     def predict(self, text):
         self.seen.append(text)
-        return {'label': 'call_safety', 'confidence': .8, 'topk': [
-            {'label': 'call_safety', 'p': .8}, {'label': 'call_navigation', 'p': .15},
+        return {'label': 'call_safety', 'confidence': .7, 'topk': [
+            {'label': 'call_safety', 'p': .7}, {'label': 'call_navigation', 'p': .15},
             {'label': 'NO_TOOL', 'p': .05}]}
 
 
@@ -60,7 +60,7 @@ def test_wall_expiry_and_critical_preemption_clear_state():
     assert h.pending_clarification is None
     h, sim, _ = rig()
     sim.values["o2_pct"] = 10
-    assert h.handle('navigation')['route'] == 'alert'
+    assert h.handle('navigation')['alert_line']
     assert h.pending_clarification is None and h.pending_confirmation is None
 
 
@@ -85,7 +85,7 @@ def test_missing_oxygen_is_explicit_without_a_contact_offer():
     h.alert_source = lambda: {'bpm': 72}
     r = h.handle('navigation')
     assert r['tool_result']['data']['feasibility']['outcome'] == 'unavailable'
-    assert 'not trip clearance' in r['spoken'] and r['pending_confirmation'] is None
+    assert 'oxygen feasibility is unavailable' in r['spoken'] and r['pending_confirmation'] is None
 
 
 @pytest.mark.parametrize('answer', ['2', 'option 2', 'call_navigation'])
@@ -120,7 +120,7 @@ def test_distance_context_and_two_destinations():
     h, _, _ = rig('how far is base 2')
     r = h.handle('navigation')
     assert r['tool_result']['data']['response_mode'] == 'distance'
-    assert r['spoken'].startswith('base 2 is about')
+    assert r['spoken'].startswith('base 2 is 17 minutes away.')
     h, _, _ = rig('can i make it to the rover or home')
     assert h.handle('navigation')['tool_calls'] == 0
     assert h.handle('second')['tool_call']['args'] == {'place': 'homebase'}
@@ -176,10 +176,7 @@ def test_navigation_budget_phrasings_choose_assessment_without_changing_tool(tex
     data = result['tool_result']['data']
     assert data['response_mode'] == mode and not result['llm_called']
     assert result['verifier']['ok'] and result['blocked_text'] is None
-    if mode != 'distance':
-        assert result['spoken'].startswith(load_policy()['clarification'][mode].format(**data))
-    else:
-        assert result['spoken'].startswith('base 2 is about')
+    assert result['spoken'].startswith(f"base 2 is {data['feasibility']['outbound_min']} minutes away.")
     assert 'Oxygen budget' not in result['spoken'] and data['feasibility']['margin_min'] is not None
 
 
@@ -190,3 +187,83 @@ def test_distance_question_with_origin_form_place_needs_no_slot_question_after_m
     assert r['tool_call']['args'] == {'place': 'comms_tower'}
     assert r['route'] != 'slot_question' and not r['llm_called']
     assert r['tool_result']['data']['response_mode'] == 'distance'
+
+
+@pytest.mark.parametrize('text,options,has_note', [
+    ('check my status', ['call_safety', 'call_navigation', 'call_map'], False),
+    ('can i make it home', ['call_safety', 'call_navigation', 'call_map'], True),
+    ('can i make the trip', ['call_safety', 'call_navigation', 'call_map'], True),
+    ('can i make it home', ['call_navigation', 'call_map', 'call_safety'], False),
+])
+def test_menu_destination_note_only_for_offered_safety_and_destination_context(text, options, has_note):
+    from router.turn import load_policy
+
+    sim = SimState()
+    router = MenuRouter()
+    router.predict = lambda _: {'label': options[0], 'confidence': .7, 'topk': [
+        {'label': label, 'p': p} for label, p in zip(options, [.7, .15, .05])]}
+    h = TurnHandler(router, sim.snapshot, default_registry(sim))
+    result = h.handle(text)
+    assert (load_policy()['clarification']['menu_destination_note'] in result['spoken']) == has_note
+    assert result['verifier']['ok'] and result['tool_calls'] == 0
+    assert result['pipeline']['options'] == options[:2]
+    assert h.pending_clarification['choices'] == options[:2]
+    assert h.pending_clarification['out']['options'] == options[:2]
+
+
+@pytest.mark.parametrize('answer,tool', [('map', None), ('third', None), ('second', 'navigation')])
+def test_menu_trimming_keeps_only_top_two_and_selection_uses_trimmed_set(answer, tool):
+    sim = SimState()
+    router = MenuRouter()
+    router.predict = lambda _: {'label': 'call_safety', 'confidence': .7, 'topk': [
+        {'label': 'call_safety', 'p': .7}, {'label': 'call_navigation', 'p': .15},
+        {'label': 'call_map', 'p': .05}]}
+    h = TurnHandler(router, sim.snapshot, default_registry(sim))
+    first = h.handle('can i make it home')
+    map_name = h.pipeline.config['tool_labels']['call_map']['spoken']
+    assert map_name not in first['spoken']
+    result = h.handle(answer)
+    assert result['tool_calls'] == (1 if tool else 0)
+    assert len(router.seen) == 0  # injected predictor never reclassifies the answer
+    if tool:
+        assert result['tool_call']['name'] == tool
+        assert result['clarification_selection']['offered'] == ['call_safety', 'call_navigation']
+    else:
+        assert h.pending_clarification['choices'] == ['call_safety', 'call_navigation']
+
+
+@pytest.mark.parametrize('value', [0, -1, True, 1.5, '2', None])
+def test_policy_loader_rejects_bad_clarification_max_options(tmp_path, value):
+    import json
+    from router.turn import load_policy
+
+    policy = load_policy()
+    policy['clarification']['max_options'] = value
+    path = tmp_path / 'policy.json'
+    path.write_text(json.dumps(policy))
+    with pytest.raises(ValueError, match='clarification.max_options'):
+        load_policy(path)
+
+
+def test_policy_loader_defaults_clarification_max_options(tmp_path):
+    import json
+    from router.turn import load_policy
+
+    policy = load_policy()
+    del policy['clarification']['max_options']
+    path = tmp_path / 'policy.json'
+    path.write_text(json.dumps(policy))
+    assert load_policy(path)['clarification']['max_options'] == 2
+
+
+@pytest.mark.parametrize('value', ['', None, 42])
+def test_policy_loader_rejects_bad_menu_destination_note(tmp_path, value):
+    import json
+    from router.turn import load_policy
+
+    policy = load_policy()
+    policy['clarification']['menu_destination_note'] = value
+    path = tmp_path / 'policy.json'
+    path.write_text(json.dumps(policy))
+    with pytest.raises(ValueError, match='clarification.menu_destination_note'):
+        load_policy(path)

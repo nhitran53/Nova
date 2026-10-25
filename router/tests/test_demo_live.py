@@ -89,7 +89,7 @@ def test_deadline_flag_bounds_the_turn(capsys, tmp_path, llm_server):
 
 def test_critical_alert_bypasses_the_llm(capsys, tmp_path, llm_server):
     out = run(capsys, ["--base-url", llm_server.base_url], "/set o2_pct=14\nhi\n", tmp_path)
-    assert "Critical alert. Oxygen at 14.0 percent" in out and "llm     : no (critical alert" in out and llm_server.requests == []
+    assert "Critical alert. Oxygen at 14.0 percent" in out and "llm     : no (route fast_reply: template)" in out and llm_server.requests == []
 
 
 def test_advance_flag_and_command_move_the_sim(capsys, tmp_path):
@@ -215,8 +215,8 @@ def test_completion_echoing_the_api_key_never_reaches_the_output(capsys, tmp_pat
 
 def test_pos_command_in_a_script_changes_the_distance_and_help_lists_it(capsys, tmp_path):
     out = run(capsys, ["--no-llm"], "how far is home\n/pos 500 0\nhow far is home\n/pos nope\n/help\n", tmp_path)
-    assert "homebase is about 0 meters away" in out and "astronaut moved to x=500 z=0" in out
-    assert "homebase is about 500 meters away, roughly 9 minutes on foot" in out
+    assert "homebase is 0 minutes away" in out and "astronaut moved to x=500 z=0" in out
+    assert "homebase is 9 minutes away" in out
     assert "usage: /pos X Z" in out and "/pos X Z (astronaut position in meters)" in out
 
 
@@ -239,7 +239,7 @@ def test_default_checkpoint_is_v2_with_a_message_fallback_to_v1(capsys, tmp_path
 
 def test_hi_deterministic_and_keyboard_interrupt_exits_cleanly(capsys, tmp_path):
     out = run(capsys, ["--no-llm"], "hi\n", tmp_path)
-    assert "Hey, I'm Nova, your navigation and observation voice assistant." in out
+    assert "Hello. How can I help?" in out  # fast_replies greeting (policy PLACEHOLDER line)
     assert "llm     : CALLED" not in out
 
     class InterruptedInput:

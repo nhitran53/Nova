@@ -4,12 +4,15 @@ Load the router in the background while listening.
 Speak each verified reply before opening the microphone again.
 Silence or a stop request ends the session. Barge-in is not supported.
 Read the API key from the repo-root .env (or $NOVA_ENV_FILE) or the environment and keep it out of errors.
+Alerts precede queued normal speech without interrupting playback.
+NOVA_DEMO_SCENE enables the simulated fault and print-offer scene.
 """
 import argparse
 import asyncio
 import base64
 import os
 import queue
+import itertools
 import sys
 import threading
 import warnings
@@ -183,24 +186,36 @@ def _load_router(model, device):
 
 
 class SpeechQueue:
-    """Single-worker FIFO around a blocking speak function `speak_fn(text, route, block=True)` (tts.speak).
+    """Single-worker priority queue around a blocking speak function `speak_fn(text, route, block=True)` (tts.speak).
 
-    `enqueue` returns at once; lines play one at a time in order, so an interim line finishes before the final one starts.
+    Priority lines precede queued normal lines (FIFO within each priority). Alerts wait for current playback;
+    no mid-playback interruption is attempted. `enqueue` returns at once.
     A failing line does not stop the worker: its error is kept and handed out by `drain()`, never swallowed."""
 
     def __init__(self, speak_fn):
         self._speak_fn = speak_fn
-        self._lines = queue.Queue()
+        self._lines = queue.PriorityQueue()
+        self._sequence = itertools.count()
         self._errors = []
         self._errors_lock = threading.Lock()
         threading.Thread(target=self._work, daemon=True, name="speech-queue").start()
 
-    def enqueue(self, text, route=None):
-        self._lines.put((text, route))
+    def enqueue(self, text, route=None, priority=False):
+        self._lines.put((0 if priority else 1, next(self._sequence), (text, route)))
+
+    def clear_pending(self):
+        """Discard queued non-priority lines, never current playback or queued alerts."""
+        with self._lines.mutex:
+            kept = [item for item in self._lines.queue if item[0] != 1]
+            removed = len(self._lines.queue) - len(kept)
+            self._lines.queue[:] = sorted(kept)
+            self._lines.unfinished_tasks -= removed
+            if not self._lines.unfinished_tasks:
+                self._lines.all_tasks_done.notify_all()
 
     def _work(self):
         while True:
-            item = self._lines.get()
+            _, _, item = self._lines.get()
             try:
                 if item is None:
                     return
@@ -220,7 +235,7 @@ class SpeechQueue:
         return errors
 
     def close(self):
-        self._lines.put(None)
+        self._lines.put((2, next(self._sequence), None))
 
 
 def default_speech_queue():
@@ -245,13 +260,28 @@ def _default_handler(router, speak, llm_options=None, speech=None, datasource=No
         policy["generation"]["deadline_ms"] = options["deadline_ms"]
     if speak and speech is None:
         speech = default_speech_queue()
+    from .retrieval import make_retriever
+    from .demo_scene import DEFAULT_DOCS_DIR, demo_scene_enabled
+    from .tools import DEMO_ROVER_FAULTS
+    demo = demo_scene_enabled(policy, options, os.environ)  # unset flag/env/option == unchanged behaviour
+    docs_dir = options.get("docs_dir") or os.environ.get("NOVA_DOCS_DIR") or (str(DEFAULT_DOCS_DIR) if demo else None)
+    retriever = make_retriever(docs_dir) if docs_dir else None
+    if demo:
+        policy["demo_scene"]["enabled"] = True
     if datasource is not None:
         alert_source, registry = datasource.snapshot, default_registry(datasource=datasource)
     else:
-        sim = SimState()
+        sim = SimState(rover_faults=DEMO_ROVER_FAULTS if demo else None)
         alert_source, registry = sim.snapshot, default_registry(sim)
-    handler = TurnHandler(router, alert_source, registry, generator=generator, policy=policy,
-                          interim_fn=speech.enqueue if speak else None, tts_fn=speech.enqueue if speak else None)
+    def deliver(text, route):
+        if route == "alert":
+            speech.clear_pending()
+            speech.enqueue(text, route, priority=True)
+        else:
+            speech.enqueue(text, route)
+
+    handler = TurnHandler(router, alert_source, registry, generator=generator, policy=policy, retriever=retriever,
+                          interim_fn=speech.enqueue if speak else None, tts_fn=deliver if speak else None)
     handler.generator_label = label
     return handler
 
@@ -272,7 +302,7 @@ def listen_and_route(model=None, device="cpu", speak=False, frames=None, router_
     -> {"transcript": str, "turn": TurnHandler result or None (nothing heard)}.
     `frames` defaults to the microphone. `background`/`handler` let `converse` reuse one router and one handler
     (so clarification/confirmation state carries across turns); `router_loader`/`handler_factory` are for tests.
-    `llm_options` (no_llm, runtime, base_url, llm_model, deadline_ms) configure the default handler's generator. When this
+    `llm_options` (no_llm, runtime, base_url, llm_model, deadline_ms, docs_dir) configure the default handler's generator. When this
     call builds the default handler itself it waits for the speech queue before returning (converse owns its own queue).
     `stop_event` (threading.Event, optional): setting it ends the listening early; nothing heard -> turn None.
     `on_transcript(text)` (optional) is called once the utterance is committed, before routing/tools/generation start."""

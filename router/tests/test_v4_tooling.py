@@ -340,7 +340,7 @@ def test_older_v4_schema_retains_checkpoint_contract(tmp_path):
     ('OOD', .8, 'a neutral statement', 'ood', False),
     ('NO_TOOL', .8, 'a neutral statement', 'llm', False),
     ('call_llm', .8, 'what is a rainbow', 'llm', False),
-    ('call_navigation', .8, 'take me to base 2', 'clarify', True),
+    ('call_navigation', .7, 'take me to base 2', 'clarify', True),
     ('call_navigation', .99, 'can i make it to', 'slot_question', True),
     ('OOD', .1, 'a neutral statement', 'low_confidence', True),
     ('call_o2', .99, 'check my oxygen', 'tool', False),

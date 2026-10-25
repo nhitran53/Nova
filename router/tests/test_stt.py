@@ -317,6 +317,48 @@ def test_converse_on_turn_gets_each_turn_and_stop_between_turns_ends_it():
     assert sum(e == "listening..." for e in events) == 1 and any("stopped" in e for e in events)
 
 
+@pytest.mark.parametrize('clear', [False, True])
+def test_speech_queue_priority_order_and_clear_pending_preserve_current_and_alerts(clear):
+    started, release = threading.Event(), threading.Event()
+    played = []
+
+    def speak(text, route, block):
+        played.append(text)
+        if text == 'current':
+            started.set()
+            assert release.wait(5)
+
+    speech = stt.SpeechQueue(speak)
+    speech.enqueue('current')
+    assert started.wait(5)
+    speech.enqueue('normal')
+    speech.enqueue('alert first', priority=True)
+    speech.enqueue('alert second', priority=True)
+    if clear:
+        speech.clear_pending()
+    speech.enqueue('answer')
+    release.set()
+    assert speech.drain() == []
+    assert played == ['current', 'alert first', 'alert second'] + ([] if clear else ['normal']) + ['answer']
+    speech.close()
+
+
+def test_default_handler_enqueues_alert_with_priority_before_read_only_answer(monkeypatch):
+    healthy_server(monkeypatch)
+    events = []
+
+    class QueueSpy:
+        def clear_pending(self):
+            events.append('clear')
+
+        def enqueue(self, text, route=None, priority=False):
+            events.append((text, route, priority))
+
+    handler = stt._default_handler(FakeRouter('call_o2', .99), speak=True, speech=QueueSpy())
+    handler.alert_source = lambda: {'o2_pct': 14.2}
+    out = handler.handle('check oxygen')
+    assert events == ['clear', (out['lines'][0], 'alert', True), (out['lines'][1], 'tool', False)]
+
 def test_converse_on_transcript_fires_before_the_handler_routes_the_text():
     import itertools
     import threading
@@ -333,3 +375,30 @@ def test_converse_on_transcript_fires_before_the_handler_routes_the_text():
                  client_factory=lambda k: FakeClient(FakeConnection("one")), frames=itertools.cycle([b"\x00\x01" * 1600]),
                  timeout_s=0.5, on_event=lambda e: None)
     assert order == [("transcript", "one"), ("handle", "one")]
+
+
+@pytest.mark.parametrize("demo", [False, True])
+def test_default_handler_datasource_preserves_live_readings_without_demo_faults(monkeypatch, demo):
+    monkeypatch.delenv("NOVA_DOCS_DIR", raising=False)
+    monkeypatch.delenv("NOVA_DEMO_SCENE", raising=False)
+
+    class Datasource:
+        def snapshot(self):
+            return {"o2_pct": 50.0, "minutes_remaining": 100, "bpm": 80}
+
+    datasource = Datasource()
+    handler = stt._default_handler(FakeRouter("call_o2", .99), speak=False, datasource=datasource,
+                                   llm_options={"no_llm": True, "demo_scene": demo})
+    assert handler.alert_source == datasource.snapshot
+    assert "rover_faults" not in handler.alert_source()
+    assert handler.policy["demo_scene"]["enabled"] is demo
+    if demo:
+        out = handler.handle("what is this")
+        assert out["route"] == "scene"
+        assert out["spoken"] == handler.policy["demo_scene"]["no_fault_line"]
+        assert handler.pending_confirmation is None and out["tool_calls"] == 0
+    else:
+        assert handler.retriever is None
+        out = handler.handle("check oxygen")
+        assert out["tool_calls"] == 1 and out["tool_result"]["ok"]
+        assert out["tool_result"]["data"]["o2_pct"] == 50.0

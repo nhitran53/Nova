@@ -86,16 +86,27 @@ class Rig:
 def test_critical_alert_preempts_every_class_and_calls_neither_router_nor_llm(label, confidence):
     arbiter = FakeArbiter(label)
     rig = Rig(label, confidence, snapshot=CRITICAL, arbiter=arbiter)
+    class CountingGenerator:
+        calls = 0
+        def generate(self, request):
+            self.calls += 1
+            raise AssertionError("generator must never run under an alert")
+    generator = rig.handler.generator = CountingGenerator()
     out = rig.say("take me to the airlock")
-    assert out["route"] == "alert" and out["spoken"].startswith("Critical alert. Oxygen at 14.2 percent")
-    assert rig.router.seen == [] and rig.llm.calls == [] and arbiter.calls == []
-    assert rig.registry.log == [] and out["tool_calls"] == 0 and out["pipeline"] is None and not out["llm_called"]
-    assert out["verifier"]["ok"]
+    assert out["lines"][0] == out["alert_line"] and out["spoken"].startswith("Critical alert. Oxygen at 14.2 percent")
+    assert out["alert_verifier"]["ok"] and out["verifier"]["ok"]
+    assert rig.router.seen and rig.llm.calls == [] and generator.calls == 0 and not out["llm_called"]
+    assert all(name in {"navigation", "map", "data", "o2", "safety"} for name, _ in rig.registry.log)
+    assert rig.handler.pending_confirmation is None and rig.handler.pending_clarification is None
+    if label in {"NO_TOOL", "call_llm"} and confidence == .99:
+        assert out["lines"][1] == rig.handler.policy["templates"]["alert_active_deferred"]
 
 
 def test_several_critical_alerts_are_all_spoken_in_policy_priority_order():
     rig = Rig(snapshot={**CRITICAL, "radiation_usv_h": 60.0})
-    spoken = rig.say("hi")["spoken"]
+    out = rig.say("hi")
+    spoken = out["lines"][0]
+    assert spoken == out["alert_line"] and out["alert_verifier"]["ok"]
     assert spoken.index("Oxygen") < spoken.index("Radiation")
 
 
@@ -164,7 +175,7 @@ def test_navigation_with_a_place_runs_one_tool_and_speaks_the_tool_result():
     rig = Rig("call_navigation")
     out = rig.say("go from the rover to the airlock")
     assert rig.registry.log == [("navigation", {"place": "airlock"})] and out["tool_calls"] == 1
-    assert out["spoken"].startswith("Navigation information for airlock: estimated straight-line distance 80 meters, walking time 1 minutes. ") and out["verifier"]["ok"]
+    assert out["spoken"].startswith("airlock is 2 minutes away. ") and out["verifier"]["ok"]
 
 
 # ---- 5. low confidence / OOD / llm ----
@@ -198,7 +209,7 @@ def test_llm_output_with_an_unsupported_number_is_blocked():
 
 def test_llm_output_with_a_spelled_out_number_is_blocked_too():
     rig = Rig("NO_TOOL", 0.97, llm=FakeLLM("You have about twenty one minutes left."))
-    assert rig.say("hello")["blocked_text"] is not None
+    assert rig.say("hello there")["blocked_text"] is not None
 
 
 # ---- 4. one call per turn, tool limit, schemas ----
@@ -224,7 +235,7 @@ def test_more_than_eight_tools_raises():
 
 def test_default_registry_has_six_fixed_schema_tools_and_rejects_bad_calls():
     registry = default_registry()
-    assert registry.names() == ["safety", "navigation", "map", "data", "o2", "send_message"]
+    assert registry.names() == ["safety", "navigation", "map", "data", "o2", "send_message", "queue_print"]
     assert len(registry.names()) <= MAX_TOOLS
     registry.begin_turn()
     with pytest.raises(SchemaError):
@@ -296,7 +307,8 @@ def test_verifier_hook_is_injectable_and_applies_to_every_route():
         Rig(label, conf, verifier=spy).say("take me to the airlock")
         assert len(seen) == before + 1
     Rig(snapshot=CRITICAL, verifier=spy).say("x")
-    assert seen[-1][1] == CRITICAL  # alerts are verified against the sim snapshot
+    # Deliberately two verifications now: alert/snapshot, then answer/tool result (not a merged source).
+    assert seen[-2][1] == CRITICAL and seen[-1][1]["tool"] == "o2"
 
 
 @pytest.mark.parametrize("text, source, ok", [
@@ -344,8 +356,8 @@ def test_vague_quantity_words_are_reported_as_unsupported():
 def test_negative_temperature_critical_alert_is_spoken_unblocked():
     rig = Rig(snapshot={**CRITICAL, "o2_pct": 87.5, "temp_c": -20})
     out = rig.say("hi")
-    assert out["route"] == "alert" and out["blocked_text"] is None and out["verifier"]["ok"]
-    assert out["spoken"] == "Critical alert. Suit temperature -20.0 degrees Celsius. Return to the airlock now."
+    assert out["alert_line"] and out["blocked_text"] is None and out["alert_verifier"]["ok"]
+    assert out["alert_line"] == "Critical alert. Suit temperature -20.0 degrees Celsius. Return to the airlock now."
     assert rig.router.seen == [] and rig.llm.calls == []
 
 
@@ -353,7 +365,8 @@ def test_two_critical_alerts_with_a_negative_value_are_both_spoken():
     rig = Rig(snapshot={**CRITICAL, "temp_c": -20})  # CRITICAL already has o2 at 14.2
     out = rig.say("hi")
     assert out["blocked_text"] is None and out["verifier"]["ok"]
-    assert "Oxygen at 14.2 percent" in out["spoken"] and "Suit temperature -20.0 degrees Celsius" in out["spoken"]
+    assert out["lines"][0] == out["alert_line"] and out["alert_verifier"]["ok"]
+    assert "Oxygen at 14.2 percent" in out["alert_line"] and "Suit temperature -20.0 degrees Celsius" in out["alert_line"]
 
 
 def test_hard_tool_cap_applies_to_the_constructor():
@@ -451,36 +464,32 @@ def test_feasibility_outcome_boundaries_for_a_round_trip(minutes, outcome):
     assert out["tool_calls"] == 1 and out["tool_call"] == {"name": "navigation", "args": {"place": "outpost"}}
 
 
-@pytest.mark.parametrize("minutes, tail", [
-    (212, "Oxygen check: the round trip needs 60 minutes with 10 reserve; you have 212."),
-    (55, "Warning, oxygen margin is tight: 25 out, 25 back, 10 reserve is 60 minutes; you have 55. "
-         "Do you want me to call outpost and check if they have oxygen refills?"),
-    (45, "Warning, you cannot get back home without a refill: 25 out plus 25 back is 50; "
-         "you have 45. Do you want me to call outpost and check if they have oxygen refills?"),
-    (20, "Warning, you cannot reach it on your oxygen: 25 minutes out; you have 20. "
-         "Do you want me to call outpost and check if they have oxygen refills?"),
+@pytest.mark.parametrize("minutes, report", [
+    (212, "You have enough oxygen for the round trip."),
+    (55, "Your oxygen margin for the round trip is tight."),
+    (45, "You have enough oxygen to get there, but not back. Do you want me to call outpost to check for refills?"),
+    (20, "You do not have enough oxygen to get there. Do you want me to call outpost to check for refills?"),
 ])
-def test_feasibility_line_is_spoken_after_the_route_line_with_numbers_from_the_tool_result(minutes, tail):
+def test_feasibility_concise_line_uses_only_tool_feasibility_numbers(minutes, report):
     rig, out = nav(minutes)
-    expected = load_policy()['clarification']['guidance'].format(**out['tool_result']['data'])
-    assert 'budget' not in load_policy()['clarification'] and 'Oxygen budget' not in out['spoken']
-    assert out['spoken'] == expected + ' ' + tail
-    assert out["verifier"]["ok"] and out["blocked_text"] is None
-    spoken = set(out["verifier"]["spoken"])
-    assert spoken <= {1500.0, 25.0, 50.0, 10.0, 60.0, float(minutes), float(minutes - 60)}
+    assert out['spoken'] == 'outpost is 25 minutes away. ' + report
+    assert out['verifier']['ok'] and out['blocked_text'] is None
+    assert set(out['verifier']['spoken']) == {float(feasibility(out)['outbound_min'])}
+    if minutes == 55:
+        assert out['pending_confirmation'] is None and rig.handler.pending_confirmation is None
 
 
 def test_the_route_is_never_refused_even_when_the_destination_cannot_be_reached():
     rig, out = nav(5)
     assert feasibility(out)["outcome"] == "cannot_reach" and out["route"] == "tool"
-    assert rig.registry.log == [("navigation", {"place": "outpost"})] and out["spoken"].startswith("Navigation information for outpost:")
+    assert rig.registry.log == [("navigation", {"place": "outpost"})] and out["spoken"].startswith("outpost is 25 minutes away.")
 
 
 @pytest.mark.parametrize("minutes, outcome, tail", [
-    (212, "comfortable", "Oxygen check: home needs 12 minutes with 10 reserve; you have 212."),
-    (12, "comfortable", "Oxygen check: home needs 12 minutes with 10 reserve; you have 12."),
-    (11, "tight", "Warning, oxygen margin is tight: home takes 2 minutes plus 10 reserve, 12 in all; you have 11."),
-    (1, "cannot_reach", "Warning, you cannot reach home on your oxygen: 2 minutes; you have 1."),
+    (212, "comfortable", "homebase is 2 minutes away. You have enough oxygen to get home."),
+    (12, "comfortable", "homebase is 2 minutes away. You have enough oxygen to get home."),
+    (11, "tight", "homebase is 2 minutes away. Your oxygen margin for getting home is tight."),
+    (1, "cannot_reach", "homebase is 2 minutes away. You do not have enough oxygen to get home."),
 ])
 def test_home_as_destination_skips_the_return_leg_and_never_says_cannot_return(minutes, outcome, tail):
     rig, out = nav(minutes, text="take me home")
@@ -502,7 +511,7 @@ def test_o2_minutes_fall_back_to_the_percent_rate_and_no_o2_data_means_no_feasib
 def test_without_o2_data_navigation_explicitly_reports_unavailable_and_no_offer_is_pending():
     rig = Rig("call_navigation", snapshot={"bpm": 72})
     out = rig.say("take me to the outpost")
-    assert out["spoken"].endswith(load_policy()["clarification"]["unavailable"])
+    assert out["spoken"] == "outpost: oxygen feasibility is unavailable."
     assert out["tool_result"]["data"]["feasibility"]["outcome"] == "unavailable" and rig.handler.pending_confirmation is None
 
 
@@ -514,7 +523,7 @@ def test_legs_are_rounded_up_and_remaining_down_so_the_check_is_conservative():
 
 def test_a_feasibility_line_with_a_number_not_in_the_tool_result_is_blocked_and_no_offer_is_stored():
     policy = copy.deepcopy(load_policy())
-    policy["feasibility"]["lines"]["tight"] = "Warning, tight: {required_min} needed, 99 available."
+    policy["feasibility"]["concise"]["tight"] = "Warning, tight: {required_min} needed, 99 available."
     rig, out = nav(55, policy=policy)
     assert out["spoken"] == policy["templates"]["verifier_blocked"] and out["verifier"]["unsupported"] == [99.0]
     assert rig.handler.pending_confirmation is None and out["pending_confirmation"] is None
@@ -528,7 +537,7 @@ def test_comfortable_navigation_and_non_navigation_tools_store_no_offer():
 
 
 # ---- B. refill-call offer: stateful confirmation ----
-@pytest.mark.parametrize("minutes, urgency", [(55, "normal"), (45, "urgent"), (20, "urgent")])
+@pytest.mark.parametrize("minutes, urgency", [(45, "urgent"), (20, "urgent")])
 def test_yes_makes_exactly_one_send_message_with_urgency_from_the_feasibility_outcome(minutes, urgency):
     rig, offer = nav(minutes)
     assert offer["pending_confirmation"]["kind"] == "refill_call" and rig.handler.pending_confirmation is not None
@@ -544,8 +553,8 @@ def test_yes_makes_exactly_one_send_message_with_urgency_from_the_feasibility_ou
 
 
 def test_confirming_recomputes_feasibility_from_the_current_snapshot():
-    rig, offer = nav(55)  # outpost: tight, "normal" urgency at offer time
-    assert offer["pending_confirmation"]["outcome"] == "tight" and offer["pending_confirmation"]["distance_m"] == 1500
+    rig, offer = nav(45)
+    assert offer["pending_confirmation"]["outcome"] == "cannot_return" and offer["pending_confirmation"]["distance_m"] == 1500
     rig.sim.values["minutes_remaining"] = 20  # oxygen dropped while the offer was pending: cannot_reach now
     out = rig.say("yes")
     message = ("Nova relay: an astronaut heading to outpost has 20 minutes of oxygen and the trip needs 60. "
@@ -557,7 +566,7 @@ def test_confirming_recomputes_feasibility_from_the_current_snapshot():
 
 @pytest.mark.parametrize("override", [{"minutes_remaining": 212}, {"minutes_remaining": 60}], ids=["recovered", "boundary"])
 def test_confirming_when_no_refill_is_needed_any_more_sends_nothing_and_speaks_the_fixed_line(override):
-    rig, _ = nav(55)
+    rig, _ = nav(45)
     rig.sim.values.update(override)
     out = rig.say("yes")
     assert out["route"] == "refill_not_needed" and out["spoken"] == load_policy()["confirmation"]["no_longer_needed"]
@@ -566,7 +575,7 @@ def test_confirming_when_no_refill_is_needed_any_more_sends_nothing_and_speaks_t
 
 
 def test_confirming_without_o2_data_any_more_sends_nothing():
-    rig, _ = nav(55)
+    rig, _ = nav(45)
     rig.snapshot = {"bpm": 72}
     out = rig.say("yes")
     assert out["route"] == "refill_not_needed" and len(rig.registry.log) == 1
@@ -626,7 +635,7 @@ def test_critical_alert_preempts_and_clears_a_pending_offer():
     rig, _ = nav(45)
     rig.snapshot = CRITICAL
     out = rig.say("yes")
-    assert out["route"] == "alert" and out["tool_calls"] == 0 and rig.handler.pending_confirmation is None
+    assert out["alert_line"] and out["tool_calls"] == 0 and rig.handler.pending_confirmation is None
     rig.snapshot = None
     assert rig.say("yes")["route"] != "confirmed_yes" and len(rig.registry.log) == 1
 
@@ -752,7 +761,7 @@ def test_chitchat_without_a_risk_term_still_reaches_the_llm_stub(text):
 def test_chitchat_never_consults_the_retriever():
     calls = []
     rig = Rig("NO_TOOL", 0.97, retriever=lambda text: calls.append(text) or [PASSAGE])
-    rig.say("hello")
+    rig.say("hello there")
     assert calls == []
 
 
@@ -813,3 +822,273 @@ def test_ood_and_low_confidence_never_reach_the_retriever_or_llm():
 
 def test_new_policy_sections_exist():  # that every section is labelled PLACEHOLDER is pinned by the loader test above
     assert {"feasibility", "confirmation", "send_message", "llm_scope"} <= set(load_policy())
+
+
+@pytest.mark.parametrize('phrase', load_policy()['confirmation']['accept_as_order'])
+def test_accept_as_order_declines_refill_without_routing_or_sending(phrase):
+    rig, _ = nav(20, text='take me to base 2')
+    seen = list(rig.router.seen)
+    out = rig.say(phrase)
+    assert out['accepted_as_order'] is True
+    assert out['spoken'] == 'Okay, not calling. Continuing to base 2.'
+    assert out['verifier']['ok'] and out['blocked_text'] is None
+    assert out['tool_calls'] == 0 and len(rig.registry.log) == 1
+    assert rig.router.seen == seen and rig.handler.pending_confirmation is None
+
+
+@pytest.mark.parametrize('phrase', ['go', 'please just navigate', 'no just navigate to base', 'just go yes'])
+def test_accept_as_order_requires_the_whole_utterance(phrase):
+    assert match_confirmation(phrase, load_policy()) is None
+    rig, _ = nav(45)
+    out = rig.say(phrase)
+    assert rig.router.seen[-1] == phrase and out['pipeline'] is not None
+    assert not any(name == 'send_message' for name, _ in rig.registry.log)
+
+
+@pytest.mark.parametrize('minutes', [212, 40, 30, 10])
+def test_every_concise_outcome_traces_digits_to_feasibility_and_place_not_eta(minutes):
+    rig, out = nav(minutes, text='navigate to base 2')
+    data = out['tool_result']['data']
+    source = {'place_name': data['place_name'], 'feasibility': data['feasibility']}
+    assert out['spoken'].startswith(f"base 2 is {data['feasibility']['outbound_min']} minutes away.")
+    assert verify_numbers(out['spoken'], source)['ok']
+    assert out['spoken'].count('?') <= 1 and 'meters' not in out['spoken']
+    assert 'Not a hazard' not in out['spoken']
+
+
+@pytest.mark.parametrize('section,key,value', [
+    ('feasibility', 'concise', {}),
+    ('confirmation', 'accept_as_order', 'just go'),
+    ('confirmation', 'accept_as_order', ['']),
+    ('confirmation', 'decline_proceed_spoken', '{eta_min}'),
+    ('confirmation', 'decline_proceed_spoken', ''),
+])
+def test_concise_policy_loader_rejects_invalid_fields(tmp_path, section, key, value):
+    policy = load_policy()
+    policy[section][key] = value
+    path = tmp_path / 'policy.json'
+    path.write_text(json.dumps(policy))
+    with pytest.raises(ValueError, match=section):
+        load_policy(path)
+
+
+@pytest.mark.parametrize('line', ['', '{eta_min}', '{place_name.bad}', '{outbound_min:03}', '{'])
+def test_concise_policy_loader_rejects_invalid_line_placeholders(tmp_path, line):
+    policy = load_policy()
+    policy['feasibility']['concise']['comfortable'] = line
+    path = tmp_path / 'policy.json'
+    path.write_text(json.dumps(policy))
+    with pytest.raises(ValueError, match='feasibility.concise'):
+        load_policy(path)
+
+
+def test_confirming_a_now_tight_trip_does_not_send_a_message():
+    rig, _ = nav(45)
+    rig.sim.values['minutes_remaining'] = 55
+    out = rig.say('yes')
+    assert out['route'] == 'refill_not_needed' and out['tool_calls'] == 0
+    assert len(rig.registry.log) == 1
+
+
+def test_yes_sends_one_refill_message_to_the_numbered_destination():
+    rig, _ = nav(20, text='navigate to base 2')
+    out = rig.say('yes please')
+    assert out['route'] == 'confirmed_yes' and out['tool_calls'] == 1
+    assert out['tool_call']['args']['recipient'] == 'base_2'
+    assert [name for name, _ in rig.registry.log] == ['navigation', 'send_message']
+    assert out['verifier']['ok'] and out['blocked_text'] is None
+
+# ---- execute-immediately: read-only reports, never effects ----
+@pytest.mark.parametrize('confidence,executes', [(0.7499, False), (0.75, True), (0.85, True)])
+def test_execute_immediately_confidence_boundary(confidence, executes):
+    rig = Rig('call_o2', confidence)
+    out = rig.say('oxygen')
+    assert out['tool_calls'] == int(executes)
+    assert out.get('executed_immediately', False) == executes
+    assert out['route'] == ('tool' if executes else 'clarify')
+
+
+@pytest.mark.parametrize('tool,text', [('safety', 'check my health'), ('navigation', 'take me home'),
+                                      ('map', 'map home'), ('data', 'current readings'), ('o2', 'oxygen')])
+@pytest.mark.parametrize('arbiter', [None, RuntimeError('offline')])
+def test_execute_immediately_each_read_only_tool_once(tool, text, arbiter):
+    rig = Rig('call_' + tool, .8, arbiter=FakeArbiter(arbiter) if arbiter else None)
+    out = rig.say(text)
+    assert out['executed_immediately'] and out['pipeline']['gate'] == 'turn_exec'
+    assert out['tool_calls'] == 1 and len(rig.registry.log) == 1
+    assert rig.registry.log[0][0] == tool and not out['llm_called']
+    assert rig.handler.last_executed == {'tool': tool, 'turn': 1}
+
+
+@pytest.mark.parametrize('answer', ['call_data', 'none'])
+def test_execute_immediately_never_overrides_arbiter_disagreement(answer):
+    rig = Rig('call_o2', .85, arbiter=FakeArbiter(answer))
+    out = rig.say('oxygen')
+    assert out['route'] == 'clarify' and out['tool_calls'] == 0
+    assert not out.get('executed_immediately')
+
+
+def test_execute_immediately_never_send_message_even_if_label_is_configured():
+    rig = Rig('call_o2', .8)
+    rig.handler.pipeline.config = copy.deepcopy(rig.handler.pipeline.config)
+    rig.handler.pipeline.config['tool_labels']['call_o2']['tool'] = 'send_message'
+    out = rig.say('oxygen')
+    assert out['route'] == 'clarify' and out['tool_calls'] == 0
+
+
+@pytest.mark.parametrize('text,route', [('take me somewhere', 'slot_question'),
+                                       ('take me to home or comms tower', 'slot_question')])
+def test_execute_immediately_still_requires_one_resolved_place(text, route):
+    rig = Rig('call_navigation', .8)
+    out = rig.say(text)
+    assert out['route'] == route and out['tool_calls'] == 0
+    assert not out.get('executed_immediately')
+
+
+@pytest.mark.parametrize('label,text,route', [('call_safety', 'can I make it home', 'destination_safety'),
+                                           ('call_navigation', 'enough battery to reach home', 'clarify')])
+def test_execute_immediately_preserves_scope_guards(label, text, route):
+    out = Rig(label, .8).say(text)
+    assert out['route'] == route and out['tool_calls'] == 0
+    assert not out.get('executed_immediately')
+
+
+def test_execute_immediately_disabled_restores_menu():
+    policy = load_policy()
+    policy['execute_immediately']['enabled'] = False
+    out = Rig('call_o2', .8, policy=policy).say('oxygen')
+    assert out['spoken'].startswith('Please choose:') and out['tool_calls'] == 0
+
+
+@pytest.mark.parametrize('confidence', [.8, .99])
+@pytest.mark.parametrize('cancel', ['cancel', 'never mind', 'nevermind', 'stop', 'disregard'])
+def test_cancel_after_read_only_execution(confidence, cancel):
+    rig = Rig('call_o2', confidence)
+    rig.say('oxygen')
+    out = rig.say(cancel)
+    assert out['route'] == 'cancelled' and out['cancelled'] == 'o2'
+    assert out['spoken'] == 'Okay. That report already completed; no further action taken.' and out['tool_calls'] == 0
+    assert rig.handler.last_executed is None and len(rig.registry.log) == 1
+    assert rig.say(cancel)['spoken'].startswith('No action taken.')
+
+
+def test_cancel_without_execution_or_after_expiry_keeps_old_line():
+    rig = Rig()
+    assert rig.say('cancel')['spoken'].startswith('No action taken.')
+    rig.say('oxygen')
+    for _ in range(rig.handler.policy['clarification']['expiry_turns']):
+        rig.say('hello')
+    assert rig.say('cancel')['spoken'].startswith('No action taken.')
+
+
+@pytest.mark.parametrize('key,value', [('enabled', 1), ('min_confidence', True),
+    ('min_confidence', 0), ('min_confidence', .49), ('min_confidence', .9),
+    ('min_confidence', float('nan')), ('tools', ['send_message']), ('tools', ['queue_print']),
+    ('tools', ['unknown']), ('tools', 'o2'), ('reasons', ['arbiter_disagree']), ('reasons', [])])
+def test_execute_immediately_loader_rejects_bad_config(tmp_path, key, value):
+    policy = load_policy()
+    policy['execute_immediately'][key] = value
+    path = tmp_path / 'policy.json'
+    path.write_text(json.dumps(policy))
+    with pytest.raises(ValueError, match='execute_immediately'):
+        load_policy(path)
+
+
+def test_execute_immediately_loader_uses_range_only_when_pipeline_inaccessible(tmp_path, monkeypatch):
+    import router.turn as turn
+    policy = load_policy()
+    policy['execute_immediately']['min_confidence'] = .95
+    path = tmp_path / 'policy.json'
+    path.write_text(json.dumps(policy))
+    def unavailable():
+        raise FileNotFoundError('unavailable')
+    monkeypatch.setattr(turn, 'load_config', unavailable)
+    assert load_policy(path)['execute_immediately']['min_confidence'] == .95
+
+
+def test_execute_immediately_validates_actual_loaded_pipeline_config():
+    from router.pipeline import load_config
+    config = load_config()
+    config['tau_hi'] = .7
+    with pytest.raises(ValueError, match='min_confidence'):
+        TurnHandler(FakeRouter(), SimState().snapshot, pipeline_config=config)
+
+
+def test_cancel_after_send_message_never_claims_to_undo_effects():
+    rig, _ = nav(45)
+    assert rig.say('yes')['tool_call']['name'] == 'send_message'
+    out = rig.say('cancel')
+    assert out['spoken'].startswith('No action taken.') and 'cancelled' not in out
+    assert out['tool_calls'] == 0 and len(rig.registry.log) == 2
+
+
+def test_cancel_at_read_only_execution_expiry_boundary():
+    rig = Rig('call_o2', .8)
+    rig.say('oxygen')
+    for _ in range(rig.handler.policy['clarification']['expiry_turns'] - 1):
+        rig.say('hello')
+    assert rig.say('cancel')['cancelled'] == 'o2'
+
+
+def test_alert_repeats_each_turn_before_read_only_answer_without_offers():
+    seen, delivered = [], []
+
+    def verifier(line, source):
+        seen.append((line, source))
+        return verify_numbers(line, source)
+
+    rig = Rig('call_navigation', snapshot=CRITICAL, verifier=verifier)
+    rig.handler.tts_fn = lambda line, route: delivered.append((line, route, len(rig.router.seen)))
+    for _ in range(2):
+        out = rig.say('take me to crater')
+        assert out['route'] == 'tool' and out['tool_calls'] == 1
+        assert out['lines'] == [out['alert_line'], seen[-1][0]]
+        assert out['spoken'] == ' '.join(out['lines'])
+        assert seen[-2][1] == CRITICAL and seen[-1][1] == out['tool_result']
+        assert rig.handler.pending_confirmation is None and out['pending_confirmation'] is None
+        assert rig.handler.policy['confirmation']['offer'].split('{')[0] not in out['lines'][1]
+    assert [route for _, route, _ in delivered] == ['alert', 'tool', 'alert', 'tool']
+    assert delivered[0][2] == 0 and delivered[2][2] == 1  # alert delivered before routing
+
+
+@pytest.mark.parametrize('initial', [None, CRITICAL])
+def test_new_or_changed_alert_after_read_only_answer_replaces_answer(initial):
+    verified = []
+
+    def verifier(line, source):
+        verified.append((line, source))
+        return verify_numbers(line, source)
+
+    rig = Rig('call_o2', verifier=verifier)
+    latest = {**CRITICAL, 'o2_pct': 10.0}
+    snapshots = iter([initial or rig.sim.snapshot(), latest])
+    rig.handler.alert_source = lambda: next(snapshots)
+    spoken = []
+    rig.handler.tts_fn = lambda line, route: spoken.append((line, route))
+    out = rig.say('check oxygen')
+    assert out['route'] == 'alert' and out['alert_line'] == spoken[-1][0]
+    assert out['lines'] == [line for line, _ in spoken]
+    assert out['spoken'] == ' '.join(out['lines'])
+    assert len(out['lines']) == (2 if initial else 1)
+    if initial:
+        assert 'Oxygen at 14.2 percent' in out['lines'][0]
+        assert verified[0] == (out['lines'][0], initial)
+    assert verified[-1] == (out['alert_line'], latest)
+    assert 'Oxygen at 10.0 percent' in out['alert_line'] and out['alert_verifier']['ok']
+    assert all(route == 'alert' for _, route in spoken) and out['tool_calls'] == 1
+
+
+def test_critical_alert_delivered_before_routing_survives_blocked_answer():
+    policy = load_policy()
+    policy['templates']['o2'] = 'Oxygen at 99 percent.'
+    rig = Rig('call_o2', snapshot=CRITICAL, policy=policy)
+    delivered = []
+    rig.handler.tts_fn = lambda line, route: delivered.append((line, route, len(rig.router.seen)))
+    out = rig.say('check oxygen')
+    assert delivered == [(out['alert_line'], 'alert', 0),
+                         (policy['templates']['verifier_blocked'], 'tool', 1)]
+    assert out['lines'] == [line for line, _, _ in delivered]
+    assert out['spoken'] == ' '.join(out['lines'])
+    assert out['alert_verifier']['ok'] and not out['verifier']['ok']
+    assert out['blocked_text'] == 'Oxygen at 99 percent.'
+    assert out['tool_calls'] == 1 and out.get('interim') is None

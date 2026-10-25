@@ -85,19 +85,19 @@ def handler(label="call_navigation"):
 def test_how_far_speaks_the_distance_line_from_the_tool_result_without_the_llm():
     out = handler()[0].handle("how far is base 2")
     assert out["tool_call"] == {"name": "navigation", "args": {"place": "base_2"}} and out["llm_called"] is False
-    assert out["spoken"].startswith("base 2 is about 1000 meters away, roughly 17 minutes on foot.") and "Heading to" not in out["spoken"]
-    assert "Oxygen check" in out["spoken"] and out["blocked_text"] is None
+    assert out["spoken"].startswith("base 2 is 17 minutes away.") and "Heading to" not in out["spoken"]
+    assert "oxygen" in out["spoken"] and out["blocked_text"] is None
     assert out["verifier"]["ok"] and verify_numbers(out["spoken"], out["tool_result"])["ok"]
 
 
 def test_take_me_to_reports_guidance_without_implying_movement():
     out = handler()[0].handle("take me to base 2")
-    assert out["spoken"].startswith("Navigation information for base 2: estimated straight-line distance 1000 meters, walking time 17 minutes.")
+    assert out["spoken"].startswith("base 2 is 17 minutes away.")
 
 
 @pytest.mark.parametrize("text", ["what is the distance to the tower", "distance from here to the tower", "HOW FAR is the tower?"])
 def test_distance_phrases_pick_the_distance_template(text):
-    assert handler()[0].handle(text)["spoken"].startswith("comms tower is about 500 meters away, roughly 9 minutes on foot.")
+    assert handler()[0].handle(text)["spoken"].startswith("comms tower is 9 minutes away.")
 
 
 def test_how_far_base_two_asks_where_instead_of_navigating():
@@ -118,7 +118,7 @@ def test_pos_command_moves_the_astronaut_and_changes_the_distance():
     assert turn.handle("how far is home")["tool_result"]["data"]["distance_m"] == 0
     assert apply_pos(ds, "500 0") == "astronaut moved to x=500 z=0"
     out = turn.handle("how far is home")
-    assert out["tool_result"]["data"]["distance_m"] == 500 and out["spoken"].startswith("homebase is about 500 meters away")
+    assert out["tool_result"]["data"]["distance_m"] == 500 and out["spoken"].startswith("homebase is 9 minutes away")
 
 
 @pytest.mark.parametrize("arguments", ["", "5", "a b", "1 2 3", "nan 0", "inf 0"])

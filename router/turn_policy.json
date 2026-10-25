@@ -55,6 +55,7 @@
     "ambiguous_place": "Which place do you mean: {options}?"
   },
   "templates": {
+    "alert_active_deferred": "I'll answer that once the alert is clear.",
     "status": "PLACEHOLDER - pending user sign-off (every number must come from the tool_result; the verifier blocks the rest)",
     "safety": "Safety check: {status_word}.",
     "navigation": "Heading to {place_name}. About {distance_m:.0f} meters. Estimated time in minutes: {eta_min:.0f}.",
@@ -84,20 +85,21 @@
     "home_places": [
       "homebase"
     ],
-    "lines": {
-      "comfortable": "Oxygen check: the round trip needs {required_min} minutes with {reserve_min} reserve; you have {o2_minutes_remaining}.",
-      "comfortable_home": "Oxygen check: home needs {required_min} minutes with {reserve_min} reserve; you have {o2_minutes_remaining}.",
-      "tight": "Warning, oxygen margin is tight: {outbound_min} out, {return_min} back, {reserve_min} reserve is {required_min} minutes; you have {o2_minutes_remaining}.",
-      "tight_home": "Warning, oxygen margin is tight: home takes {outbound_min} minutes plus {reserve_min} reserve, {required_min} in all; you have {o2_minutes_remaining}.",
-      "cannot_return": "Warning, you cannot get back home without a refill: {outbound_min} out plus {return_min} back is {trip_min}; you have {o2_minutes_remaining}.",
-      "cannot_reach": "Warning, you cannot reach it on your oxygen: {outbound_min} minutes out; you have {o2_minutes_remaining}.",
-      "cannot_reach_home": "Warning, you cannot reach home on your oxygen: {outbound_min} minutes; you have {o2_minutes_remaining}."
+    "concise": {
+      "comfortable": "{place_name} is {outbound_min} minutes away. You have enough oxygen for the round trip.",
+      "comfortable_home": "{place_name} is {outbound_min} minutes away. You have enough oxygen to get home.",
+      "tight": "{place_name} is {outbound_min} minutes away. Your oxygen margin for the round trip is tight.",
+      "tight_home": "{place_name} is {outbound_min} minutes away. Your oxygen margin for getting home is tight.",
+      "cannot_return": "{place_name} is {outbound_min} minutes away. You have enough oxygen to get there, but not back.",
+      "cannot_reach": "{place_name} is {outbound_min} minutes away. You do not have enough oxygen to get there.",
+      "cannot_reach_home": "{place_name} is {outbound_min} minutes away. You do not have enough oxygen to get home.",
+      "unavailable": "{place_name}: oxygen feasibility is unavailable."
     }
   },
   "confirmation": {
     "status": "PLACEHOLDER - pending user sign-off (expiry, vocabulary, offer and reply wording)",
     "expiry_turns": 2,
-    "offer": "Do you want me to call {place_name} and check if they have oxygen refills?",
+    "offer": "Do you want me to call {recipient_label} to check for refills?",
     "yes_phrases": [
       "yes",
       "yeah",
@@ -142,12 +144,22 @@
     ],
     "yes_spoken": "Okay, I sent the refill request to {recipient_name}, marked {urgency}.",
     "no_spoken": "Okay, I won't call. Say so if you change your mind.",
-    "no_longer_needed": "Your oxygen margin has changed, so a refill is no longer needed. I did not send the request."
+    "no_longer_needed": "Your oxygen margin has changed, so a refill is no longer needed. I did not send the request.",
+    "accept_as_order": [
+      "no just navigate",
+      "just navigate",
+      "just go",
+      "no just go",
+      "go anyway",
+      "navigate anyway",
+      "skip it",
+      "no just do it"
+    ],
+    "decline_proceed_spoken": "Okay, not calling. Continuing to {place_name}."
   },
   "send_message": {
     "status": "PLACEHOLDER - pending user sign-off (urgency is decided here, by feasibility outcome, never by the LLM)",
     "urgency_by_outcome": {
-      "tight": "normal",
       "cannot_return": "urgent",
       "cannot_reach": "urgent"
     },
@@ -280,6 +292,48 @@
     "status": "PLACEHOLDER - pending user sign-off (phrases matched against the WHOLE normalized utterance; line is spoken once and the turn result carries end_session=true)",
     "phrases": ["thank you", "thanks", "thank you nova", "thanks nova", "that's all", "goodbye", "bye"],
     "line": "Happy to help!"
+  },
+  "demo_scene": {
+    "status": "PLACEHOLDER - pending owner sign-off (hackathon demo scene, OFF by default; enable with enabled=true, NOVA_DEMO_SCENE=1 or llm_options demo_scene. A whole-utterance phrase is answered with scene_line built from the rover-diagnostics fixture, then 'yes' queues ONE simulated 3D-print job. No router, no LLM, no retrieval for speech. Honest wording: diagnostics plus gaze, never vision, never safe/unsafe to drive; wording is not owner-approved)",
+    "enabled": false,
+    "phrases": [
+      "what is this",
+      "what is that",
+      "what am i looking at",
+      "whats this",
+      "what's this"
+    ],
+    "wake_prefixes": [
+      "hey nova",
+      "hi nova",
+      "hello nova",
+      "okay nova",
+      "ok nova",
+      "nova",
+      "hey",
+      "hi",
+      "hello"
+    ],
+    "alert_result_line": "That's your rover. Its diagnostics flag damage on the {part_label}.",
+    "scene_line": "That's your rover. Its diagnostics flag damage on the {part_label}. Want me to send a replacement {print_part} to the 3D printer?",
+    "no_fault_line": "That's your rover. No faults reported.",
+    "queued_line": "Replacement wheel queued.",
+    "declined_line": "Okay, I won't send it."
+  },
+  "fast_replies": {
+    "status": "PLACEHOLDER - pending user sign-off (whole-utterance phrases answered with a fixed line before the router: no tool, no LLM, no interim; wake_prefixes are stripped only when the utterance is not already a phrase; set enabled=false to restore the router path; wording is not owner-approved)",
+    "enabled": true,
+    "wake_prefixes": ["hey nova", "hi nova", "hello nova", "okay nova", "ok nova", "nova", "hey", "hi", "hello"],
+    "intents": {
+      "greeting": {
+        "phrases": ["hi", "hello", "hey", "hi nova", "hello nova", "hey nova", "good morning", "good morning nova"],
+        "line": "Hello. How can I help?"
+      },
+      "identity": {
+        "phrases": ["who are you", "what is your name", "what's your name", "whats your name"],
+        "line": "I'm Nova, your assistant."
+      }
+    }
   },
   "_comment_generation": "Post-tool-call generation (router/generation.py). The whole 'generation' section is PLACEHOLDER pending user sign-off: persona, style limits, attempt/deadline budget, passage-number provenance (default 'digits'; 'off' available; 'quote_span' documented but unbuilt and refused by the loader; risk_term_passage_override forces 'off' for a grounded turn whose question or passage hits llm_scope.risk_terms; attribution_prefix is prepended by code to a grounded answer that speaks a passage number), history length, refusal and fallback wording, retry wording, deny-lists, slot formats/units and the raw-output size cap (max_raw_chars). Qualitative tier labels (critical/warning/normal) are NOT configured here: they are derived from the human-owned sim_fields thresholds. No real model, mission document or suit rule backs any value.",
   "generation": {
@@ -520,6 +574,13 @@
     "status": "PLACEHOLDER - pending user sign-off (wording; every number must come from the navigation tool_result)",
     "navigation_distance": "{place_name} is about {distance_m:.0f} meters away, roughly {eta_min:.0f} minutes on foot."
   },
+  "execute_immediately": {
+    "status": "PLACEHOLDER: unmeasured mid-band threshold; owner must choose",
+    "enabled": true,
+    "min_confidence": 0.75,
+    "tools": ["safety", "navigation", "map", "data", "o2"],
+    "reasons": ["no_arbiter", "arbiter_error"]
+  },
   "clarification": {
     "status": "PLACEHOLDER pending human sign-off; explicitly approved offered-choice dispatch only",
     "version": "bounded-choice-v1",
@@ -564,8 +625,11 @@
       ]
     },
     "disregard": "No action taken. Please make a new request.",
+    "executed_cancel": "Okay. That report already completed; no further action taken.",
     "reask": "Please select an offered option, or cancel. No action taken.",
-    "menu": "Please choose: {options}. Generic health checks do not assess a destination trip.",
+    "max_options": 2,
+    "menu": "Please choose: {options}.",
+    "menu_destination_note": "Generic health checks do not assess a destination trip.",
     "assessment": "For {place_name}, the estimated straight-line distance is {distance_m:.0f} meters and walking time is {eta_min:.0f} minutes. This is an estimate, not movement or an optimized route.",
     "guidance": "Navigation information for {place_name}: estimated straight-line distance {distance_m:.0f} meters, walking time {eta_min:.0f} minutes. Not a hazard clearance.",
     "unavailable": " Oxygen budget assessment is unavailable; this is not trip clearance.",

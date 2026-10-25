@@ -69,8 +69,40 @@ def test_status_is_idle_before_any_session_and_has_the_documented_keys(serve):
     base, _, _ = serve(blocking_until_stopped)
     code, status = call(base, "/voice/status")
     assert code == 200
-    assert set(status) >= {"state", "last_transcript", "last_reply", "route", "error", "session_id", "seq"}
+    assert set(status) >= {"state", "last_transcript", "last_reply", "route", "error", "session_id", "seq", "display", "display_seq", "alert"}
     assert status["state"] == "idle" and status["session_id"] == 0 and status["error"] is None
+    assert status["display"] is None and status["display_seq"] == 0 and status["alert"] is None
+
+
+DISPLAY = {"doc_id": "assembledrivemodules", "section_id": "assembledrivemodules:drive-module-assembly:0",
+           "title": "Drive Module Assembly", "asset": "docs/AssembleDriveModules.md", "source": "docs/AssembleDriveModules.md"}
+
+
+def test_display_is_exposed_kept_after_a_turn_without_one_and_display_seq_counts_new_displays(serve):
+    step, done = threading.Event(), threading.Event()
+
+    def script(on_event, on_turn, stop_event):
+        on_turn({"transcript": "what is this", "turn": {"spoken": "scene", "route": "scene"}})
+        step.wait(5)
+        on_turn({"transcript": "yes please", "turn": {"spoken": "queued", "route": "print_confirmed", "display": DISPLAY}})
+        done.wait(5)
+        on_turn({"transcript": "thanks", "turn": {"spoken": "Happy to help!", "route": "session_end"}})
+        done.wait(5)
+        return []
+
+    base, session, _ = serve(script)
+    call(base, "/voice/start", "POST")
+    assert wait_for(lambda: call(base, "/voice/status")[1]["last_reply"] == "scene")
+    status = call(base, "/voice/status")[1]
+    assert status["display"] is None and status["display_seq"] == 0 and status["alert"] is None
+    step.set()
+    assert wait_for(lambda: call(base, "/voice/status")[1]["last_reply"] == "queued")
+    status = call(base, "/voice/status")[1]
+    assert status["display"] == DISPLAY and status["display_seq"] == 1
+    done.set()
+    assert wait_for(lambda: call(base, "/voice/status")[1]["last_reply"] == "Happy to help!")
+    status = call(base, "/voice/status")[1]
+    assert status["display"] == DISPLAY and status["display_seq"] == 1 and status["route"] == "session_end"
 
 
 def test_telemetry_can_be_read_without_starting_voice(serve):
@@ -367,6 +399,24 @@ def test_real_stt_converse_honours_the_stop_flag_through_the_session(serve, monk
         server.server_close()
 
 
+def test_status_alert_tracks_turn_and_clears_on_next_non_alert_turn(serve):
+    advance, release = threading.Event(), threading.Event()
+
+    def script(on_event, on_turn, stop_event):
+        on_turn({'transcript': 'directions', 'turn': {'spoken': 'Alert. Directions.', 'alert_line': 'Alert.', 'route': 'tool'}})
+        assert advance.wait(5)
+        on_turn({'transcript': 'hello', 'turn': {'spoken': 'Hello.', 'route': 'fast_reply'}})
+        release.wait(5)
+
+    base, _, _ = serve(script)
+    call(base, '/voice/start', 'POST')
+    assert wait_for(lambda: call(base, '/voice/status')[1]['alert'] == 'Alert.')
+    assert call(base, '/voice/status')[1]['last_reply'] == 'Alert. Directions.'
+    advance.set()
+    assert wait_for(lambda: call(base, '/voice/status')[1]['last_reply'] == 'Hello.')
+    assert call(base, '/voice/status')[1]['alert'] is None
+    release.set()
+
 def test_datasource_sim_is_the_default_and_builds_nothing():
     assert voice_server._make_datasource("sim") is None
 
@@ -479,3 +529,12 @@ def test_main_flag_help_clarifies_device_and_timeout(capsys):
     help_text = " ".join(capsys.readouterr().out.split())
     assert "torch device for the router (not the microphone)" in help_text
     assert "seconds of silence that end a conversation" in help_text
+
+
+def test_status_contains_router_error_alert_and_display_together(serve):
+    base, _, _ = serve(blocking_until_stopped)
+    code, status = call(base, "/voice/status")
+    assert code == 200
+    assert {"router_error", "alert", "display", "display_seq"} <= status.keys()
+    assert status["router_error"] is status["alert"] is status["display"] is None
+    assert status["display_seq"] == 0

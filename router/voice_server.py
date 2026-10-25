@@ -5,6 +5,7 @@ GET /voice/status reports progress. GET /telemetry returns fresh readings.
 POST /demo/oxygen changes simulated oxygen from the wrist controls.
 The server defaults to localhost and rejects browser Origin headers.
 Microphone and speaker audio stay on the PC.
+Voice status includes alert, persistent display and display_seq alongside router_error.
 """
 import argparse
 import json
@@ -42,9 +43,10 @@ class VoiceSession:
         self._converse_fn = converse_fn
         self._options = dict(converse_options or {})
         self._state = "idle"
-        self._last_transcript = self._last_reply = self._route = self._error = None
+        self._last_transcript = self._last_reply = self._route = self._error = self._alert = None
         self._session_id = 0
         self._seq = 0
+        self._display, self._display_seq = None, 0
         self._stop = None
         self._worker = None
         self._router_ready = threading.Event()
@@ -71,8 +73,8 @@ class VoiceSession:
 
     def _status_locked(self):
         return {"state": self._state, "last_transcript": self._last_transcript, "last_reply": self._last_reply,
-                "route": self._route, "error": self._error, "session_id": self._session_id, "seq": self._seq,
-                "router_ready": self._router_ready.is_set(), "router_error": self._router_error}
+                "alert": self._alert, "route": self._route, "error": self._error, "session_id": self._session_id, "seq": self._seq,
+                "router_ready": self._router_ready.is_set(), "router_error": self._router_error, "display": self._display, "display_seq": self._display_seq}
 
     def _update(self, session_id, **fields):
         """Apply `fields` unless `session_id` is no longer current or its stop was requested (late events of a stopped conversation)."""
@@ -81,6 +83,8 @@ class VoiceSession:
                 return
             for key, value in fields.items():
                 setattr(self, "_" + key, value)
+            if fields.get("display") is not None:
+                self._display_seq += 1
             self._seq += 1
 
     def start(self):
@@ -91,7 +95,7 @@ class VoiceSession:
             self._session_id += 1
             self._seq += 1
             self._state = "loading"
-            self._last_transcript = self._last_reply = self._route = self._error = None
+            self._last_transcript = self._last_reply = self._route = self._error = self._alert = None
             session_id, self._stop = self._session_id, threading.Event()
             self._worker = threading.Thread(target=self._run, args=(session_id, self._stop), daemon=True, name="voice-session")
             self._worker.start()
@@ -129,8 +133,9 @@ class VoiceSession:
 
         def on_turn(out):
             turn = out["turn"]
+            fields = {"display": turn["display"]} if turn.get("display") else {}  # no display on this turn keeps the last one
             self._update(session_id, state="speaking", last_transcript=out["transcript"],
-                         last_reply=turn.get("spoken"), route=turn.get("route"))
+                         last_reply=turn.get("spoken"), alert=turn.get("alert_line"), route=turn.get("route"), **fields)
 
         try:
             self._converse_fn(on_event=on_event, on_turn=on_turn, on_transcript=on_transcript, stop_event=stop_event,

@@ -552,17 +552,17 @@ def test_bad_grounded_output_retries_once_then_speaks_verifier_blocked_and_keeps
 
 def test_bad_chitchat_without_a_number_speaks_the_neutral_line_but_a_number_keeps_the_blocked_line():
     rig = Rig("NO_TOOL", 0.97, generator=FillerGenerator(script=[text_reply("You should return to base.")]))
-    out = rig.say("hello")
+    out = rig.say("hello there")
     assert out["spoken"] == GEN["neutral_chitchat"] and out["blocked_text"] == "You should return to base."
     assert out["generation"]["violations"] == ["directive_verb", "directive_verb"] and out["verifier"]["ok"] is False
     rig = Rig("NO_TOOL", 0.97, generator=FillerGenerator(script=[text_reply("It is 99 degrees.")]))
-    out = rig.say("hello")
+    out = rig.say("hello there")
     assert out["spoken"] == POLICY["templates"]["verifier_blocked"] and out["blocked_text"] == "It is 99 degrees."
 
 
 def test_retry_then_success_through_the_handler():
     rig = Rig("NO_TOOL", 0.97, generator=FillerGenerator(script=[text_reply("Glad to help 24 times."), text_reply("Glad to help.")]))
-    out = rig.say("hello")
+    out = rig.say("hello there")
     assert out["spoken"] == "Glad to help." and out["generation"]["attempts"] == 2 and out["generation"]["violations"] == ["digit_in_prose"]
     assert out["blocked_text"] is None
 
@@ -576,7 +576,7 @@ def test_model_refusal_is_spoken_as_the_policy_line():
 
 def test_generator_exception_speaks_tool_error_records_llm_error_and_is_not_retried():
     rig = Rig("NO_TOOL", 0.97, generator=FillerGenerator.forcing("raises"))
-    out = rig.say("hello")
+    out = rig.say("hello there")
     assert out["spoken"] == POLICY["templates"]["tool_error"] and out["llm_error"].startswith("RuntimeError") and out["llm_called"]
     assert len(rig.generator.calls) == 1 and out["generation"]["status"] == "error"
 
@@ -649,7 +649,8 @@ def test_critical_alert_never_builds_a_request_or_calls_the_generator(label):
     snapshot = {"o2_pct": 14.2, "bpm": 72, "radiation_usv_h": 0.34, "temp_c": 21.5, "suit_pressure_kpa": 29.6}
     rig = Rig(label, 0.97, snapshot=snapshot, retriever=lambda t: [MOON])
     out = rig.say("hello there")
-    assert out["route"] == "alert" and "generation" not in out and not out["llm_called"]
+    assert out["alert_line"] and not out["llm_called"]
+    assert out.get("generation", {}).get("mode") != "generated"
     assert rig.generator.calls == []
 
 
@@ -657,11 +658,11 @@ def test_history_is_kept_only_when_enabled_and_is_masked_in_the_next_request():
     policy = copy.deepcopy(POLICY)
     policy["generation"]["history_turns"] = 1
     rig = Rig("NO_TOOL", 0.97, policy=policy, generator=FillerGenerator(script=[text_reply("Fine thanks."), text_reply("Good.")]))
-    rig.say("hello")
+    rig.say("hello there")
     rig.say("and you")
     assert rig.generator.calls[0].history == () and rig.generator.calls[1].history[0].spoken == "Fine thanks."
     stateless = Rig("NO_TOOL", 0.97)
-    stateless.say("hello")
+    stateless.say("hello there")
     stateless.say("and you")
     assert stateless.generator.calls[1].history == () and stateless.handler.history == []
 
@@ -693,7 +694,7 @@ def recording_verifier():
 def test_generation_fallback_replacement_goes_through_the_final_speak_gate():
     verifier = recording_verifier()
     rig = Rig("NO_TOOL", 0.97, generator=FillerGenerator(script=[text_reply("You should return to base.")]), verifier=verifier)
-    out = rig.say("hello")
+    out = rig.say("hello there")
     assert out["spoken"] == GEN["neutral_chitchat"] and out["blocked_text"] == "You should return to base."
     assert verifier.calls == ["You should return to base.", GEN["neutral_chitchat"]]  # rejected text, then the replacement
     assert out["generation"]["status"] == "fallback" and out["generation"]["violations"] == ["directive_verb", "directive_verb"]
@@ -714,7 +715,7 @@ def test_a_fallback_replacement_the_verifier_refuses_is_never_spoken():
     def refuses_neutral(line, source):
         return {"ok": False, "spoken": [], "unsupported": []} if line == GEN["neutral_chitchat"] else verify_numbers(line, source)
     rig = Rig("NO_TOOL", 0.97, generator=FillerGenerator(script=[text_reply("You should return to base.")]), verifier=refuses_neutral)
-    out = rig.say("hello")
+    out = rig.say("hello there")
     assert out["spoken"] == POLICY["templates"]["verifier_blocked"] and out["spoken"] != GEN["neutral_chitchat"]
     assert out["blocked_text"] == "You should return to base."
     assert out["generation"]["replacement_blocked_text"] == GEN["neutral_chitchat"]
@@ -739,7 +740,7 @@ def test_raw_output_over_max_raw_chars_is_a_parse_error_with_capped_blocked_text
 def test_nested_json_through_the_handler_retries_once_then_falls_back_without_raising(policy_cap):
     policy = with_raw_cap(policy_cap)
     rig = Rig("NO_TOOL", 0.97, generator=FillerGenerator(script=[NESTED]), policy=policy)
-    out = rig.say("hello")
+    out = rig.say("hello there")
     assert out["spoken"] == GEN["neutral_chitchat"] and out["generation"]["status"] == "fallback"
     assert out["generation"]["attempts"] == 2 and out["generation"]["violations"] == ["parse_error", "parse_error"]
     assert len(rig.generator.calls) == 2 and out["blocked_text"] == NESTED[:policy_cap]
@@ -759,7 +760,7 @@ def test_stored_history_is_trimmed_to_history_turns_and_the_request_carries_the_
 
 def test_history_stays_empty_when_history_turns_is_zero():
     rig = Rig("NO_TOOL", 0.97)
-    rig.say("hello")
+    rig.say("hello there")
     rig.say("hello again")
     assert rig.handler.history == []
 
@@ -932,7 +933,7 @@ def test_attribution_is_not_doubled_when_the_model_already_attributed():
 def test_attribution_only_when_a_passage_number_is_spoken():
     out = grounded_rig(text_reply("The airlock has a cycle."), [CYCLE]).say(NEUTRAL_Q)
     assert out["spoken"] == "The airlock has a cycle." and out["generation"]["attribution_prefixed"] is False
-    chat = Rig("NO_TOOL", 0.97, generator=FillerGenerator(script=[text_reply("Glad to help.")])).say("hello")
+    chat = Rig("NO_TOOL", 0.97, generator=FillerGenerator(script=[text_reply("Glad to help.")])).say("hello there")
     assert chat["spoken"] == "Glad to help." and chat["generation"]["attribution_prefixed"] is False
     tool = Rig("call_o2").say("how much oxygen")
     assert tool["spoken"].startswith("Oxygen at") and "attribution_prefixed" not in tool["generation"]
@@ -1160,7 +1161,7 @@ def test_run_generation_and_the_handler_use_the_injected_verifier_in_the_backsto
         return {"ok": False, "spoken": [], "unsupported": ["x"]} if "friend" in line else verify_numbers(line, source)
 
     rig = Rig("NO_TOOL", 0.97, generator=FillerGenerator(script=[text_reply("Hello friend."), text_reply("Hello there.")]), verifier=strict)
-    out = rig.say("hello")
+    out = rig.say("hello there")
     assert out["spoken"] == "Hello there." and out["generation"]["attempts"] == 2
     assert out["generation"]["violations"] == ["unsupported_number"]  # the first attempt died in the backstop, not in _speak
     assert calls[0] == "Hello friend."
@@ -1218,7 +1219,7 @@ def test_result_generation_is_json_serializable_by_default(label, text, kwargs):
 
 def test_a_fallback_result_with_a_replacement_verdict_is_json_serializable():
     rig = Rig("NO_TOOL", 0.97, generator=FillerGenerator(script=[text_reply("You should return to base.")]))
-    out = rig.say("hello")
+    out = rig.say("hello there")
     assert out["generation"]["status"] == "fallback" and json.dumps(out["generation"])
 
 

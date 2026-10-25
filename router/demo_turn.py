@@ -25,7 +25,7 @@ TURNS = [
     ("tool: navigation", "take me home", {}, ("call_navigation", 0.99)),
     ("slot question (no place)", "take me there", {}, ("call_navigation", 0.97)),
     ("origin + destination", "go from the rover to the airlock", {}, ("call_navigation", 0.99)),
-    ("mid-band, no arbiter -> clarify", "Get me the coolant level.", {}, ("call_data", 0.75)),
+    ("mid-band, no arbiter -> clarify", "Get me the coolant level.", {}, ("call_data", 0.7)),
     ("chitchat -> LLM stub", "hi", {}, ("NO_TOOL", 0.97)),
     ("OOD -> template", "what is the capital of france", {}, ("OOD", 0.95)),
     ("CRITICAL alert (o2 14.2) preempts", "take me to the airlock", {"o2_pct": 14.2}, ("call_navigation", 0.99)),

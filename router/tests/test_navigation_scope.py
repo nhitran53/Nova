@@ -110,4 +110,4 @@ def test_navigation_scope_rechecks_retained_slot_context():
 
 def test_navigation_scope_does_not_preempt_critical_alerts():
     result = Rig(label="call_navigation", o2_pct=10).say("will my battery last to base 2")
-    assert result["route"] == "alert" and result["tool_calls"] == 0
+    assert result["alert_line"] and result["route"] == "clarify" and result["tool_calls"] == 0

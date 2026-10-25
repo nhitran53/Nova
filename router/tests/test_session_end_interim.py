@@ -69,7 +69,7 @@ def test_ordinary_turns_do_not_set_end_session():
 def test_critical_alert_wins_over_session_end():
     rig = Rig(snapshot=CRITICAL)
     out = rig.say("thank you")
-    assert out["route"] == "alert" and "end_session" not in out
+    assert out["alert_line"] and out["route"] == "session_end" and out["end_session"]
 
 
 def test_session_end_clears_pending_clarification_and_confirmation():
@@ -117,12 +117,12 @@ def test_interim_is_spoken_before_generation_for_llm_kinds_and_tts_stays_once(la
 def test_no_interim_on_tool_template_greeting_or_alert_routes():
     for label, conf, text, snapshot, route in [("call_o2", .99, "how is my oxygen", None, "tool"),
                                               ("call_o2", .1, "blorp", None, "low_confidence"),
-                                              ("NO_TOOL", .97, "hi", None, "greeting"),
-                                              ("NO_TOOL", .97, "hello there", CRITICAL, "alert")]:
+                                              ("NO_TOOL", .97, "hi", None, "fast_reply"),
+                                              ("NO_TOOL", .97, "hello there", CRITICAL, "alert_active_deferred")]:
         rig = Rig(label, conf, snapshot=snapshot)
         out = rig.say(text)
         assert out["route"] == route and rig.events == [] and "interim" not in out, (route, rig.events)
-        assert len(rig.spoken) == 1
+        assert len(rig.spoken) == (2 if snapshot else 1)
 
 
 def test_interim_can_be_disabled_or_absent_or_have_no_callback():
