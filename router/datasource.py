@@ -14,6 +14,9 @@ Both datasources build the snapshot through the one pure function `snapshot_from
 cannot drift apart. Every definition below is a PLACEHOLDER recorded in turn_policy.json["data_source"]:
  * temp_c = telemetry.suit_temp_c (ext_temp_c would trip the -10 C critical immediately); bpm = heart_rate; the rest direct.
  * radiation_usv_h = (radiation_msv[t] - radiation_msv[t-1]) / ((sim_seconds[t] - sim_seconds[t-1]) / 3600) * 1000.
+ * FixtureDatasource only: radiation_usv_h is NOT the dose delta but the reference_data median tissue baseline in uSv/h
+   (nhi mars_radiation, Q from turn_policy.json "reference_data"; x40 in the radiation_event scenario). It fails closed
+   if the reference is unavailable. PostgresDatasource keeps the live delta above.
  * minutes_remaining = floor(o2_percent / o2_burn_pct_per_min(mission)), counted to an EMPTY tank at the live activity and
    scenario. The reserve is NOT subtracted here: turn.assess_feasibility already adds reserve_margin_min (no double count).
    missions.o2_reserve_pct is not used by the router.
@@ -173,8 +176,13 @@ class FixtureDatasource:
     row using the same O2 burn (simulator_rules), dose and suit-pressure drift rules as simulator.step; other vitals hold.
     `clock` returns an aware datetime; rows are stamped with it, so a clock that stops advancing makes the data stale."""
 
-    def __init__(self, scenario="normal", activity="walking", clock=_utc_now, policy=None, demo_places=None):
+    def __init__(self, scenario="normal", activity="walking", clock=_utc_now, policy=None, demo_places=None,
+                 reference=None):
         self.clock = clock
+        if reference is None:
+            from .reference_data import FixtureReferenceData  # lazy: reference_data imports this module
+            reference = FixtureReferenceData()
+        self.reference = reference
         self.policy = load_data_source_policy() if policy is None else policy
         self.mission = {**SEED_MISSION, "scenario": scenario, "activity": activity}
         self.planet = dict(SEED_PLANET)
@@ -216,8 +224,18 @@ class FixtureDatasource:
     def set_position(self, x_m, z_m):
         self.positions.append({"ts": self.clock(), "x_m": float(x_m), "z_m": float(z_m), "heading_deg": 0.0})
 
+    def reference_radiation_usv_h(self):
+        """Demo radiation rate: median tissue baseline in uSv/h from the injected ReferenceData (Q from the policy), times
+        the radiation_event dose factor in that scenario. Fails closed: DataUnavailableError, never a fallback value."""
+        value = self.reference.radiation_baseline_usv_h()["tissue_usv_h_median"]
+        if not _finite_number(value) or value < 0:
+            raise DataUnavailableError(f"reference radiation baseline is not a finite number >= 0: {value!r}")
+        factor = RADIATION_EVENT_DOSE_FACTOR if self.mission["scenario"] == "radiation_event" else 1.0
+        return value * factor
+
     def snapshot(self):
-        return snapshot_from_rows(self.mission, list(reversed(self.telemetry[-2:])), self.clock(), self.policy["max_age_s"])
+        snap = snapshot_from_rows(self.mission, list(reversed(self.telemetry[-2:])), self.clock(), self.policy["max_age_s"])
+        return {**snap, "radiation_usv_h": self.reference_radiation_usv_h()}  # same six keys; only this value's source differs
 
     def place(self, name):
         code = resolve_place_code(name, self.policy["place_aliases"])

@@ -1,9 +1,27 @@
 # Reference data accessors (`router/reference_data.py`)
 
 Read-only access to three REFERENCE datasets from `origin/nhi/database` (`schema.sql`, not merged into this branch).
-They are reference/simulated tables, **not live telemetry**. Nothing here is wired into `tools.py`, `turn.py` or
-`simulator_rules.py` (`turn_policy.json` only holds a PLACEHOLDER `reference_data` block read by `reference_data.py`): spoken output, tool result keys, the six-tool registry, labels, feasibility math and the safety loop
-are unchanged (`test_reference_data.py` asserts the registry and `data`/`o2` key tuples).
+They are reference/simulated tables, **not live telemetry**. `tools.py`, `turn.py` and `simulator_rules.py` do not mention
+this module (`turn_policy.json` only holds a PLACEHOLDER `reference_data` block read by `reference_data.py`): tool result
+keys, the six-tool registry, labels, feasibility math and the safety loop are unchanged (`test_reference_data.py` asserts the
+registry and `data`/`o2` key tuples). The ONE wiring is below.
+
+## What is wired, what is not
+
+* **Wired (demo/fixture path only):** `FixtureDatasource.snapshot()["radiation_usv_h"]` is now
+  `radiation_baseline_usv_h()["tissue_usv_h_median"]` of an injectable `reference` (default `FixtureReferenceData()`, the
+  synthetic rows: 150/160 uGy/day tissue, Q 3.0 -> 19.375 uSv/h). It is deterministic (median, independent of the fixture's
+  simulated dose), and in the `radiation_event` scenario it is multiplied by the existing 40x event factor (775.0 uSv/h, still
+  above `critical_above` 50). The `data` tool and the alert poll read it through the unchanged snapshot, so the spoken
+  number still traces to the tool result and the verifier passes. It fails closed: a reference that raises
+  `DataUnavailableError` (no `none` rows, bad values, bad policy) or returns a non-finite median makes `snapshot()` raise,
+  so the turn raises and nothing is spoken; there is no constant fallback.
+* **Not wired:** `PostgresDatasource` keeps the live `(radiation_msv[t] - radiation_msv[t-1]) / dt * 1000` derivation and does
+  not take a reference. `o2_consumption`, `weather_summary`, `o2_burn_multiplier`, `o2_burn_pct_per_min` and the spoken
+  qualifiers are not used by any tool, turn or the simulator. Snapshot and tool keys, labels and `ACTIVITY_O2` are unchanged.
+* **Spoken wording:** the value is still spoken as "Radiation N microsieverts per hour" with no "simulated"/"extended"
+  qualifier; whether to speak one is an owner decision (see sign-offs). A normal fixture turn carries the radiation
+  *warning* alert (19.375 > 10), as before with 27.9.
 
 | Table | What it is | Accessor |
 | --- | --- | --- |
@@ -30,7 +48,7 @@ Simulated/generated data is acceptable for the demo; the markers stay honest abo
 | `reference-observed-extended` | radiation and weather: observation-based reference data that the dataset extends | `extended reference value` |
 
 Neither is ever a reading from the astronaut's suit. The qualifier strings live in `turn_policy.json` -> `reference_data`
--> `spoken_qualifiers`; `reference_data.reference_policy()` / `spoken_qualifier(source)` read them. Nothing speaks them yet.
+-> `spoken_qualifiers`; `reference_data.reference_policy()` / `spoken_qualifier(source)` read them. Nothing speaks them yet, including the wired fixture radiation value.
 
 ## `turn_policy.json` `reference_data` block (all PLACEHOLDER)
 
@@ -84,10 +102,12 @@ runtime safety guard are unchanged. Reference data must not feed them without si
 ## Potential tool uses (none built)
 
 * `o2_consumption` -> a baseline O2 draw for an activity, e.g. "how much oxygen does maintenance work use".
-* `radiation_baseline_usv_h` -> a "typical background" figure in the same unit as the existing `radiation_usv_h` reading.
+* `radiation_baseline_usv_h` -> a "typical background" figure in the same unit as the existing `radiation_usv_h` reading (already used as the FixtureDatasource demo value).
 * `weather_summary` -> a general "how cold / what pressure outside" answer for the `data` tool family.
 
 ## REMAINING owner sign-offs
+
+0. **Demo radiation source:** the fixture/demo `radiation_usv_h` is the reference median x Q (and x40 in `radiation_event`); whether to speak a "simulated/extended" qualifier with it, and whether `PostgresDatasource` should ever use a reference baseline instead of the live delta. `turn_policy.json` `data_source.definitions.radiation_usv_h` still describes the live (Postgres) derivation only.
 
 1. **Quality factor Q** (`reference_data.radiation.quality_factor`, 3.0): the approximation itself, whether tissue is the right column, and whether the per-day -> per-hour step (`/ 24`) is acceptable.
 2. **Tank capacity** (`reference_data.o2.tank_capacity_l`, 400.0 L at STPD): replace with the real suit tank figure before any percent is spoken or compared with the sim.

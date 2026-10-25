@@ -56,6 +56,12 @@ def test_reference_data_is_not_wired_into_tools_turn_or_simulator_rules():
         'ACTIVITY_O2 = {"resting": 0.6, "walking": 1.0, "working": 1.3, "running": 1.8}') == 1
 
 
+def test_only_the_fixture_datasource_reads_the_reference_radiation_and_postgres_keeps_the_live_delta():
+    from router.datasource import FixtureDatasource, PostgresDatasource
+    assert FixtureDatasource().snapshot()["radiation_usv_h"] == FixtureReferenceData().radiation_baseline_usv_h()["tissue_usv_h_median"]
+    assert not hasattr(PostgresDatasource(connect=lambda url: None), "reference")
+
+
 def test_reference_data_module_imports_neither_tools_turn_nor_simulator_rules():
     tree = ast.parse(Path(reference_data.__file__).read_text())
     imported = set()
