@@ -239,7 +239,7 @@ def match_confirmation(text, policy):
 class TurnHandler:
     def __init__(self, router, alert_source, registry=None, llm_fn=stub_llm, arbiter_fn=None, policy=None,
                  pipeline_config=None, verifier=verify_numbers, retriever=None, tts_fn=None, generator=None, clock=time.monotonic,
-                 interim_fn=None):
+                 interim_fn=None, tool_classifier_fn=None):
         self.interim_fn = interim_fn  # interim_fn(line, "llm_interim") speaks the short wait line before a slow generation; None = silent
         self.retriever = retriever
         self.last_generation_request = None  # the GenerationRequest object of the latest request (not part of the result dict)
@@ -262,7 +262,8 @@ class TurnHandler:
             self.generator = LegacyLLMAdapter(llm_fn)  # old llm_fn(text, prompt_policy, passages=None) -> str
         self.verifier = verifier
         self.pipeline = Pipeline(router, config=load_config() if pipeline_config is None else pipeline_config,
-                                 llm_fn=lambda text, prompt_policy: None, arbiter_fn=arbiter_fn)
+                                 llm_fn=lambda text, prompt_policy: None, arbiter_fn=arbiter_fn,
+                                 tool_classifier_fn=tool_classifier_fn)
 
         validate_execute_immediately(self.policy.get("execute_immediately"), self.pipeline.config)
 
@@ -355,7 +356,7 @@ class TurnHandler:
             result["fast_intent"] = fast[0]
             return self._speak(result, "fast_reply", fast[1], {})
 
-        out = result["pipeline"] = self.pipeline.handle(text)
+        out = result["pipeline"] = self.pipeline.handle(text, second_layer=False) if result.get("alert_line") and self.pipeline.tool_classifier_fn else self.pipeline.handle(text)
         execute = self.policy["execute_immediately"]
         tool_cfg = self.pipeline.config["tool_labels"].get(out["label"])
         immediate = (execute["enabled"] and out["route"] == "clarify"

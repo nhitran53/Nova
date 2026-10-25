@@ -10,6 +10,13 @@ from router.demo_live import KeywordRouter, apply_set, frozen_clock, main
 from router.datasource import FixtureDatasource
 
 
+@pytest.fixture(autouse=True)
+def _local_llm_runtime(monkeypatch):  # these tests drive a fake llama-server; the policy default is Gemini
+    monkeypatch.setenv("NOVA_LLM_RUNTIME", "llama-server")
+    monkeypatch.setenv("NOVA_LLM_MODEL", "qwen3.5-4b")
+    monkeypatch.setenv("NOVA_LLM_CONSTRAIN", "json_schema")
+
+
 def closed_port_url():
     with socket.socket() as s:
         s.bind(("127.0.0.1", 0))

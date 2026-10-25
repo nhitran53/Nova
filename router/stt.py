@@ -243,6 +243,11 @@ def default_speech_queue():
     return SpeechQueue(tts.speak)
 
 
+def router_tool_labels():
+    from .pipeline import load_config
+    return tuple(load_config()["tool_labels"])
+
+
 def _default_handler(router, speak, llm_options=None, speech=None, datasource=None):
     """TurnHandler over the live generator. With `speak`, interim_fn and tts_fn only ENQUEUE on `speech` (a SpeechQueue;
     one is created when missing), so generation overlaps the interim line and the final line plays after it.
@@ -280,7 +285,12 @@ def _default_handler(router, speak, llm_options=None, speech=None, datasource=No
         else:
             speech.enqueue(text, route)
 
-    handler = TurnHandler(router, alert_source, registry, generator=generator, policy=policy, retriever=retriever,
+    classifier = None
+    layer = policy.get("second_layer", {})
+    if layer.get("enabled") and hasattr(generator, "classify"):
+        from .tool_classifier import make_tool_classifier
+        classifier = make_tool_classifier(generator, router_tool_labels(), layer)
+    handler = TurnHandler(router, alert_source, registry, generator=generator, tool_classifier_fn=classifier, policy=policy, retriever=retriever,
                           interim_fn=speech.enqueue if speak else None, tts_fn=deliver if speak else None)
     handler.generator_label = label
     return handler

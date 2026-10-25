@@ -194,6 +194,26 @@ class HTTPChatGenerator:
     def _generate(self, req):
         timeout = self.request_timeout_s(req)
         body = self.last_body = self.build_body(req)
+        return self._post(body, timeout)
+
+    def classify(self, messages, max_tokens, deadline_ms):
+        """One small chat completion for the second-layer tool classifier -> the raw reply text. Raises LLMRequestError."""
+        try:
+            c = self.config
+            remaining = deadline_ms / 1000.0
+            if remaining <= 0:
+                raise LLMTimeoutError(f"no time left for the request (deadline_ms={deadline_ms})")
+            body = {"model": c["model"], "messages": messages, "max_tokens": max_tokens, "temperature": 0, "stream": False}
+            if c["runtime"] == "gemini" and c["disable_thinking"]:
+                body["reasoning_effort"] = c.get("gemini_reasoning_effort", "minimal")
+            body.update(deepcopy(c["extra_body"]))
+            self.last_body = body
+            return self._post(body, min(c["request_timeout_cap_s"], remaining)).raw
+        except LLMRequestError as exc:
+            error_type, message = type(exc), redact_secrets(str(exc), self.api_key)
+        raise error_type(message) from None
+
+    def _post(self, body, timeout):
         headers = {"Content-Type": "application/json", "Accept": "application/json"}
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
@@ -283,6 +303,18 @@ class FailoverGenerator:
                 continue
             try:
                 return gen.generate(req)
+            except LLMRequestError as exc:
+                last = exc
+                self.down_until[i] = self.clock() + self.cooldown_s
+        raise last or LLMRequestError("all LLM generators are cooling down")
+
+    def classify(self, messages, max_tokens, deadline_ms):
+        last = None
+        for i, gen in enumerate(self.generators):
+            if self.down_until.get(i, 0) > self.clock():
+                continue
+            try:
+                return gen.classify(messages, max_tokens, deadline_ms)
             except LLMRequestError as exc:
                 last = exc
                 self.down_until[i] = self.clock() + self.cooldown_s

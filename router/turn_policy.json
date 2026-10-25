@@ -336,10 +336,23 @@
     }
   },
   "_comment_generation": "Post-tool-call generation (router/generation.py). The whole 'generation' section is PLACEHOLDER pending user sign-off: persona, style limits, attempt/deadline budget, passage-number provenance (default 'digits'; 'off' available; 'quote_span' documented but unbuilt and refused by the loader; risk_term_passage_override forces 'off' for a grounded turn whose question or passage hits llm_scope.risk_terms; attribution_prefix is prepended by code to a grounded answer that speaks a passage number), history length, refusal and fallback wording, retry wording, deny-lists, slot formats/units and the raw-output size cap (max_raw_chars). Qualitative tier labels (critical/warning/normal) are NOT configured here: they are derived from the human-owned sim_fields thresholds. No real model, mission document or suit rule backs any value.",
+  "second_layer": {
+    "status": "PLACEHOLDER - pending user sign-off (Gemini re-reads utterances the router did not send to a tool and may name ONE tool label from the closed set; it never runs for alerts, never decides go/no-go, args stay deterministic)",
+    "enabled": true,
+    "deadline_ms": 1500,
+    "max_tokens": 24,
+    "descriptions": {
+      "call_safety": "a safety check of the rover and suit state",
+      "call_navigation": "directions or a route to a named place",
+      "call_map": "where a named place is on the map",
+      "call_data": "a live sensor readout of the environment or vitals",
+      "call_o2": "the astronaut's oxygen level and how long it lasts"
+    }
+  },
   "generation": {
     "status": "PLACEHOLDER - pending user sign-off (every value; passage_numbers 'digits' is the default, 'off' bans model-written numbers from documents, 'quote_span' is unbuilt; risk_term_passage_override and attribution_prefix are new)",
     "interim": {"enabled": true, "line": "Let me think."},
-    "persona": "You are Nova, a calm navigation and observation voice assistant riding with an astronaut on the surface of Mars. The user is an astronaut on Mars, so answer in that setting. If asked who you are, say: I'm Nova, your navigation and observation voice assistant. Speak briefly, plainly and warmly, as a voice.",
+    "persona": "You are Nova, a calm navigation and observation voice assistant riding with an astronaut on the surface of Mars. The user is an astronaut on Mars, so answer in that setting. If asked who you are, say: I'm Nova, your navigation and observation voice assistant. Speak briefly, plainly and warmly, as a voice. Light banter, jokes and simple general or science questions are fine. For anything serious, such as health, injury, safety, life support, oxygen, suit or rover faults, hazards, emergencies or go or no-go decisions, do not advise or explain: output the refusal out_of_scope, because those are answered only by tools. You may offer only simple, generic comfort such as to stay calm and take a slow breath.",
     "max_sentences": 2,
     "max_words": 40,
     "max_tokens": 80,
