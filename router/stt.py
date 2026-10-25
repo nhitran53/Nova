@@ -37,6 +37,7 @@ FRAME_S = 0.1
 CONNECT_TIMEOUT_S = 20
 VAD_SILENCE_S = 1.0  # quiet after speech that ends an utterance (API range 0.3-3.0)
 DEFAULT_LISTEN_TIMEOUT_S = 30.0
+STOP_POLL_S = 0.1  # how often a pending transcription checks its stop_event
 
 
 class SttError(RuntimeError):
@@ -79,24 +80,25 @@ def mic_frames(stop, sample_rate=SAMPLE_RATE, frame_s=FRAME_S):
 
 
 def transcribe(frames, client_factory=_default_client_factory, timeout_s=DEFAULT_LISTEN_TIMEOUT_S,
-               sample_rate=SAMPLE_RATE, on_partial=None):
+               sample_rate=SAMPLE_RATE, on_partial=None, stop_event=None):
     """Stream `frames` (iterable of int16 PCM bytes) to Scribe realtime; return the first committed transcript.
 
-    Returns "" when nothing was said within `timeout_s`. Raises SttError on any failure."""
+    Returns "" when nothing was said within `timeout_s` or when `stop_event` (threading.Event, optional) is set while waiting.
+    Raises SttError on any failure."""
     key = _api_key()
     try:
         client = client_factory(key)
     except Exception as exc:  # never forward str(exc): the key was an argument
         raise SttError(f"could not create the ElevenLabs client: {type(exc).__name__}") from None
     try:
-        return asyncio.run(_stream(client, frames, timeout_s, sample_rate, on_partial))
+        return asyncio.run(_stream(client, frames, timeout_s, sample_rate, on_partial, stop_event))
     except SttError as exc:
         raise SttError(_redacted(exc, key)) from None
     except Exception as exc:
         raise SttError(_redacted(f"transcription failed: {type(exc).__name__}: {exc}", key)) from None
 
 
-async def _stream(client, frames, timeout_s, sample_rate, on_partial):
+async def _stream(client, frames, timeout_s, sample_rate, on_partial, stop_event=None):
     from elevenlabs.realtime import AudioFormat, CommitStrategy, RealtimeEvents
 
     loop = asyncio.get_running_loop()
@@ -137,7 +139,18 @@ async def _stream(client, frames, timeout_s, sample_rate, on_partial):
 
         pump_task = asyncio.create_task(pump())
         try:
-            return await asyncio.wait_for(done, timeout_s)
+            if stop_event is None:
+                return await asyncio.wait_for(done, timeout_s)
+            deadline = loop.time() + timeout_s
+            while not stop_event.is_set():  # poll so a stop request ends the wait within STOP_POLL_S
+                remaining = deadline - loop.time()
+                if remaining <= 0:
+                    return ""
+                try:
+                    return await asyncio.wait_for(asyncio.shield(done), min(STOP_POLL_S, remaining))
+                except asyncio.TimeoutError:
+                    continue
+            return ""
         except asyncio.TimeoutError:
             return ""
         finally:
@@ -256,14 +269,15 @@ def _speech_errors(speech, turn):
 
 def listen_and_route(model=None, device="cpu", speak=False, frames=None, router_loader=None, handler_factory=None,
                      timeout_s=DEFAULT_LISTEN_TIMEOUT_S, client_factory=_default_client_factory, on_partial=None,
-                     background=None, handler=None, llm_options=None):
+                     background=None, handler=None, llm_options=None, stop_event=None):
     """Transcribe one utterance (router loading in the background), run it through the TurnHandler, speak if `speak`.
 
     -> {"transcript": str, "turn": TurnHandler result or None (nothing heard)}.
     `frames` defaults to the microphone. `background`/`handler` let `converse` reuse one router and one handler
     (so clarification/confirmation state carries across turns); `router_loader`/`handler_factory` are for tests.
     `llm_options` (no_llm, runtime, base_url, llm_model, deadline_ms) configure the default handler's generator. When this
-    call builds the default handler itself it waits for the speech queue before returning (converse owns its own queue)."""
+    call builds the default handler itself it waits for the speech queue before returning (converse owns its own queue).
+    `stop_event` (threading.Event, optional): setting it ends the listening early; nothing heard -> turn None."""
     from . import core
 
     if background is None:
@@ -274,7 +288,8 @@ def listen_and_route(model=None, device="cpu", speak=False, frames=None, router_
     stop = threading.Event()
     source = mic_frames(stop) if frames is None else frames
     try:
-        transcript = transcribe(source, client_factory=client_factory, timeout_s=timeout_s, on_partial=on_partial)
+        transcript = transcribe(source, client_factory=client_factory, timeout_s=timeout_s, on_partial=on_partial,
+                                stop_event=stop_event)
     finally:
         stop.set()
     if not transcript:
@@ -307,11 +322,15 @@ class _LazyHandler:
 
 
 def converse(model=None, device="cpu", speak=True, timeout_s=10.0, max_turns=None, on_event=print,
-             router_loader=None, handler_factory=None, llm_options=None, speech_queue=None, **kwargs):
+             router_loader=None, handler_factory=None, llm_options=None, speech_queue=None, stop_event=None, on_turn=None,
+             **kwargs):
     """Back and forth: listen -> route -> speak the reply -> listen again, until `timeout_s` of silence, `max_turns`, or a
     turn with `end_session` ("thank you"). One router, one TurnHandler and one SpeechQueue for the whole conversation; the queue
     is drained before the mic reopens. `speech_queue` is for tests (default: a real tts-backed queue when `speak` and no
-    custom `handler_factory`). Playback errors go to on_event and turn["tts_error"]. -> list of turn dicts."""
+    custom `handler_factory`). Playback errors go to on_event and turn["tts_error"]. -> list of turn dicts.
+    `stop_event` (threading.Event, optional) ends the conversation: checked before each listen and while listening; a reply
+    already being spoken is not interrupted. `on_turn(out)` (optional) gets each {"transcript", "turn"} dict once its reply is
+    enqueued, before the speech is awaited (structured alternative to parsing the on_event text)."""
     from . import core
 
     loader = router_loader or (lambda: _load_router(model or str(core.models_dir() / "v1"), device))
@@ -322,13 +341,19 @@ def converse(model=None, device="cpu", speak=True, timeout_s=10.0, max_turns=Non
     handler = _LazyHandler(background, handler_factory or (lambda router: _default_handler(router, speak, llm_options, speech)))
     turns = []
     while max_turns is None or len(turns) < max_turns:
+        if stop_event is not None and stop_event.is_set():
+            on_event("(stopped - ending conversation)")
+            break
         on_event("listening...")
-        out = listen_and_route(timeout_s=timeout_s, background=background, handler=handler, **kwargs)
+        out = listen_and_route(timeout_s=timeout_s, background=background, handler=handler, stop_event=stop_event, **kwargs)
         if out["turn"] is None:
-            on_event("(silence - ending conversation)")
+            stopped = stop_event is not None and stop_event.is_set()
+            on_event("(stopped - ending conversation)" if stopped else "(silence - ending conversation)")
             break
         turns.append(out)
         turn = out["turn"]
+        if on_turn is not None:
+            on_turn(out)
         on_event(f"you  : {out['transcript']}\nnova : {turn['spoken']}  [{turn['route']}]"
                  + (f"  (tts failed: {turn['tts_error']})" if "tts_error" in turn else ""))
         if speech is not None:

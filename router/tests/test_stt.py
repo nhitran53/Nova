@@ -271,3 +271,47 @@ def test_main_passes_llm_flags_to_converse(monkeypatch):
                      "--no-speak"]) == 0
     assert seen["llm_options"] == {"no_llm": True, "runtime": "ollama", "base_url": "http://x/v1", "llm_model": "m",
                                    "deadline_ms": 5000} and seen["speak"] is False
+
+
+# ---- stop_event / on_turn (voice_server hooks); default behaviour is covered by the tests above ----
+def test_transcribe_stop_event_ends_the_wait_early_with_empty_text():
+    import threading
+    import time
+    stop = threading.Event()
+    threading.Timer(0.2, stop.set).start()
+    started = time.monotonic()
+    assert stt.transcribe(frames(1), client_factory=lambda k: FakeClient(FakeConnection("")), timeout_s=30, stop_event=stop) == ""
+    assert time.monotonic() - started < 5
+
+
+def test_transcribe_with_an_unset_stop_event_still_returns_the_transcript():
+    import threading
+    assert stt.transcribe(frames(), client_factory=lambda k: FakeClient(FakeConnection("hi nova")), stop_event=threading.Event()) == "hi nova"
+
+
+def test_converse_stops_before_listening_when_the_stop_event_is_already_set():
+    import threading
+    stop, events = threading.Event(), []
+    stop.set()
+    turns = stt.converse(router_loader=lambda: "R", handler_factory=lambda r: None, stop_event=stop, on_event=events.append)
+    assert turns == [] and not any(e == "listening..." for e in events) and any("stopped" in e for e in events)
+
+
+def test_converse_on_turn_gets_each_turn_and_stop_between_turns_ends_it():
+    import itertools
+    import threading
+    stop, seen, events = threading.Event(), [], []
+
+    class Handler:
+        def handle(self, text):
+            return {"route": "tool", "spoken": "re: " + text}
+
+    def on_turn(out):
+        seen.append(out["transcript"])
+        stop.set()  # the caller asks to stop after the first reply
+
+    turns = stt.converse(router_loader=lambda: "R", handler_factory=lambda r: Handler(), stop_event=stop, on_turn=on_turn,
+                         client_factory=lambda k: FakeClient(FakeConnection("one")), frames=itertools.cycle([b"\x00\x01" * 1600]),
+                         timeout_s=0.5, on_event=events.append)
+    assert seen == ["one"] and [t["transcript"] for t in turns] == ["one"]
+    assert sum(e == "listening..." for e in events) == 1 and any("stopped" in e for e in events)
