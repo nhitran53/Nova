@@ -69,6 +69,12 @@ public class PinchToggle : MonoBehaviour
             valid = false;
             reason = WristComputer.FingerNearControls ? "WRIST TOUCH" : "MAP TOUCH";
         }
+        // Let the manual handle pinches over its page.
+        else if (valid && NovaManualViewer.HandOnManual)
+        {
+            valid = false;
+            reason = "MANUAL";
+        }
         // Keep the telephone pose separate from pinches.
         else if (valid && TelephoneGestureDetector.AnyActive)
         {

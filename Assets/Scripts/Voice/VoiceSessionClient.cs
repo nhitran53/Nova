@@ -40,6 +40,13 @@ public class VoiceSessionClient : MonoBehaviour
     public StringEvent OnError = new StringEvent();
     // Sends the destination when a new navigation command arrives.
     public StringEvent OnNavigation = new StringEvent();
+    // Request one capture for looking or pointing.
+    public StringEvent OnVisionRequest = new StringEvent();
+    // The asset name of a new manual page. Display holds its title.
+    public StringEvent OnDisplay = new StringEvent();
+    public DisplayInfo Display => tracker.Display;
+    public StringEvent OnSpatialRequest = new StringEvent();
+    public int SpatialSeq => tracker.SpatialSeq;
 
     public event System.Action<HazardZoneData> OnHazardChanged;
 
@@ -60,6 +67,9 @@ public class VoiceSessionClient : MonoBehaviour
     public string LastError => tracker.LastError;
     public string LastRoute => tracker.LastRoute;
     public string NavigationAction => tracker.NavigationAction;
+    public int VisionSeq => tracker.VisionSeq;
+    public string VisionState => tracker.VisionState;
+    public string VisionTarget => tracker.VisionTarget;
     public string Alert => tracker.Alert;
     public HazardZoneData Hazard => tracker.Hazard;
 
@@ -167,6 +177,33 @@ public class VoiceSessionClient : MonoBehaviour
         OxygenDemoBusy = false;
     }
 
+    // Send the capture and target facts to Python.
+    public void SendVisionFrame(string json)
+    {
+        if (!isActiveAndEnabled || string.IsNullOrWhiteSpace(baseUrl)) return;
+        StartCoroutine(SnapshotRoutine("/vision/frame", json));
+    }
+
+    public void SendSpatialContext(string json)
+    {
+        if (isActiveAndEnabled && !string.IsNullOrWhiteSpace(baseUrl))
+            StartCoroutine(SnapshotRoutine("/spatial/context", json));
+    }
+
+    IEnumerator SnapshotRoutine(string path, string json)
+    {
+        using (var req = new UnityWebRequest(Url(path), UnityWebRequest.kHttpVerbPOST))
+        {
+            req.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(json));
+            req.downloadHandler = new DownloadHandlerBuffer();
+            req.SetRequestHeader("Content-Type", "application/json");
+            req.timeout = Mathf.Max(5, Mathf.CeilToInt(requestTimeoutSeconds));
+            yield return req.SendWebRequest();
+            if (req.result != UnityWebRequest.Result.Success)
+                Debug.LogWarning($"[Voice] POST {path} failed ({req.responseCode} {req.error}): {req.downloadHandler?.text}");
+        }
+    }
+
     void SendCommand(string path)
     {
         if (!isActiveAndEnabled) return;
@@ -249,6 +286,9 @@ public class VoiceSessionClient : MonoBehaviour
         if (changes.ReplyChanged) OnReply.Invoke(tracker.LastReply);
         if (changes.ErrorChanged) OnError.Invoke(tracker.LastError);
         if (changes.NavigationRequested) OnNavigation.Invoke(tracker.NavigationDestination);
+        if (changes.VisionRequested) OnVisionRequest.Invoke(tracker.VisionMode);
+        if (changes.DisplayRequested) OnDisplay.Invoke(tracker.Display.asset);
+        if (changes.SpatialRequested) OnSpatialRequest.Invoke("");
     }
 
     void MarkReachable()

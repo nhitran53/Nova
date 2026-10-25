@@ -196,8 +196,8 @@ class HTTPChatGenerator:
         body = self.last_body = self.build_body(req)
         return self._post(body, timeout)
 
-    def classify(self, messages, max_tokens, deadline_ms):
-        """One small chat completion for the second-layer tool classifier -> the raw reply text. Raises LLMRequestError."""
+    def classify(self, messages, max_tokens, deadline_ms, timeout_cap_s=None):
+        """Return raw text for routing or vision. timeout_cap_s overrides this call's timeout."""
         try:
             c = self.config
             remaining = deadline_ms / 1000.0
@@ -208,7 +208,8 @@ class HTTPChatGenerator:
                 body["reasoning_effort"] = c.get("gemini_reasoning_effort", "minimal")
             body.update(deepcopy(c["extra_body"]))
             self.last_body = body
-            return self._post(body, min(c["request_timeout_cap_s"], remaining)).raw
+            cap = c["request_timeout_cap_s"] if timeout_cap_s is None else timeout_cap_s
+            return self._post(body, min(cap, remaining)).raw
         except LLMRequestError as exc:
             error_type, message = type(exc), redact_secrets(str(exc), self.api_key)
         raise error_type(message) from None
@@ -288,19 +289,24 @@ def _check_server(base_url, timeout, api_key=None, hosted=False):
 
 
 class FailoverGenerator:
-    """Tries each generator in order; the next one runs only after an LLMRequestError (429, 402, 5xx, timeout, network).
-    Raises the last error when all fail, so run_generation speaks its fixed error line. A generator that failed is skipped for
-    `cooldown_s` seconds so a dead API does not eat every turn's deadline."""
+    """Try generators in order and cool down failures. Retry all if none are ready.
+
+    Raise the last error when every generator fails.
+    """
 
     def __init__(self, generators, cooldown_s=60.0, clock=time.monotonic):
         self.generators, self.cooldown_s, self.clock = list(generators), cooldown_s, clock
         self.down_until = {}
 
+    def _ready(self):
+        now = self.clock()
+        ready = [i for i in range(len(self.generators)) if self.down_until.get(i, 0) <= now]
+        return ready or list(range(len(self.generators)))
+
     def generate(self, req):
         last = None
-        for i, gen in enumerate(self.generators):
-            if self.down_until.get(i, 0) > self.clock():
-                continue
+        for i in self._ready():
+            gen = self.generators[i]
             try:
                 return gen.generate(req)
             except LLMRequestError as exc:
@@ -308,13 +314,12 @@ class FailoverGenerator:
                 self.down_until[i] = self.clock() + self.cooldown_s
         raise last or LLMRequestError("all LLM generators are cooling down")
 
-    def classify(self, messages, max_tokens, deadline_ms):
+    def classify(self, messages, max_tokens, deadline_ms, timeout_cap_s=None):
         last = None
-        for i, gen in enumerate(self.generators):
-            if self.down_until.get(i, 0) > self.clock():
-                continue
+        for i in self._ready():
+            gen = self.generators[i]
             try:
-                return gen.classify(messages, max_tokens, deadline_ms)
+                return gen.classify(messages, max_tokens, deadline_ms, timeout_cap_s)
             except LLMRequestError as exc:
                 last = exc
                 self.down_until[i] = self.clock() + self.cooldown_s

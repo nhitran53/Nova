@@ -38,6 +38,8 @@ public class RouteNavigator : MonoBehaviour
     [Tooltip("Demo movement only. This is not validated autonomous traversal.")]
     [Min(0.1f)] public float demoAutoMoveSpeed = 15;
     [Min(0.1f)] public float demoAcceleration = 8;
+    [Tooltip("Demo movement can start this far from the trail; it walks straight onto the trail first.")]
+    [SerializeField, Min(1)] float demoJoinMeters = 60;
 
     [Header("Location waypoint")]
     public bool showWaypointBeacon = true;
@@ -87,6 +89,7 @@ public class RouteNavigator : MonoBehaviour
     bool savedStrafe, resumeFist, requireTracking;
     int autoWaypoint;
     float autoSpeed, stalledSeconds;
+    bool joiningTrail;
     Vector3 lastAutoPosition;
     Vector3[] autoPoints;
     GameObject beacon;
@@ -126,7 +129,14 @@ public class RouteNavigator : MonoBehaviour
     // Map requests mark a location. Start requests move along the route.
     void OnVoiceNavigation(string destinationId)
     {
-        if (voice.NavigationAction == "start") StartDemoNavigation(destinationId);
+        if (voice.NavigationAction == "return_to_start")
+        {
+            StopNavigation();
+            var spawn = FindAnyObjectByType<RoverInspectionSpawn>();
+            if (spawn != null) spawn.ResetInspectionPosition();
+            else Debug.LogWarning("The rover inspection spawn is missing. Cannot return to start.", this);
+        }
+        else if (voice.NavigationAction == "start") StartDemoNavigation(destinationId);
         else if (voice.NavigationAction == "find") ShowWaypoint(destinationId);
     }
 
@@ -469,10 +479,10 @@ public class RouteNavigator : MonoBehaviour
         response = StartNavigation(response.route_id);
         UpdateProgress(true);
         if (Status == NavigationStatus.Arrived) return response;
-        if (DistanceFromTrail > backOnRouteMeters)
+        if (DistanceFromTrail > demoJoinMeters)
         {
             response.success = false;
-            response.status = "Move closer to the saved trail before starting demo movement";
+            response.status = $"Move within {demoJoinMeters:0} m of the saved trail before starting demo movement";
             return Log("start_demo_navigation", new NavigationRequest { destination_id = destinationId }, response);
         }
         foreach (var point in ActiveRoute.points)
@@ -507,6 +517,7 @@ public class RouteNavigator : MonoBehaviour
         autoSpeed = stalledSeconds = 0;
         lastAutoPosition = origin.Origin.transform.position;
         requireTracking = XRSettings.isDeviceActive;
+        joiningTrail = DistanceFromTrail > backOnRouteMeters;
         AutoNavigating = true;
         response.status = "demo_auto_navigation";
         return response;
@@ -533,7 +544,8 @@ public class RouteNavigator : MonoBehaviour
             EndAutoMovement();
             return;
         }
-        if (DistanceFromTrail > offRouteMeters || !Physics.Raycast(head.position, Vector3.down, out _,
+        if (joiningTrail && DistanceFromTrail <= backOnRouteMeters) joiningTrail = false;
+        if ((!joiningTrail && DistanceFromTrail > offRouteMeters) || !Physics.Raycast(head.position, Vector3.down, out _,
                 Mathf.Max(1, head.position.y - autoOrigin.Origin.transform.position.y) + .75f, ~4, QueryTriggerInteraction.Ignore))
         {
             StopNavigation();

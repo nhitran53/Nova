@@ -110,3 +110,14 @@ def test_persona_sets_mars_and_identity_line():
     assert "Mars" in persona and "I'm Nova, your navigation and observation voice assistant" in persona
     assert POLICY["fast_replies"]["intents"]["identity"]["line"] == "I'm Nova, your navigation and observation voice assistant."
     assert not any(c.isdigit() for c in persona)
+
+
+def test_when_every_model_is_cooling_down_they_are_tried_again():
+    now = [0.0]
+    first = L.HTTPChatGenerator(_config(), api_key=KEY, opener=FakeOpener(_http_error(504), '{"refusal": null, "text": "back"}'))
+    second = L.HTTPChatGenerator(_config(model="gemini-3.1-flash-lite"), api_key=KEY, opener=FakeOpener(_http_error(503)))
+    chain = L.FailoverGenerator([first, second], cooldown_s=60, clock=lambda: now[0])
+    with pytest.raises(L.LLMRequestError):
+        chain.generate(_req())  # both fail once and both start cooling down
+    now[0] = 5
+    assert "back" in chain.generate(_req()).raw and first.calls == 2  # not an instant failure for the next minute

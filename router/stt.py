@@ -24,6 +24,7 @@ HERE = Path(__file__).resolve().parent
 ENV_PATH = Path(os.environ.get("NOVA_ENV_FILE") or HERE.parent / ".env")
 KEY_VAR = "ELEVENLABS_API_KEY"
 MODEL_ID = "scribe_v2_realtime"
+LANGUAGE_CODE = "en"  # Keep noisy speech from switching languages.
 SAMPLE_RATE = 16000
 FRAME_S = 0.1
 CONNECT_TIMEOUT_S = 20
@@ -107,6 +108,7 @@ async def _stream(client, frames, timeout_s, sample_rate, on_partial, stop_event
 
     connection = await asyncio.wait_for(client.speech_to_text.realtime.connect({
         "model_id": MODEL_ID,
+        "language_code": LANGUAGE_CODE,
         "audio_format": AudioFormat.PCM_16000,
         "sample_rate": sample_rate,
         "commit_strategy": CommitStrategy.VAD,
@@ -246,11 +248,11 @@ def router_tool_labels():
     return tuple(load_config()["tool_labels"])
 
 
-def _default_handler(router, speak, llm_options=None, speech=None, datasource=None):
-    """TurnHandler over the live generator. With `speak`, interim_fn and tts_fn only ENQUEUE on `speech` (a SpeechQueue;
-    one is created when missing), so generation overlaps the interim line and the final line plays after it.
-    `datasource` (optional, e.g. datasource.PostgresDatasource) replaces the built-in SimState: its snapshot is the alert
-    source and the tools read it, the same wiring demo_live uses for FixtureDatasource."""
+def _default_handler(router, speak, llm_options=None, speech=None, datasource=None, vision_frames=None):
+    """Build the turn handler with queued speech and the selected datasource.
+
+    vision_frames supplies Unity captures and live positions. Its tools are added without changing BERT's labels.
+    """
     from .llm_generator import build_generator
     from .tools import SimState, default_registry
     from .turn import TurnHandler, load_policy
@@ -259,6 +261,8 @@ def _default_handler(router, speak, llm_options=None, speech=None, datasource=No
         lambda line: print(line, file=sys.stderr), no_llm=options.get("no_llm", False), runtime=options.get("runtime"),
         base_url=options.get("base_url"), model=options.get("llm_model"))
     policy = load_policy()
+    if hasattr(generator, "classify"):  # Let the live model answer unmatched general questions.
+        policy["llm_scope"]["general_fallback"] = True
     if options.get("deadline_ms") is not None:
         policy["generation"]["deadline_ms"] = options["deadline_ms"]
     if speak and speech is None:
@@ -271,11 +275,20 @@ def _default_handler(router, speak, llm_options=None, speech=None, datasource=No
     retriever = make_retriever(docs_dir) if docs_dir else None
     if demo:
         policy["demo_scene"]["enabled"] = True
+    unity_tools = {}
+    if vision_frames is not None and hasattr(vision_frames, "request_spatial"):
+        from .location import make_location_tool
+        unity_tools["location"] = make_location_tool(vision_frames)
+        unity_tools["return_to_start"] = True
+    if vision_frames is not None and policy.get("vision", {}).get("enabled"):
+        from .vision import make_vision_tool
+        manual = retriever or make_retriever(str(DEFAULT_DOCS_DIR))
+        unity_tools["vision"] = make_vision_tool(vision_frames, generator, policy["vision"], manual)
     if datasource is not None:
-        alert_source, registry = datasource.snapshot, default_registry(datasource=datasource)
+        alert_source, registry = datasource.snapshot, default_registry(datasource=datasource, **unity_tools)
     else:
         sim = SimState(rover_faults=DEMO_ROVER_FAULTS if demo else None)
-        alert_source, registry = sim.snapshot, default_registry(sim)
+        alert_source, registry = sim.snapshot, default_registry(sim, **unity_tools)
     def deliver(text, route):
         if route == "alert":
             speech.clear_pending()
@@ -283,14 +296,30 @@ def _default_handler(router, speak, llm_options=None, speech=None, datasource=No
         else:
             speech.enqueue(text, route)
 
-    classifier = None
+    classifier = pipeline_config = None
     layer = policy.get("second_layer", {})
     if layer.get("enabled") and hasattr(generator, "classify"):
+        from .pipeline import load_config
         from .tool_classifier import make_tool_classifier
-        classifier = make_tool_classifier(generator, router_tool_labels(), layer)
+        labels = router_tool_labels()
+        if unity_tools:  # Only the second layer can name the added labels.
+            pipeline_config = load_config()
+        if "vision" in unity_tools:
+            pipeline_config["tool_labels"]["call_vision"] = {"tool": "vision", "spoken": "a look at what you see"}
+            labels += ("call_vision",)
+        if "location" in unity_tools:
+            pipeline_config["tool_labels"]["call_location"] = {"tool": "get_current_location", "spoken": "your current Unity location"}
+            labels += ("call_location",)
+        classifier = make_tool_classifier(generator, labels, layer)
     handler = TurnHandler(router, alert_source, registry, generator=generator, tool_classifier_fn=classifier, policy=policy, retriever=retriever,
+                          pipeline_config=pipeline_config,
                           interim_fn=speech.enqueue if speak else None, tts_fn=deliver if speak else None)
     handler.generator_label = label
+    if vision_frames is not None and hasattr(vision_frames, "request_spatial"):
+        def place_distance(landmark):
+            snapshot = vision_frames.request_spatial(timeout_s=3)
+            return next((p["distance_m"] for p in snapshot.get("nearby_landmarks", []) if p["id"] == landmark), None)
+        handler.place_distance_fn = place_distance
     return handler
 
 
@@ -361,14 +390,15 @@ class _LazyHandler:
 
 def converse(model=None, device="cpu", speak=True, timeout_s=10.0, max_turns=None, on_event=print,
              router_loader=None, handler_factory=None, llm_options=None, speech_queue=None, stop_event=None, on_turn=None,
-             on_transcript=None, datasource=None, **kwargs):
+             on_transcript=None, datasource=None, vision_frames=None, **kwargs):
     """Back and forth: listen -> route -> speak the reply -> listen again, until `timeout_s` of silence, `max_turns`, or a
     turn with `end_session` ("thank you"). One router, one TurnHandler and one SpeechQueue for the whole conversation; the queue
     is drained before the mic reopens. `speech_queue` is for tests (default: a real tts-backed queue when `speak` and no
     custom `handler_factory`). Playback errors go to on_event and turn["tts_error"]. -> list of turn dicts.
     `stop_event` (threading.Event, optional) ends the conversation: checked before each listen and while listening; a reply
     already being spoken is not interrupted. `on_turn(out)` (optional) gets each {"transcript", "turn"} dict once its reply is
-    enqueued, before the speech is awaited (structured alternative to parsing the on_event text). `on_transcript(text)`
+    enqueued, before the speech is awaited (structured alternative to parsing the on_event text). `vision_frames` (optional)
+    gives the default handler Unity headset images (see `_default_handler`). `on_transcript(text)`
     (optional) gets each committed utterance before it is routed, i.e. when processing starts. `datasource` (optional)
     replaces the built-in SimState for the default handler (see `_default_handler`)."""
     from . import core
@@ -379,7 +409,7 @@ def converse(model=None, device="cpu", speak=True, timeout_s=10.0, max_turns=Non
     if speech is None and speak and handler_factory is None:
         speech = default_speech_queue()
     handler = _LazyHandler(background, handler_factory or (
-        lambda router: _default_handler(router, speak, llm_options, speech, datasource)))
+        lambda router: _default_handler(router, speak, llm_options, speech, datasource, vision_frames)))
     turns = []
     while max_turns is None or len(turns) < max_turns:
         if stop_event is not None and stop_event.is_set():

@@ -180,6 +180,7 @@
   },
   "llm_scope": {
     "status": "PLACEHOLDER - pending user sign-off (no knowledge-base documents exist yet; scope is router class + retrieval score + risk terms, never the LLM judging itself)",
+    "general_fallback": false,
     "risk_terms": [
       "oxygen",
       "o2",
@@ -303,7 +304,7 @@
     }
   },
   "session_end": {
-    "status": "PLACEHOLDER - pending user sign-off (phrases matched against the WHOLE normalized utterance; line is spoken once and the turn result carries end_session=true)",
+    "status": "PLACEHOLDER - thank you closes the session after the current request and reply finish. Other ending phrases match the whole utterance. No further listening follows the reply.",
     "phrases": ["thank you", "thanks", "thank you nova", "thanks nova", "that's all", "goodbye", "bye"],
     "line": "Happy to help!"
   },
@@ -360,8 +361,55 @@
       "call_navigation": "directions or a route to a named place",
       "call_map": "where a named place is on the map",
       "call_data": "a live sensor readout of the environment or vitals",
-      "call_o2": "the astronaut's oxygen level and how long it lasts"
+      "call_o2": "the astronaut's oxygen level and how long it lasts",
+      "call_vision": "a look at what the astronaut sees or points at in the headset view (what is this, what am I looking at)"
     }
+  },
+  "live_distance": {
+    "status": "PLACEHOLDER - pending user sign-off (navigation distance from the live Unity position for places Unity knows; straight-line ground distance; any failure keeps the old distance)",
+    "places": {"shuttle": "shuttle_001", "rover": "rover"},
+    "arrived_m": 8,
+    "arrived_line": "You're already at the {place_name}."
+  },
+  "vision": {
+    "status": "PLACEHOLDER - pending user sign-off (phrases, lines, timeouts and size limit; one Unity-rendered headset image per request goes to Gemini with verified Unity target facts only)",
+    "enabled": true,
+    "pointing_cues": ["pointing at", "pointing to", "point at", "pointed at", "pointing toward", "pointing towards"],
+    "looking_cues": ["what am i looking at", "what i am looking at", "what i'm looking at", "what is in front of me",
+                     "what do you see", "what can you see", "what you see", "what i am seeing", "what i'm seeing",
+                     "describe the view", "describe the scene", "describe what i see", "what is this", "what is that",
+                     "identify this", "identify that"],
+    "condition_words": ["broken", "damaged", "damage", "bent", "crooked", "cracked", "wrong", "busted", "tilted", "missing"],
+    "visual_words": ["this", "that", "it", "see", "look", "looks", "looking", "anything", "visible"],
+    "interim_line": "Let me take a look.",
+    "unavailable_line": "I can't see the headset view right now.",
+    "error_line": "I couldn't analyze the view right now.",
+    "no_pointing_hand_line": "I can't see a pointing hand. Point with your index finger and ask again.",
+    "no_target_line": "I can't tell what you're pointing at. Nothing is in line with your finger.",
+    "scene_context": "The astronaut is on the surface of Mars.",
+    "frame_timeout_s": 6,
+    "request_timeout_s": 12,
+    "max_tokens": 200,
+    "answer_sentences": 2,
+    "share_diagnostics": false,
+    "known_damage": {
+      "enabled": true,
+      "object_id": "perseverance",
+      "part": "front_right_wheel",
+      "line": "That's the rover's front right wheel. It appears to be broken.",
+      "manual_query": "drive module wheel",
+      "manual_line": "The rover manual covers this in {title}.",
+      "hud_manual": {
+        "line": "The Perseverance assembly instructions for the wheel are on your HUD.",
+        "doc_id": "perseverance_assembly",
+        "section_id": "wheel_assembly",
+        "title": "Wheel Assembly",
+        "asset": "wheel_assembly",
+        "source": "Mars 2020 Perseverance Rover assembly instructions"
+      }
+    },
+    "debug_dir": "",
+    "max_image_bytes": 2000000
   },
   "generation": {
     "status": "PLACEHOLDER - pending user sign-off (every value; passage_numbers 'digits' is the default, 'off' bans model-written numbers from documents, 'quote_span' is unbuilt; risk_term_passage_override and attribution_prefix are new)",

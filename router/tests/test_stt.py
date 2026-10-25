@@ -55,6 +55,7 @@ def test_returns_first_committed_transcript_and_closes():
     client = FakeClient(conn)
     assert stt.transcribe(frames(), client_factory=lambda k: client) == "hey nova check oxygen"
     assert conn.closed and client.options["commit_strategy"].value == "vad"
+    assert client.options["language_code"] == "en"  # no auto-detect of other languages from noise
 
 
 def test_silence_times_out_to_empty():
@@ -224,7 +225,8 @@ def test_default_handler_options_no_llm_and_deadline(monkeypatch):
     assert isinstance(handler.generator, FillerGenerator) and handler.policy["generation"]["deadline_ms"] == 9000
 
 
-def test_converse_plays_interim_then_final_while_generation_overlaps_and_ends_on_thank_you(monkeypatch):
+@pytest.mark.parametrize("ending", ["thank you", "NOVA thank you", "yes thank you"])
+def test_converse_plays_interim_then_final_while_generation_overlaps_and_ends_on_thank_you(monkeypatch, ending):
     healthy_server(monkeypatch)
     tts = FakeTts(delay=0.1)
     speech = stt.SpeechQueue(tts)
@@ -237,14 +239,29 @@ def test_converse_plays_interim_then_final_while_generation_overlaps_and_ends_on
 
     events = []
     turns = stt.converse(router_loader=lambda: FakeRouter("NO_TOOL", 0.97), handler_factory=factory, speech_queue=speech,
-                         client_factory=scripted_client("tell me something", "thank you", "never reached"), frames=AUDIO,
+                         client_factory=scripted_client("tell me something", ending, "never reached"), frames=AUDIO,
                          timeout_s=2.0, on_event=events.append)
-    assert [t["transcript"] for t in turns] == ["tell me something", "thank you"]
+    assert [t["transcript"] for t in turns] == ["tell me something", ending]
     assert turns[0]["turn"]["route"] == "llm" and turns[1]["turn"]["end_session"] is True
     assert generator.interim_playing_during_generation is True  # generation started while the interim line was still playing
     assert tts.events == [("start", "Let me think."), ("end", "Let me think."), ("start", "Hello there."), ("end", "Hello there."),
                           ("start", "Happy to help!"), ("end", "Happy to help!")]  # everything played before converse returned
     assert any("goodbye" in e for e in events) and sum(e == "listening..." for e in events) == 2
+
+
+def test_converse_finishes_tool_reply_then_does_not_listen_again():
+    tts = FakeTts()
+    speech = stt.SpeechQueue(tts)
+    def factory(router):
+        return stt._default_handler(router, speak=True, speech=speech, llm_options={"no_llm": True})
+    events = []
+    turns = stt.converse(router_loader=lambda: FakeRouter("call_o2", .99), handler_factory=factory, speech_queue=speech,
+                         client_factory=scripted_client("how is my oxygen thank you", "never reached"), frames=AUDIO,
+                         timeout_s=2.0, on_event=events.append)
+    assert len(turns) == 1 and events.count("listening...") == 1
+    turn = turns[0]["turn"]
+    assert turn["tool_call"]["name"] == "o2" and turn["end_session"]
+    assert tts.events == [("start", turn["spoken"]), ("end", turn["spoken"])]
 
 
 def test_converse_surfaces_a_tts_error_from_the_queue(monkeypatch):

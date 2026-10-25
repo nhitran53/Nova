@@ -651,13 +651,19 @@ def _shuttle_turn(text, label, **sim):
     ("take me to the shuttle", "call_navigation", ("start", "shuttle_001")),
     ("navigate to the viking lander", "call_navigation", ("start", "shuttle_001")),
     ("show me the shuttle on the map", "call_map", ("find", "shuttle_001")),
-    ("how far is the shuttle", "call_navigation", None),
     ("take me to the habitat", "call_navigation", None),
 ])
 def test_shuttle_tool_calls_become_unity_navigation_commands(text, label, expected):
     turn = _shuttle_turn(text, label)
     assert turn["tool_call"]["name"] == {"call_navigation": "navigation", "call_map": "map"}[label]
     assert voice_server.unity_navigation(turn) == expected
+
+
+def test_shuttle_distance_needs_unity_location_and_never_starts_navigation():
+    turn = _shuttle_turn("how far is the shuttle", "call_navigation")
+    assert turn["pipeline"]["tool"] == "get_current_location"
+    assert "can't read" in turn["spoken"]
+    assert voice_server.unity_navigation(turn) is None
 
 
 def test_no_shuttle_route_when_nova_says_there_is_not_enough_oxygen():
@@ -690,3 +696,41 @@ def test_status_exposes_the_navigation_command_and_counts_new_ones(serve):
     step.set()
     assert wait_for(lambda: call(base, "/voice/status")[1]["last_reply"] == "Happy to help!")
     assert call(base, "/voice/status")[1]["navigation_seq"] == 1
+
+
+def _live_turn(text, distance):
+    from router.tools import SimState, default_registry
+    from router.turn import TurnHandler
+    from test_turn import FakeRouter
+
+    sim = SimState()
+    handler = TurnHandler(FakeRouter("call_navigation", 0.99), sim.snapshot, default_registry(sim))
+    asked = []
+
+    def place_distance(landmark):
+        asked.append(landmark)
+        if isinstance(distance, Exception):
+            raise distance
+        return distance
+    handler.place_distance_fn = place_distance
+    return handler.handle(text), asked
+
+
+def test_at_the_shuttle_nova_says_you_are_there_and_starts_no_walk():
+    turn, asked = _live_turn("can I make it to the shuttle", 3.2)
+    assert asked == ["shuttle_001"] and turn["spoken"] == "You're already at the shuttle."
+    assert turn["tool_result"]["data"]["arrived"] is True and voice_server.unity_navigation(turn) is None
+    turn, _ = _live_turn("take me to the shuttle", 3.2)
+    assert voice_server.unity_navigation(turn) is None
+
+
+def test_the_live_unity_distance_replaces_the_fixed_one():
+    turn, _ = _live_turn("take me to the shuttle", 95.0)
+    data = turn["tool_result"]["data"]
+    assert data["distance_m"] == 95 and data["distance_source"] == "unity" and turn["spoken"].startswith("shuttle is 2 minutes away")
+    assert voice_server.unity_navigation(turn) == ("start", "shuttle_001")
+
+
+def test_no_unity_answer_keeps_the_old_distance():
+    turn, _ = _live_turn("take me to the shuttle", TimeoutError("no Unity"))
+    assert "distance_source" not in turn["tool_result"]["data"] and turn["spoken"].startswith("shuttle is 3 minutes away")

@@ -85,7 +85,9 @@ public class NovaAssistantPresenter : MonoBehaviour
             styled = true;
             ApplyStyle(look);
         }
-        string status = StatusText(look), message = Clip(MessageFor(look));
+        string vision = look == Look.Processing ? VisionStatus(voice.VisionState) : null;
+        string status = vision ?? StatusText(look);
+        string message = Clip(vision != null && !string.IsNullOrEmpty(voice.VisionTarget) ? voice.VisionTarget : MessageFor(look));
         if (status != shownStatus || message != shownMessage)
         {
             shownStatus = status;
@@ -112,6 +114,19 @@ public class NovaAssistantPresenter : MonoBehaviour
             case Look.Error: return "NOVA / ERROR";
             case Look.Offline: return "NOVA / CONNECTION LOST";
             default: return "NOVA / STANDBY";
+        }
+    }
+
+    // Keep the normal status when no vision state applies.
+    public static string VisionStatus(string visionState)
+    {
+        switch (visionState)
+        {
+            case "capturing": return "NOVA / CAPTURING VIEW";
+            case "analyzing": return "NOVA / ANALYZING";
+            case "identified": return "NOVA / TARGET IDENTIFIED";
+            case "error": return "NOVA / VISION ERROR";
+            default: return null;
         }
     }
 

@@ -101,6 +101,25 @@ public class VoiceStatus
     public string navigation_action = "";
     public string navigation_destination = "";
     public int navigation_seq;
+    // Each vision sequence requests one headset capture.
+    public int vision_seq;
+    public int spatial_seq;
+    public bool spatial_pending;
+    public string vision_mode = "";
+    public string vision_state = "";
+    public string vision_target = "";
+    // Each display sequence requests a new manual page.
+    public DisplayInfo display = new DisplayInfo();
+    public int display_seq;
+}
+
+[Serializable]
+public class DisplayInfo
+{
+    public string doc_id = "";
+    public string title = "";
+    public string asset = "";   // Resources/NovaManual/<asset>
+    public string source = "";
 }
 
 public static class VoiceStatusParser
@@ -124,6 +143,12 @@ public static class VoiceStatusParser
         parsed.hazard.insideUnknown = !insideValue.Success || insideValue.Groups[1].Value == "null";
         parsed.navigation_action = parsed.navigation_action ?? "";
         parsed.navigation_destination = parsed.navigation_destination ?? "";
+        parsed.vision_mode = parsed.vision_mode ?? "";
+        parsed.vision_state = parsed.vision_state ?? "";
+        parsed.vision_target = parsed.vision_target ?? "";
+        parsed.display = parsed.display ?? new DisplayInfo();
+        parsed.display.asset = parsed.display.asset ?? "";
+        parsed.display.title = parsed.display.title ?? "";
         status = parsed;
         return true;
     }
@@ -134,7 +159,7 @@ public sealed class VoiceStatusTracker
 {
     public struct Changes
     {
-        public bool StateChanged, TranscriptChanged, ReplyChanged, ErrorChanged, NavigationRequested, HazardChanged;
+        public bool StateChanged, TranscriptChanged, ReplyChanged, ErrorChanged, NavigationRequested, HazardChanged, VisionRequested, SpatialRequested, DisplayRequested;
     }
 
     public string State { get; private set; } = VoiceStates.Idle;
@@ -146,6 +171,15 @@ public sealed class VoiceStatusTracker
     public bool RouterReady { get; private set; }
     public string NavigationAction { get; private set; } = "";
     public string NavigationDestination { get; private set; } = "";
+    public int VisionSeq { get; private set; }
+    public string VisionMode { get; private set; } = "";
+    public string VisionState { get; private set; } = "";
+    public string VisionTarget { get; private set; } = "";
+    bool visionSeen; // Skip vision requests from before Unity connected.
+    public DisplayInfo Display { get; private set; } = new DisplayInfo();
+    int displaySeq = -1; // Skip manual pages from before Unity connected.
+    public int SpatialSeq { get; private set; }
+    bool spatialPending;
     public string Alert { get; private set; } = "";
     public HazardZoneData Hazard { get; private set; } = new HazardZoneData();
     bool hasHazardSequence;
@@ -187,6 +221,18 @@ public sealed class VoiceStatusTracker
         navigationSeq = status.navigation_seq;
         NavigationAction = status.navigation_action;
         NavigationDestination = status.navigation_destination;
+        changes.VisionRequested = visionSeen && status.vision_seq > VisionSeq && status.vision_state == "capturing";
+        visionSeen = true;
+        VisionSeq = status.vision_seq;
+        VisionMode = status.vision_mode;
+        VisionState = status.vision_state;
+        VisionTarget = status.vision_target;
+        changes.SpatialRequested = status.spatial_pending && (!spatialPending || SpatialSeq != status.spatial_seq);
+        SpatialSeq = status.spatial_seq;
+        spatialPending = status.spatial_pending;
+        changes.DisplayRequested = displaySeq >= 0 && status.display_seq > displaySeq && status.display.asset.Length > 0;
+        displaySeq = status.display_seq;
+        Display = status.display;
         return changes;
     }
 }

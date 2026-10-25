@@ -224,13 +224,13 @@ def test_one_tool_call_per_turn_and_counter_resets_between_turns():
     assert len(rig.registry.log) == 3  # the refused second call never reached a tool
 
 
-def test_more_than_eight_tools_raises():
+def test_tool_cap_raises():
     registry = ToolRegistry()
     for i in range(MAX_TOOLS):
         registry.register(f"t{i}", {"required": [], "properties": {}}, lambda: {})
     with pytest.raises(ToolLimitError):
-        registry.register("t8", {"required": [], "properties": {}}, lambda: {})
-    assert MAX_TOOLS == 8 and len(registry.names()) == 8
+        registry.register("over_limit", {"required": [], "properties": {}}, lambda: {})
+    assert MAX_TOOLS == 10 and len(registry.names()) == MAX_TOOLS
 
 
 def test_default_registry_has_six_fixed_schema_tools_and_rejects_bad_calls():
@@ -370,10 +370,10 @@ def test_two_critical_alerts_with_a_negative_value_are_both_spoken():
 
 
 def test_hard_tool_cap_applies_to_the_constructor():
-    for bad in (0, 9, -1):
+    for bad in (0, MAX_TOOLS + 1, -1):
         with pytest.raises(ValueError, match="max_tools"):
             ToolRegistry(max_tools=bad)
-    assert ToolRegistry(max_tools=MAX_TOOLS).max_tools == 8 and ToolRegistry(max_tools=1).max_tools == 1
+    assert ToolRegistry(max_tools=MAX_TOOLS).max_tools == MAX_TOOLS and ToolRegistry(max_tools=1).max_tools == 1
 
 
 def test_turn_policy_ships_as_package_data():
@@ -1092,3 +1092,19 @@ def test_critical_alert_delivered_before_routing_survives_blocked_answer():
     assert out['alert_verifier']['ok'] and not out['verifier']['ok']
     assert out['blocked_text'] == 'Oxygen at 99 percent.'
     assert out['tool_calls'] == 1 and out.get('interim') is None
+
+
+def test_general_fallback_answers_unplaced_questions_but_keeps_the_safety_offer():
+    import copy
+    from router.turn import TurnHandler, load_policy
+    policy = copy.deepcopy(load_policy())
+    assert policy["llm_scope"]["general_fallback"] is False  # library default unchanged; the live voice path turns it on
+    policy["llm_scope"]["general_fallback"] = True
+    llm = FakeLLM("Mars has two small moons.")
+    for label, confidence, text in (("OOD", 0.99, "how many moons does mars have"), ("call_llm", 0.2, "how many moons does mars have")):
+        rig = Rig(label, confidence, llm=llm, policy=policy)
+        out = rig.handler.handle(text)
+        assert out["route"] == "llm" and out["spoken"] == "Mars has two small moons." and out["blocked_text"] is None
+    rig = Rig("OOD", 0.99, llm=llm, policy=policy)
+    assert rig.handler.handle("my oxygen tank is broken")["route"] == "repair_offer"
+    assert Rig("call_llm", 0.2, llm=llm, policy=policy).handler.handle("mm")["route"] == "low_confidence"

@@ -8,6 +8,8 @@ Microphone and speaker audio stay on the PC.
 Voice status includes alert, persistent display and display_seq alongside router_error.
 Gemini handles replies and secondary routing. Use --no-llm for offline replies.
 Navigation commands include a destination and sequence number for Unity.
+A vision request bumps vision_seq (vision_mode looking/pointing); Unity answers with POST /vision/frame (one JPEG + target facts).
+vision_state (capturing, analyzing, identified, answered, uncertain, error) and vision_target feed the HUD.
 """
 import argparse
 import json
@@ -25,6 +27,9 @@ DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8765
 STATES = ("idle", "loading", "listening", "processing", "speaking", "ended", "error")
 MAX_ERROR_CHARS = 300
+MAX_BODY_BYTES = 65536
+MAX_FRAME_BODY_BYTES = 4_000_000  # base64 JPEG + target JSON; the decoded image is checked against vision.max_image_bytes
+JPEG_MAGIC = bytes((0xFF, 0xD8))
 UNITY_DESTINATIONS = {"shuttle": "shuttle_001"}  # Router place to Unity route
 UNITY_ACTIONS = {"navigation": "start", "map": "find"}
 NO_GO_OUTCOMES = ("cannot_reach", "cannot_return")
@@ -37,13 +42,17 @@ def llm_options(no_llm=False):
 def unity_navigation(turn):
     """Return a Unity command for an allowed route request."""
     call, result = turn.get("tool_call") or {}, turn.get("tool_result") or {}
+    if call.get("name") == "return_to_start":
+        if result.get("ok") and (result.get("data") or {}).get("requested") is True and turn.get("blocked_text") is None:
+            return "return_to_start", "rover_inspection"
+        return None
     action = UNITY_ACTIONS.get(call.get("name"))
     data = result.get("data") or {}
     destination = UNITY_DESTINATIONS.get(data.get("place"))
     if action is None or destination is None or not result.get("ok") or turn.get("blocked_text") is not None:
         return None
     if action == "start":
-        if data.get("response_mode") != "guidance":
+        if data.get("response_mode") != "guidance" or data.get("arrived"):  # already there: nothing to walk
             return None
         if data.get("feasibility", {}).get("outcome") in NO_GO_OUTCOMES:
             return None
@@ -92,6 +101,10 @@ class VoiceSession:
         self._speech = self._options.get("speech_queue")
         self._navigation_action = self._navigation_destination = None
         self._navigation_seq = 0
+        self._vision_seq, self._vision_mode, self._vision_state, self._vision_target = 0, None, None, None
+        self._frame, self._frame_ready = None, threading.Event()
+        self._spatial_seq, self._spatial_pending = 0, False
+        self._spatial, self._spatial_ready = None, threading.Event()
         self._stop = None
         self._worker = None
         self._router_ready = threading.Event()
@@ -130,7 +143,111 @@ class VoiceSession:
                 "alert": self._alert, "route": self._route, "error": self._error, "session_id": self._session_id, "seq": self._seq,
                 "router_ready": self._router_ready.is_set(), "router_error": self._router_error, "display": self._display, "display_seq": self._display_seq,
                 "navigation_action": self._navigation_action, "navigation_destination": self._navigation_destination,
-                "navigation_seq": self._navigation_seq, "hazard": self._hazard, "hazard_seq": self._hazard_seq}
+                "navigation_seq": self._navigation_seq, "hazard": self._hazard, "hazard_seq": self._hazard_seq,
+                "vision_seq": self._vision_seq, "vision_mode": self._vision_mode, "vision_state": self._vision_state,
+                "vision_target": self._vision_target, "spatial_seq": self._spatial_seq, "spatial_pending": self._spatial_pending}
+
+    def request_spatial(self, timeout_s=10):
+        with self._lock:
+            if self._spatial_pending:
+                raise ValueError("A location request is already pending")
+            self._spatial_seq += 1
+            request_seq = self._spatial_seq
+            self._spatial_pending, self._spatial = True, None
+            self._spatial_ready.clear()
+        try:
+            if not self._spatial_ready.wait(timeout_s):
+                raise TimeoutError("No fresh Unity location")
+            with self._lock:
+                if self._spatial is None:
+                    raise ValueError("Location request cancelled")
+                return self._spatial
+        finally:
+            with self._lock:
+                if request_seq == self._spatial_seq:
+                    self._spatial_pending = False
+
+    def submit_spatial(self, payload):
+        from .location import validate_snapshot
+        try:
+            snapshot = validate_snapshot(payload)
+        except (TypeError, ValueError):
+            return 400, {"error": "Invalid spatial snapshot"}
+        with self._lock:
+            if not self._spatial_pending or self._spatial_ready.is_set() or payload["seq"] != self._spatial_seq:
+                return 409, {"error": "No pending location request for this seq"}
+            self._spatial = snapshot
+            self._spatial_ready.set()
+        return 200, {"accepted": True}
+
+    def request(self, mode):
+        """vision.make_vision_tool frame source (conversation thread): ask Unity for one headset image and wait for it.
+        -> {"jpeg", "width", "height", "target", "pointing"}; raises VisionUnavailable on timeout or a Unity capture error."""
+        from .turn import load_policy
+        from .vision import VisionUnavailable
+        timeout_s = load_policy()["vision"]["frame_timeout_s"]
+        with self._lock:
+            self._vision_seq += 1
+            self._vision_mode, self._vision_state, self._vision_target = mode, "capturing", None
+            self._frame = None
+            self._frame_ready.clear()
+            self._seq += 1
+        if not self._frame_ready.wait(timeout_s):
+            raise VisionUnavailable(f"no headset image from Unity within {timeout_s} s")
+        with self._lock:
+            frame = self._frame
+            if "error" in frame:
+                raise VisionUnavailable(f"Unity capture failed: {frame['error']}")
+            self._vision_state = "analyzing"
+            self._seq += 1
+        return frame
+
+    def report(self, state, target):
+        """vision.make_vision_tool status update for the HUD."""
+        with self._lock:
+            self._vision_state, self._vision_target = state, target
+            self._seq += 1
+
+    def submit_frame(self, payload):
+        """POST /vision/frame from Unity -> (http code, reply). Only the frame for the pending vision_seq is accepted."""
+        import base64
+        import binascii
+        from .turn import load_policy
+        max_image = load_policy()["vision"]["max_image_bytes"]
+        if not isinstance(payload, dict) or not isinstance(payload.get("seq"), int) or isinstance(payload.get("seq"), bool):
+            return 400, {"error": "seq is required"}
+        frame = {"target": payload.get("target") if payload.get("has_target") else None,
+                 "pointing": payload.get("pointing") if isinstance(payload.get("pointing"), dict) else {}}
+        if payload.get("error"):
+            frame["error"] = str(payload["error"])[:200]
+        else:
+            try:
+                jpeg = base64.b64decode(payload.get("image_jpeg_base64") or "", validate=True)
+            except (binascii.Error, ValueError, TypeError):
+                return 400, {"error": "image_jpeg_base64 is not valid base64"}
+            if not jpeg.startswith(JPEG_MAGIC) or len(jpeg) > max_image:
+                return 400, {"error": f"image must be a JPEG of at most {max_image} bytes"}
+            width, height = payload.get("width"), payload.get("height")
+            if not all(isinstance(v, int) and not isinstance(v, bool) and 16 <= v <= 4096 for v in (width, height)):
+                return 400, {"error": "width and height must be 16 to 4096"}
+            frame.update(jpeg=jpeg, width=width, height=height)
+            if payload.get("focus_jpeg_base64"):  # optional zoomed render toward the target, same checks
+                try:
+                    focus = base64.b64decode(payload["focus_jpeg_base64"], validate=True)
+                except (binascii.Error, ValueError, TypeError):
+                    return 400, {"error": "focus_jpeg_base64 is not valid base64"}
+                size, fov = payload.get("focus_size"), payload.get("focus_fov")
+                if (not focus.startswith(JPEG_MAGIC) or len(focus) > max_image
+                        or not (isinstance(size, int) and not isinstance(size, bool) and 16 <= size <= 4096)
+                        or not (isinstance(fov, (int, float)) and not isinstance(fov, bool) and 1 <= fov <= 120)):
+                    return 400, {"error": "focus image must be a JPEG with focus_size 16 to 4096 and focus_fov 1 to 120"}
+                frame["focus"] = {"jpeg": focus, "size": size, "fov": float(fov)}
+        with self._lock:
+            if payload["seq"] != self._vision_seq or self._frame_ready.is_set() or self._vision_state != "capturing":
+                return 409, {"error": "no pending vision request for this seq"}
+            self._frame = frame
+            self._frame_ready.set()
+        return 200, {"accepted": True, "bytes": len(frame.get("jpeg", b""))}
 
     def set_demo_meteor(self, active):
         """Broadcast once per trigger, even without a running microphone conversation."""
@@ -177,6 +294,10 @@ class VoiceSession:
     def stop(self):
         """Ask the running conversation to stop; its state becomes idle at once. -> status."""
         with self._lock:
+            if self._spatial_pending:
+                self._spatial = None
+                self._spatial_pending = False
+                self._spatial_ready.set()
             if self._stop is not None and self._worker is not None and self._worker.is_alive() and not self._stop.is_set():
                 self._stop.set()
                 self._state = "idle"
@@ -202,7 +323,8 @@ class VoiceSession:
                     self._update(session_id, error=_redacted(text)[:MAX_ERROR_CHARS])
 
         def on_transcript(text):
-            self._update(session_id, state="processing", last_transcript=text, last_reply=None, route=None)
+            self._update(session_id, state="processing", last_transcript=text, last_reply=None, route=None,
+                         vision_state=None, vision_target=None)
 
         def on_turn(out):
             turn = out["turn"]
@@ -220,7 +342,7 @@ class VoiceSession:
                         self._speech = stt.default_speech_queue()
                     self._options["speech_queue"] = _SessionSpeech(self._speech)
             self._converse_fn(on_event=on_event, on_turn=on_turn, on_transcript=on_transcript, stop_event=stop_event,
-                              router_loader=self._router.get, **self._options)
+                              router_loader=self._router.get, vision_frames=self, **self._options)
         except BaseException as exc:
             error = _redacted(f"{type(exc).__name__}: {exc}")[:MAX_ERROR_CHARS]
             print(f"voice session failed: {error}", file=sys.stderr)
@@ -277,7 +399,7 @@ def make_handler(session, datasource=None):
             except ValueError:
                 self._send(400, {"error": "invalid body length"})
                 return
-            if length < 0 or length > 65536:
+            if length < 0 or length > (MAX_FRAME_BODY_BYTES if self.path == "/vision/frame" else MAX_BODY_BYTES):
                 self._send(400, {"error": "invalid body length"})
                 return
             body = self.rfile.read(length) if length else b""
@@ -312,6 +434,20 @@ def make_handler(session, datasource=None):
                     self._send(400, {"error": "Use value 0 to 100 or delta -100 to 100."})
                 except DataUnavailableError:
                     self._send(503, {"error": "Oxygen demo unavailable. Check PostgreSQL and simulator.py."})
+            elif self.path == "/spatial/context":
+                try:
+                    payload = json.loads(body)
+                except (ValueError, UnicodeDecodeError):
+                    self._send(400, {"error": "invalid JSON"})
+                    return
+                self._send(*session.submit_spatial(payload))
+            elif self.path == "/vision/frame":
+                try:
+                    payload = json.loads(body)
+                except (ValueError, UnicodeDecodeError):
+                    self._send(400, {"error": "invalid JSON"})
+                    return
+                self._send(*session.submit_frame(payload))  # the image is never logged
             elif self.path == "/voice/start":
                 started, status = session.start()
                 self._send(200, {**status, "started": started})

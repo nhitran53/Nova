@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 6576224834141629799}
   - component: {fileID: 5139351321882900066}
   - component: {fileID: 7152364264653082189}
+  - component: {fileID: 1620413306642727109}
   m_Layer: 0
   m_Name: Damaged Perseverance
   m_TagString: Untagged
@@ -71,6 +72,26 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 1.5, y: 0.8, z: 2.1}
   m_Center: {x: 0, y: 1.1, z: 0}
+--- !u!114 &1620413306642727109
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2545313367391420452}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 09480db8534a2504d82aad167471fca8, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::RoverInspectionSpawn
+  spawnOnStart: 1
+  inspectionAnchor: {fileID: 0}
+  distanceFromWheel: 1.1
+  foreAftOffset: 0
+  groundClearance: 0.03
+  faceWheelOnReset: 1
+  inspectionNearClip: 0.03
+  fadeSeconds: 0.2
 --- !u!1001 &3162777271688040382
 PrefabInstance:
   m_ObjectHideFlags: 0
