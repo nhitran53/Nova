@@ -6,8 +6,8 @@ Tool selection stays in Python
 
 ## Start from the repo folder
 
-Keep PostgreSQL and Ollama running
-Put credentials in `router/.env` and keep that file out of Git
+Keep PostgreSQL running
+Put credentials in the repo-root `.env` (next to `router/`) and keep that file out of Git
 Voice needs `sounddevice` and an ElevenLabs key
 
 Run the simulator in one terminal
@@ -18,11 +18,13 @@ Run the simulator in one terminal
 
 Run the voice server in another terminal
 
-```cmd
-.\router\.venv\Scripts\python.exe -m router.voice_server --model "C:\Users\cardin\models\Nova\router\ModernBERT-v4.2" --runtime ollama --base-url http://localhost:11434/v1 --llm-model qwen3.5:4b --datasource postgres
+```sh
+cd /home/isaach/Nova-wakeword && /home/isaach/Nova/router/.venv/bin/python -m router.voice_server
 ```
 
-Change `--model` if your checkpoint is elsewhere
+The default model on this machine is `/home/isaach/models/Nova/router/v1`; `--model` is optional.
+Append `--datasource postgres` to enable the shared HUD and wrist telemetry described below.
+Server `--device` selects the torch device, not the mic; `--timeout` is seconds of silence that end a conversation.
 Restart both processes after code updates
 
 ## In Unity

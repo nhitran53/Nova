@@ -18,24 +18,26 @@ Use `NOVA_MODELS_DIR` or `--model` to select a checkpoint
 A base model without a trained classifier head reports `untrained`
 Keep the trained label order matched to `labels.json`
 
-Put keys and database settings in `router/.env`
+Put keys and database settings in the repo-root `.env` (next to `router/`)
 Never commit that file
 Microphone and Windows playback need `sounddevice`
 
 ## Run with Unity
 
-Start PostgreSQL and Ollama first
+Start PostgreSQL first
 Run these in separate terminals from the repo folder
 
 ```cmd
 .\router\.venv\Scripts\python.exe simulator.py
 ```
 
-```cmd
-.\router\.venv\Scripts\python.exe -m router.voice_server --model "C:\Users\cardin\models\Nova\router\ModernBERT-v4.2" --runtime ollama --base-url http://localhost:11434/v1 --llm-model qwen3.5:4b --datasource postgres
+```sh
+cd /home/isaach/Nova-wakeword && /home/isaach/Nova/router/.venv/bin/python -m router.voice_server
 ```
 
-Change the checkpoint path for your machine
+The default model on this machine is `/home/isaach/models/Nova/router/v1`; `--model` is optional.
+Append `--datasource postgres` for the shared simulator telemetry (the default is `sim`).
+Server `--device` is the torch device, not the microphone; `--timeout` is seconds of silence that end a conversation.
 Keep the simulator running so readings stay fresh
 Use `--datasource sim` for voice without PostgreSQL
 That mode does not supply the shared HUD telemetry

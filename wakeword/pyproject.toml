@@ -1,0 +1,26 @@
+[project]
+name = "nova-wakeword"
+version = "0.1.0"
+description = "Wake-word listener (openWakeWord) that hands off to ElevenLabs Scribe STT"
+requires-python = ">=3.12"
+dependencies = [
+    "openwakeword>=0.6",
+    "onnxruntime",
+    "sounddevice",
+    "numpy",
+    "elevenlabs",
+    "python-dotenv",
+    "requests",
+]
+
+[dependency-groups]
+dev = ["pytest"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.uv]
+# openwakeword>=0.6 pins tflite-runtime on Linux, which has no wheels for python>=3.12.
+# We run the ONNX models via onnxruntime instead (inference_framework="onnx"), so drop it.
+override-dependencies = ["tflite-runtime; python_version < '3'"]
