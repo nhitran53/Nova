@@ -336,6 +336,7 @@ def load_real_voice_session():
     stt.BackgroundRouter = lambda loader: types.SimpleNamespace(get=loader)
     llm = types.ModuleType(package + ".llm_generator")
     llm.API_KEY_ENV = "NOVA_LLM_API_KEY"
+    llm.GEMINI_KEY_ENV = "GEMINI_API_KEY"
     llm.redact_secrets = lambda text, secret: text
     root = types.ModuleType(package)
     root.__path__ = []

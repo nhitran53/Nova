@@ -6,6 +6,7 @@ POST /demo/oxygen changes simulated oxygen from the wrist controls.
 The server defaults to localhost and rejects browser Origin headers.
 Microphone and speaker audio stay on the PC.
 Voice status includes alert, persistent display and display_seq alongside router_error.
+Gemini handles replies and secondary routing. Use --no-llm for offline replies.
 """
 import argparse
 import json
@@ -17,17 +18,20 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from . import stt
-from .llm_generator import API_KEY_ENV, redact_secrets
+from .llm_generator import API_KEY_ENV, GEMINI_KEY_ENV, redact_secrets
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8765
 STATES = ("idle", "loading", "listening", "processing", "speaking", "ended", "error")
 MAX_ERROR_CHARS = 300
-LLM_OPTIONS = {"no_llm": True}  # the server only listens and calls the router; replies are always the offline template generator
+
+
+def llm_options(no_llm=False):
+    return {"no_llm": no_llm}
 
 
 def _redacted(text):
-    for var in (stt.KEY_VAR, API_KEY_ENV):
+    for var in (stt.KEY_VAR, API_KEY_ENV, GEMINI_KEY_ENV):
         text = redact_secrets(text, os.environ.get(var))
     return text
 
@@ -266,8 +270,9 @@ def main(argv=None):
     ap.add_argument("--timeout", type=float, default=10.0, help="seconds of silence that end a conversation")
     ap.add_argument("--datasource", choices=("sim", "postgres"), default="sim",
                     help="where readings and places come from: the built-in SimState (default) or the Postgres DB that "
-                         "simulator.py writes (DATABASE_URL, from the environment or the root .env; default 'dbname=nova')")
+                         "simulator.py writes (DATABASE_URL from the environment or the selected .env; default 'dbname=nova')")
     ap.add_argument("--database-url", help="libpq connection string for --datasource postgres (overrides DATABASE_URL)")
+    ap.add_argument("--no-llm", action="store_true", help="offline template replies only: no Gemini, no second routing layer")
     args = ap.parse_args(argv)
     model = str(Path(args.model or core.models_dir() / "v1").expanduser().resolve())
     if not Path(model).is_dir():
@@ -278,7 +283,13 @@ def main(argv=None):
     load_dotenv(stt.ENV_PATH)
     print(f"router model: {model}", file=sys.stderr)
     print(f".env path: {stt.ENV_PATH.resolve()}", file=sys.stderr)
-    print(f"{stt.KEY_VAR}: {'found' if os.environ.get(stt.KEY_VAR, '').strip() else 'missing'}", file=sys.stderr)
+    key_names = [stt.KEY_VAR]
+    if not args.no_llm:
+        key_names.append(GEMINI_KEY_ENV)
+    for var in key_names:
+        print(f"{var}: {'found' if os.environ.get(var, '').strip() else 'missing'}", file=sys.stderr)
+    print("LLM: offline (--no-llm)" if args.no_llm else "LLM: configured service with offline fallback",
+          file=sys.stderr)
     try:
         import sounddevice
     except (ImportError, OSError):
@@ -289,7 +300,7 @@ def main(argv=None):
     session = VoiceSession(
         lambda: stt._load_router(model, args.device),
         converse_options={"model": model, "device": args.device, "speak": not args.no_speak, "timeout_s": args.timeout,
-                          "llm_options": LLM_OPTIONS,
+                          "llm_options": llm_options(args.no_llm),
                           "datasource": datasource})
     try:
         server = make_server(session, args.host, args.port, datasource=datasource)

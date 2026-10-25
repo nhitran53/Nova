@@ -7,7 +7,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-ENV_PATH = Path(__file__).resolve().parent.parent / ".env"
+ENV_PATH = Path(os.environ.get("NOVA_ENV_FILE") or Path(__file__).resolve().parent.parent / ".env")
 KEY_VAR = "ELEVENLABS_API_KEY"
 DEFAULT_VOICE_ID = "VmPkIaPdP997cjIfBWRB"
 DEFAULT_MODEL_ID = "eleven_v4"

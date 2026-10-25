@@ -38,7 +38,38 @@ transcribe" if the realtime session fails. `realtime` / `batch` force one path.
 
 ## Demo setup (wake word -> Unity voice conversation)
 
-### One command
+### Windows setup
+
+Install uv if the command is unavailable
+Use `uv sync` so the project dependency overrides are applied
+Run the voice server from the repo folder in one PowerShell terminal
+
+```powershell
+.\router\.venv\Scripts\python.exe -m router.voice_server --model "$HOME\models\Nova\router\ModernBERT-v4.2" --datasource postgres
+```
+
+Change the model path to your trained checkpoint
+Shared HUD readings need PostgreSQL and `simulator.py` running too
+For voice without shared telemetry use `--datasource sim`
+Wait for `router_ready` to be true at `http://127.0.0.1:8765/voice/status`
+
+Get the custom `hey_nova.onnx` model from its owner and put it in `wakeword/models/`
+It is not included in Git
+Open another PowerShell terminal at the repo folder
+
+```powershell
+cd wakeword
+uv sync
+uv run python main.py --handoff
+```
+
+The first listener run needs internet for shared audio models
+Use the same system default mic for the listener and voice server
+Press Play in Unity then say Hey Nova
+Wake-started conversations get the same Gemini replies as Unity ones
+The shell launchers below require Linux and do not run in Windows PowerShell
+
+### One command on Linux
 
 From the repo root, after `cd wakeword && uv sync` and placing `hey_nova.onnx` in
 `wakeword/models/`, run:
@@ -89,14 +120,14 @@ non-busy state is retried with backoff (0.5 s doubling to 4 s, 8 attempts) with 
 After our own `--conversation-timeout` stop the mic reopens after the cooldown without being able to tell whether the old
 worker has finished with the device.
 
-1. **Start voice_server** (needs its own venv and `ELEVENLABS_API_KEY` in the repo-root `.env`; from the repo root):
-   `cd /home/isaach/Nova-wakeword && /home/isaach/Nova/router/.venv/bin/python -m router.voice_server` (listens on `127.0.0.1:8765`; `--no-speak` prints replies instead of speaking).
-   The default model is `/home/isaach/models/Nova/router/v1`; `--model` is optional (keep the command on one line).
-   Wait until `GET /voice/status` shows `"router_ready": true`; a failed load reports `router_error` and prints to the server console.
-   Server `--device` selects the torch device, not the mic; `--timeout` is seconds of silence that end a conversation.
+1. **Start voice_server** using the Windows setup above or the Linux launcher
+   It needs the router environment and `ELEVENLABS_API_KEY` in the root `.env`
+   Wait until `GET /voice/status` shows `"router_ready": true`
+   A failed load reports `router_error`
+   Server `--device` selects the torch device rather than the mic
 2. **Plug in the model**: put `hey_nova.onnx` in `wakeword/models/` (the `.onnx` files are gitignored, so they are never committed;
    or pass `--model /path/to/hey_nova.onnx`). With no `.onnx` the program exits with "drop hey_nova.onnx into wakeword/models/".
-3. **Start the wake word**: `cd wakeword && uv sync && ./run.sh` (same as `uv run python main.py --handoff`).
+3. **Start the wake word** from `wakeword/` with `uv sync` then `uv run python main.py --handoff`.
    The first run downloads openWakeWord's shared melspectrogram/embedding models (~2 MB) into the venv, so it needs internet once (timeouts apply; the files are validated and moved into place atomically, so a failed or truncated download is simply retried on the next start).
 4. Say "hey nova". You should see `[wake] hey_nova (0.xx) - starting conversation`, then `conversation state: ...` lines.
    After the conversation the mic reopens (after `--handoff-cooldown`, default 3 s).
@@ -130,7 +161,7 @@ the real `router.voice_server` HTTP layer with a fake `converse()`).
 
 ## Placeholder mode
 
-Custom models don't exist yet. `--placeholder` loads the pretrained **`hey_jarvis`** model (downloaded with
+Custom models are supplied separately. `--placeholder` loads the pretrained **`hey_jarvis`** model (downloaded with
 `openwakeword.utils.download_models`) so wake -> STT -> print can be tested end to end. It prints a
 `PLACEHOLDER MODE` banner and is not the real wake word. Without `--placeholder`, `main.py` refuses to start
 if `models/` has no `.onnx` files.

@@ -456,11 +456,107 @@ def test_default_handler_reads_a_given_datasource_instead_of_simstate(monkeypatc
     assert handler.alert_source == ds.snapshot
 
 
-def test_server_never_uses_an_llm(monkeypatch):
-    assert voice_server.LLM_OPTIONS == {"no_llm": True}
-    for flag in ("--no-llm", "--runtime", "--base-url", "--llm-model", "--deadline-ms"):
-        with pytest.raises(SystemExit):  # the LLM flags no longer exist
+def _main_options(tmp_path, monkeypatch, *flags):
+    """Capture the server conversation options without starting audio or HTTP."""
+    seen = {}
+    monkeypatch.setattr("dotenv.load_dotenv", lambda *a, **k: None)
+
+    class Session:
+        def __init__(self, loader, converse_options):
+            seen.update(converse_options)
+
+        def stop(self):
+            pass
+
+    monkeypatch.setattr(voice_server, "VoiceSession", Session)
+
+    class Server:
+        server_address = ("127.0.0.1", 8766)
+
+        def serve_forever(self):
+            raise KeyboardInterrupt
+
+        def server_close(self):
+            pass
+
+    monkeypatch.setattr(voice_server, "make_server", lambda *a, **kw: Server())
+    assert voice_server.main(["--model", str(tmp_path), *flags]) == 0
+    return seen
+
+
+def test_server_uses_the_live_llm_by_default_and_offline_with_no_llm(tmp_path, monkeypatch):
+    assert _main_options(tmp_path, monkeypatch)["llm_options"] == {"no_llm": False}
+    assert _main_options(tmp_path, monkeypatch, "--no-llm")["llm_options"] == {"no_llm": True}
+    for flag in ("--runtime", "--base-url", "--llm-model", "--deadline-ms"):
+        with pytest.raises(SystemExit):
             voice_server.main([flag, "x"])
+
+
+def _fake_gemini(*replies):
+    """Use fake HTTP replies to test Gemini failover."""
+    import io
+    import urllib.error
+    from router import llm_generator
+
+    class Opener:
+        def __init__(self, replies):
+            self.replies = list(replies)
+
+        def open(self, request, timeout=None):
+            reply = self.replies.pop(0) if self.replies else 503
+            if isinstance(reply, int):
+                raise urllib.error.HTTPError("https://x", reply, "err", {}, io.BytesIO(b"body"))
+            return io.BytesIO(json.dumps({"choices": [{"message": {"content": reply}}]}).encode())
+
+    config = llm_generator.load_live_llm_config(env={})
+    opener = Opener(replies)
+    return llm_generator.FailoverGenerator([
+        llm_generator.HTTPChatGenerator(config, api_key="fake-key", opener=opener),
+        llm_generator.HTTPChatGenerator({**config, "model": config["fallback_model"]}, api_key="fake-key", opener=opener),
+    ])
+
+
+def _server_handler(monkeypatch, generator, label="NO_TOOL", confidence=0.99):
+    """Build a server conversation with a fake generator."""
+    from router import llm_generator
+    from test_turn import FakeRouter
+
+    monkeypatch.setattr(llm_generator, "build_generator", lambda say, no_llm=False, **kw: (generator, "fake gemini"))
+    return stt._default_handler(router=FakeRouter(label, confidence), speak=False, llm_options=voice_server.llm_options())
+
+
+def test_server_conversation_wires_gemini_and_its_second_routing_layer(monkeypatch):
+    handler = _server_handler(monkeypatch, _fake_gemini('{"tool": "call_o2"}'))
+    assert handler.generator_label == "fake gemini" and handler.pipeline.tool_classifier_fn is not None
+    turn = handler.handle("how much air do I have")
+    assert turn["route"] == "tool" and turn["pipeline"]["gate"] == "llm_second_layer"
+
+
+def test_server_conversation_falls_back_when_gemini_fails(monkeypatch):
+    handler = _server_handler(monkeypatch, _fake_gemini(503, 503, 503, 503, 503, 503))
+    turn = handler.handle("tell me something fun")
+    assert turn["route"] == "llm" and turn["generation"]["status"] == "error"
+    assert turn["spoken"] == "I could not complete that request."
+
+
+def test_server_conversation_is_offline_when_gemini_is_unreachable(monkeypatch):
+    from router import llm_generator
+    from router.generation import FillerGenerator
+
+    monkeypatch.setattr("dotenv.load_dotenv", lambda *a, **k: None)
+    monkeypatch.setattr(llm_generator, "check_server", lambda *a, **k: (False, "server down"))
+    generator, label = llm_generator.build_generator(lambda line: None, **voice_server.llm_options())
+    assert isinstance(generator, FillerGenerator) and "offline" in label
+
+
+def test_no_llm_server_conversation_has_no_gemini_and_no_second_layer(monkeypatch):
+    from router import llm_generator
+    from router.generation import FillerGenerator
+    from test_turn import FakeRouter
+
+    monkeypatch.setattr(llm_generator, "check_server", lambda *a, **k: pytest.fail("offline mode must not contact Gemini"))
+    handler = stt._default_handler(router=FakeRouter(), speak=False, llm_options=voice_server.llm_options(no_llm=True))
+    assert isinstance(handler.generator, FillerGenerator) and handler.pipeline.tool_classifier_fn is None
 
 
 def test_router_load_failure_is_visible_before_start_and_redacted(serve, monkeypatch, capsys):
