@@ -20,7 +20,7 @@ from psycopg.rows import dict_row
 from simulator_rules import ACTIVITY_O2, SCENARIO_O2, o2_used_pct
 from router.db_config import password_options
 
-load_dotenv(Path(__file__).resolve().parent / "router" / ".env")
+load_dotenv(Path(__file__).resolve().parent / ".env")
 DATABASE_URL = os.getenv("DATABASE_URL", "dbname=nova")
 TICK_SECONDS = 1.0
 MAX_GAP_S = 10.0              # longer gap between ticks = pause (sleep/outage)

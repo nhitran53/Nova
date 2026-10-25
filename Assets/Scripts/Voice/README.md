@@ -6,8 +6,8 @@ Tool selection stays in Python
 
 ## Start from the repo folder
 
-Keep PostgreSQL running
-Put credentials in the repo-root `.env` (next to `router/`) and keep that file out of Git
+Keep PostgreSQL and Ollama running
+Put credentials in the root `.env` and keep that file out of Git
 Voice needs `sounddevice` and an ElevenLabs key
 
 Run the simulator in one terminal

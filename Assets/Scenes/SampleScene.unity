@@ -119,45 +119,6 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
---- !u!114 &27434018
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 27434008}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 66f81d9d2585414a85b397443a111f6e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::TelephoneGestureDetector
-  hand: 1
-  curlEnter: 0.5
-  curlExit: 0.65
-  extendEnter: 0.9
-  extendExit: 0.75
-  holdTime: 0.35
-  releaseTime: 0.15
-  cooldown: 0.5
-  diagnostics: 1
-  onTelephoneStart:
-    m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 1739200003}
-        m_TargetAssemblyTypeName: VoiceSessionClient, NovaVoice
-        m_MethodName: ToggleVoiceSession
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: 
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
-  onTelephoneEnd:
-    m_PersistentCalls:
-      m_Calls: []
 --- !u!1 &27434008
 GameObject:
   m_ObjectHideFlags: 0
@@ -430,6 +391,45 @@ MonoBehaviour:
   curlExit: 0.65
   helmet: {fileID: 0}
   indicatorSlot: {x: 0, y: -160}
+--- !u!114 &27434018
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 27434008}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 66f81d9d2585414a85b397443a111f6e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TelephoneGestureDetector
+  hand: 1
+  curlEnter: 0.5
+  curlExit: 0.65
+  extendEnter: 0.9
+  extendExit: 0.75
+  holdTime: 0.35
+  releaseTime: 0.15
+  cooldown: 0.5
+  diagnostics: 1
+  onTelephoneStart:
+    m_PersistentCalls:
+      m_Calls:
+      - m_Target: {fileID: 1739200003}
+        m_TargetAssemblyTypeName: VoiceSessionClient, NovaVoice
+        m_MethodName: ToggleVoiceSession
+        m_Mode: 0
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: 
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+  onTelephoneEnd:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!1001 &324244156
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -842,6 +842,119 @@ MonoBehaviour:
   m_ShadowLayerMask: 1
   m_RenderingLayers: 1
   m_ShadowRenderingLayers: 1
+--- !u!1 &470314327
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 470314331}
+  - component: {fileID: 470314330}
+  - component: {fileID: 470314329}
+  - component: {fileID: 470314328}
+  m_Layer: 0
+  m_Name: Rover impact rock
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!64 &470314328
+MeshCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 470314327}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 5
+  m_Convex: 0
+  m_CookingOptions: 30
+  m_Mesh: {fileID: -7811470132031700174, guid: c38e36cdf58dbd5449e78d23e36b51a3, type: 2}
+--- !u!23 &470314329
+MeshRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 470314327}
+  m_Enabled: 1
+  m_CastShadows: 1
+  m_ReceiveShadows: 1
+  m_DynamicOccludee: 1
+  m_StaticShadowCaster: 0
+  m_MotionVectors: 1
+  m_LightProbeUsage: 1
+  m_ReflectionProbeUsage: 1
+  m_RayTracingMode: 2
+  m_RayTraceProcedural: 0
+  m_RayTracingAccelStructBuildFlagsOverride: 0
+  m_RayTracingAccelStructBuildFlags: 1
+  m_SmallMeshCulling: 1
+  m_ForceMeshLod: -1
+  m_MeshLodSelectionBias: 0
+  m_RenderingLayerMask: 1
+  m_RendererPriority: 0
+  m_Materials:
+  - {fileID: 2100000, guid: eebfc5e95fd632144b009668322e2917, type: 2}
+  m_StaticBatchInfo:
+    firstSubMesh: 0
+    subMeshCount: 0
+  m_StaticBatchRoot: {fileID: 0}
+  m_ProbeAnchor: {fileID: 0}
+  m_LightProbeVolumeOverride: {fileID: 0}
+  m_ScaleInLightmap: 1
+  m_ReceiveGI: 1
+  m_PreserveUVs: 0
+  m_IgnoreNormalsForChartDetection: 0
+  m_ImportantGI: 0
+  m_StitchLightmapSeams: 1
+  m_SelectedEditorRenderState: 3
+  m_MinimumChartSize: 4
+  m_AutoUVMaxDistance: 0.5
+  m_AutoUVMaxAngle: 89
+  m_LightmapParameters: {fileID: 0}
+  m_GlobalIlluminationMeshLod: 0
+  m_SortingLayerID: 0
+  m_SortingLayer: 0
+  m_SortingOrder: 0
+  m_MaskInteraction: 0
+  m_AdditionalVertexStreams: {fileID: 0}
+--- !u!33 &470314330
+MeshFilter:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 470314327}
+  m_Mesh: {fileID: -7811470132031700174, guid: c38e36cdf58dbd5449e78d23e36b51a3, type: 2}
+--- !u!4 &470314331
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 470314327}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.0085370485, y: 0.9723323, z: 0.00148616, w: -0.2334412}
+  m_LocalPosition: {x: -1.3657626, y: -2.6619146, z: 5.3354497}
+  m_LocalScale: {x: 0.8087026, y: 0.42, z: 0.6628901}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &562903602
 GameObject:
   m_ObjectHideFlags: 0
@@ -2166,6 +2279,89 @@ MonoBehaviour:
     m_Interactions: 
     m_SingletonActionBindings: []
     m_Flags: 0
+--- !u!1 &1739200001
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1739200002}
+  - component: {fileID: 1739200003}
+  - component: {fileID: 1739200004}
+  m_Layer: 0
+  m_Name: Nova Voice
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1739200002
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1739200001}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1739200003
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1739200001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f3c437fd47a748e586096700f3c430a4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: NovaVoice::VoiceSessionClient
+  baseUrl: http://127.0.0.1:8765
+  pollIntervalSeconds: 0.5
+  unreachablePollIntervalSeconds: 3
+  requestTimeoutSeconds: 3
+  idleCheckSeconds: 5
+  telemetryPollSeconds: 0.5
+  telemetryTimeoutSeconds: 3
+  OnStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  OnTranscript:
+    m_PersistentCalls:
+      m_Calls: []
+  OnReply:
+    m_PersistentCalls:
+      m_Calls: []
+  OnError:
+    m_PersistentCalls:
+      m_Calls: []
+--- !u!114 &1739200004
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1739200001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 885479238d3546b882ebb865b158ba08, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::NovaAssistantPresenter
+  voice: {fileID: 1739200003}
+  hud: {fileID: 0}
+  telephone: {fileID: 27434018}
+  showGestureDiagnostics: 1
+  keyboardShortcut: 1
+  replyHoldSeconds: 8
+  maxMessageChars: 160
 --- !u!1001 &1944352498
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -2302,6 +2498,91 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8ffbdb0d89044ab184e63d10a4675254, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SuitTelemetry
+--- !u!1001 &2013960687
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 2545313367391420452, guid: 0b7392015cb9c9f438da9ed45b4223f7, type: 3}
+      propertyPath: m_Name
+      value: Damaged Perseverance
+      objectReference: {fileID: 0}
+    - target: {fileID: 6576224834141629799, guid: 0b7392015cb9c9f438da9ed45b4223f7, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -0.236
+      objectReference: {fileID: 0}
+    - target: {fileID: 6576224834141629799, guid: 0b7392015cb9c9f438da9ed45b4223f7, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: -2.6724334
+      objectReference: {fileID: 0}
+    - target: {fileID: 6576224834141629799, guid: 0b7392015cb9c9f438da9ed45b4223f7, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 6.863
+      objectReference: {fileID: 0}
+    - target: {fileID: 6576224834141629799, guid: 0b7392015cb9c9f438da9ed45b4223f7, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: -0.0000047379326
+      objectReference: {fileID: 0}
+    - target: {fileID: 6576224834141629799, guid: 0b7392015cb9c9f438da9ed45b4223f7, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0.008648107
+      objectReference: {fileID: 0}
+    - target: {fileID: 6576224834141629799, guid: 0b7392015cb9c9f438da9ed45b4223f7, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0.99996245
+      objectReference: {fileID: 0}
+    - target: {fileID: 6576224834141629799, guid: 0b7392015cb9c9f438da9ed45b4223f7, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0.0005478373
+      objectReference: {fileID: 0}
+    - target: {fileID: 6576224834141629799, guid: 0b7392015cb9c9f438da9ed45b4223f7, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6576224834141629799, guid: 0b7392015cb9c9f438da9ed45b4223f7, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6576224834141629799, guid: 0b7392015cb9c9f438da9ed45b4223f7, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8569089398613078378, guid: 0b7392015cb9c9f438da9ed45b4223f7, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -1.1910299
+      objectReference: {fileID: 0}
+    - target: {fileID: 8569089398613078378, guid: 0b7392015cb9c9f438da9ed45b4223f7, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0.32065672
+      objectReference: {fileID: 0}
+    - target: {fileID: 8569089398613078378, guid: 0b7392015cb9c9f438da9ed45b4223f7, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -1.0949858
+      objectReference: {fileID: 0}
+    - target: {fileID: 8569089398613078378, guid: 0b7392015cb9c9f438da9ed45b4223f7, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 0.9848077
+      objectReference: {fileID: 0}
+    - target: {fileID: 8569089398613078378, guid: 0b7392015cb9c9f438da9ed45b4223f7, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0.0000000803203
+      objectReference: {fileID: 0}
+    - target: {fileID: 8569089398613078378, guid: 0b7392015cb9c9f438da9ed45b4223f7, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: -0.000000014139937
+      objectReference: {fileID: 0}
+    - target: {fileID: 8569089398613078378, guid: 0b7392015cb9c9f438da9ed45b4223f7, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0.17364821
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 0b7392015cb9c9f438da9ed45b4223f7, type: 3}
 --- !u!1 &2099554818
 GameObject:
   m_ObjectHideFlags: 0
@@ -2322,18 +2603,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &2099554823
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2099554818}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fcca7e6bfe0c06042810d1575113c4e5, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::MinimapNavigationPanel
 --- !u!114 &2099554819
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2430,87 +2699,24 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &1739200001
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1739200002}
-  - component: {fileID: 1739200003}
-  - component: {fileID: 1739200004}
-  m_Layer: 0
-  m_Name: Nova Voice
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1739200002
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1739200001}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1739200003
+--- !u!114 &2099554823
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1739200001}
+  m_GameObject: {fileID: 2099554818}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f3c437fd47a748e586096700f3c430a4, type: 3}
+  m_Script: {fileID: 11500000, guid: fcca7e6bfe0c06042810d1575113c4e5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: NovaVoice::VoiceSessionClient
-  baseUrl: http://127.0.0.1:8765
-  pollIntervalSeconds: 0.5
-  unreachablePollIntervalSeconds: 3
-  requestTimeoutSeconds: 3
-  idleCheckSeconds: 5
-  OnStateChanged:
-    m_PersistentCalls:
-      m_Calls: []
-  OnTranscript:
-    m_PersistentCalls:
-      m_Calls: []
-  OnReply:
-    m_PersistentCalls:
-      m_Calls: []
-  OnError:
-    m_PersistentCalls:
-      m_Calls: []
---- !u!114 &1739200004
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1739200001}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 885479238d3546b882ebb865b158ba08, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::NovaAssistantPresenter
-  voice: {fileID: 1739200003}
-  hud: {fileID: 0}
-  telephone: {fileID: 27434018}
-  showGestureDiagnostics: 1
-  keyboardShortcut: 1
-  replyHoldSeconds: 8
-  maxMessageChars: 160
+  m_EditorClassIdentifier: Assembly-CSharp::MinimapNavigationPanel
+  hoverDistance: 0.06
+  pressDistance: 0.008
+  releaseDistance: 0.025
+  openGrace: 0.5
+  debounce: 0.35
+  markerHitRadius: 44
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
@@ -2523,3 +2729,5 @@ SceneRoots:
   - {fileID: 1739200002}
   - {fileID: 1621204436}
   - {fileID: 741968179}
+  - {fileID: 2013960687}
+  - {fileID: 470314331}

@@ -68,6 +68,7 @@ Generated terrain assets stay in `Assets/JezeroTerrain/Generated/`
 
 ## Shared readings
 
+Keep shared keys and settings in the root `.env`
 The HUD and wrist use the same PostgreSQL telemetry as NOVA
 Keep `simulator.py` and the voice server running with `--datasource postgres`
 Missing or stale readings show **TELEMETRY UNAVAILABLE**

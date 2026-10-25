@@ -3,9 +3,7 @@
 Load the router in the background while listening.
 Speak each verified reply before opening the microphone again.
 Silence or a stop request ends the session. Barge-in is not supported.
-Read the API key from the repo-root .env (or $NOVA_ENV_FILE) or the environment and keep it out of errors.
-Alerts precede queued normal speech without interrupting playback.
-NOVA_DEMO_SCENE enables the simulated fault and print-offer scene.
+Read the API key from the root .env or the environment and keep it out of errors.
 """
 import argparse
 import asyncio
@@ -22,8 +20,8 @@ from dotenv import load_dotenv
 
 from .llm_generator import API_KEY_ENV, RUNTIMES, redact_secrets
 
-HERE = Path(__file__).parent
-ENV_PATH = Path(os.environ.get("NOVA_ENV_FILE") or HERE.parent / ".env")  # repo-root .env; NOVA_ENV_FILE overrides
+HERE = Path(__file__).resolve().parent
+ENV_PATH = HERE.parent / ".env"
 KEY_VAR = "ELEVENLABS_API_KEY"
 MODEL_ID = "scribe_v2_realtime"
 SAMPLE_RATE = 16000
