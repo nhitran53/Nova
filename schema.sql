@@ -1,9 +1,7 @@
 
 BEGIN;
 
--- 1. Planet reference information
--- holds all the hard physics and environmental baselines 
--- gravity, surface_pressure, max/min temps, weather
+-- Planet reference values
 CREATE TABLE IF NOT EXISTS planets (
     id TEXT PRIMARY KEY,
     display_name TEXT NOT NULL,
@@ -18,10 +16,7 @@ CREATE TABLE IF NOT EXISTS planets (
     CHECK (temp_min_c <= temp_max_c)
 );
 
--- 2. Mission settings
--- track what scenario we are at
--- o2 burn rate
--- time scaling
+-- Mission settings
 CREATE TABLE IF NOT EXISTS missions (
     id SERIAL PRIMARY KEY,
     name TEXT NOT NULL DEFAULT 'NOVA-1',
@@ -41,7 +36,7 @@ CREATE TABLE IF NOT EXISTS missions (
     -- Demo route-calculation settings.
     walk_speed_mps REAL NOT NULL DEFAULT 0.8
         CHECK (walk_speed_mps > 0),
-    -- Percentage POINTS consumed per simulated minute.
+    -- Oxygen percentage points consumed per simulated minute.
     -- Backend must account for changes caused by activity or leaks.
     o2_burn_pct_per_min REAL NOT NULL DEFAULT 0.15
         CHECK (o2_burn_pct_per_min > 0),
@@ -56,9 +51,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS one_active_mission
 ON missions (active)
 WHERE active = TRUE;
 
--- 3. Suit and environment readings
--- vitals every few seconds 
--- o2, heart rate, suit pressure, outside weather 
+-- Suit and environment samples
 CREATE TABLE IF NOT EXISTS telemetry (
     id BIGSERIAL PRIMARY KEY,
     mission_id INT NOT NULL
@@ -90,9 +83,7 @@ CREATE TABLE IF NOT EXISTS telemetry (
 CREATE INDEX IF NOT EXISTS telemetry_mission_ts
 ON telemetry (mission_id, ts DESC, id DESC);
 
--- Latest reading for the active mission.
--- Empty until the simulator inserts telemetry.
--- query directly
+-- Latest active mission reading. Empty until the simulator starts.
 CREATE OR REPLACE VIEW latest_telemetry AS
 SELECT DISTINCT ON (t.mission_id) t.*
 FROM telemetry t
@@ -100,8 +91,7 @@ JOIN missions m ON m.id = t.mission_id
 WHERE m.active
 ORDER BY t.mission_id, t.ts DESC, t.id DESC;
 
--- 4. Minimap markers
--- stores coords of habitat, rover, craters, hazards
+-- Minimap locations
 CREATE TABLE IF NOT EXISTS map_locations (
     id SERIAL PRIMARY KEY,
     code TEXT UNIQUE NOT NULL,
@@ -124,9 +114,7 @@ CREATE TABLE IF NOT EXISTS map_locations (
     description TEXT
 );
 
--- 5. Recorded astronaut positions
--- tracks x/z coords
--- heading of player over time
+-- Player positions and headings
 CREATE TABLE IF NOT EXISTS astronaut_positions (
     id BIGSERIAL PRIMARY KEY,
     mission_id INT NOT NULL
@@ -141,7 +129,7 @@ CREATE TABLE IF NOT EXISTS astronaut_positions (
 CREATE INDEX IF NOT EXISTS positions_mission_ts
 ON astronaut_positions (mission_id, ts DESC, id DESC);
 
--- query most recent data from active mission
+-- Latest active mission position
 CREATE OR REPLACE VIEW latest_position AS
 SELECT DISTINCT ON (p.mission_id) p.*
 FROM astronaut_positions p
@@ -149,16 +137,15 @@ JOIN missions m ON m.id = p.mission_id
 WHERE m.active
 ORDER BY p.mission_id, p.ts DESC, p.id DESC;
 
--- 6. Destination requests and route assessments
+-- Destination requests and route checks
 --
--- Backend calculates:
+-- Trip time and oxygen budget
 -- trip_minutes =(outbound_distance_m + return_distance_m)
 -- / walk_speed_mps / 60 + time_at_destination_minutes
 -- estimated_o2_required_pct = trip_minutes * effective_burn_rate + reserve
--- Required oxygen INCLUDES reserve.
+-- Include the oxygen reserve in the required supply.
 -- Backend must verify fresh readings, matching mission IDs,
 -- traversable routes, and an available return location.
--- for when player points at a location and ask if they can walk there 
 CREATE TABLE IF NOT EXISTS navigation_requests (
     id BIGSERIAL PRIMARY KEY,
     mission_id INT NOT NULL
@@ -182,7 +169,6 @@ CREATE TABLE IF NOT EXISTS navigation_requests (
                 'cancelled'
             )
         ),
-    -- check constraints 
     outbound_distance_m REAL CHECK (outbound_distance_m >= 0),
     return_distance_m REAL CHECK (return_distance_m >= 0),
 
@@ -236,7 +222,7 @@ CREATE TABLE IF NOT EXISTS navigation_requests (
 CREATE INDEX IF NOT EXISTS nav_mission_time
 ON navigation_requests (mission_id, requested_at DESC);
 
--- 7. Warnings displayed and spoken to the astronaut
+-- Displayed and spoken alerts
 CREATE TABLE IF NOT EXISTS alerts (
     id BIGSERIAL PRIMARY KEY,
     mission_id INT NOT NULL
@@ -266,8 +252,7 @@ CREATE TABLE IF NOT EXISTS alerts (
 CREATE INDEX IF NOT EXISTS alerts_mission_id
 ON alerts (mission_id, id);
 
--- Backend uses a stable key, e.g. 'low_oxygen', and updates the
--- existing open alert instead of inserting it every simulator tick.
+-- Update an open alert by its key instead of adding one every tick.
 CREATE UNIQUE INDEX IF NOT EXISTS alerts_one_open_key
 ON alerts (mission_id, alert_key)
 WHERE resolved_at IS NULL AND alert_key IS NOT NULL;
@@ -281,9 +266,7 @@ JOIN missions m ON m.id = a.mission_id
 WHERE m.active
   AND a.resolved_at IS NULL;
 
--- 8. Messages between the astronaut and Earth
--- demo_delay_s: speed of light 
--- message status calculates how many seconds are let until a message actually arrives 
+-- Messages and their delivery delays
 CREATE TABLE IF NOT EXISTS messages (
     id BIGSERIAL PRIMARY KEY,
     mission_id INT NOT NULL
@@ -327,10 +310,9 @@ SELECT
     END AS demo_seconds_left
 FROM messages msg;
 
--- 9. Helmet display commands
+-- Helmet display commands
 -- Unity processes unseen, unexpired commands in ID order.
 -- NULL expires_at means no expiration.
--- this allows backend to send dynamic commands to the player's visor.
 CREATE TABLE IF NOT EXISTS hud_commands (
     id BIGSERIAL PRIMARY KEY,
     mission_id INT NOT NULL
@@ -359,11 +341,7 @@ CREATE INDEX IF NOT EXISTS hud_pending
 ON hud_commands (mission_id, id)
 WHERE applied_at IS NULL;
 
--- 10. Optional vision detection results
--- Detect terrain/objects in the Mars demo.
--- Leave world coordinates NULL unless a positioning method supplies them.
--- place to dump ml data 
--- logs label, confidence score, estimated x/z coords
+-- Vision detections. Leave coordinates NULL until a positioning method supplies them.
 CREATE TABLE IF NOT EXISTS vision_detections (
     id BIGSERIAL PRIMARY KEY,
     mission_id INT NOT NULL
@@ -388,7 +366,7 @@ CREATE TABLE IF NOT EXISTS vision_detections (
 CREATE INDEX IF NOT EXISTS vision_mission_ts
 ON vision_detections (mission_id, ts DESC);
 
--- 11. Seed Mars reference/demo values
+-- Starting Mars demo values
 INSERT INTO planets (
     id,
     display_name,
@@ -422,7 +400,7 @@ WHERE NOT EXISTS (
     SELECT 1 FROM missions WHERE active
 );
 
--- Placeholder map coordinates: replace with your Unity scene coordinates.
+-- Replace these placeholder locations with exported Unity coordinates.
 INSERT INTO map_locations (
     code,
     name,
@@ -486,6 +464,61 @@ AND NOT EXISTS (
     SELECT 1
     FROM astronaut_positions p
     WHERE p.mission_id = m.id
+);
+CREATE TABLE IF NOT EXISTS mars_weather (
+    id               BIGSERIAL PRIMARY KEY,
+    planet_id        TEXT NOT NULL DEFAULT 'mars' REFERENCES planets(id),
+    mars_year        INT  NOT NULL CHECK (mars_year > 0),
+    northern_season  TEXT NOT NULL CHECK (northern_season IN ('Spring', 'Summer', 'Fall', 'Winter')),
+    day_night        TEXT NOT NULL CHECK (day_night IN ('Day', 'Night')),
+    air_temp_c       REAL,                                  -- blank in the file -> NULL
+    air_temp_err_c   REAL CHECK (air_temp_err_c >= 0),      -- the ± value
+    pressure_pa      REAL CHECK (pressure_pa > 0),
+    pressure_err_pa  REAL CHECK (pressure_err_pa >= 0)      -- the ± value
+);
+ALTER TABLE mars_weather DROP COLUMN IF EXISTS data_source;
+
+CREATE TABLE IF NOT EXISTS crew_o2_co2 (
+    record_id                 INT PRIMARY KEY,               -- from the CSV; stops duplicate loads
+    sol                       INT  NOT NULL CHECK (sol > 0),
+    crew_id                   TEXT NOT NULL,
+    sex                       TEXT NOT NULL CHECK (sex IN ('M', 'F')),
+    body_mass_kg              REAL NOT NULL CHECK (body_mass_kg > 0),
+    environment               TEXT NOT NULL,                 -- 'Habitat' or 'EVA suit'
+    activity                  TEXT NOT NULL,                 -- 'Sleep', 'Exercise (treadmill/ARED)', ...
+    duration_hr               REAL NOT NULL CHECK (duration_hr > 0),
+    metabolic_rate_w          REAL NOT NULL CHECK (metabolic_rate_w > 0),
+    respiratory_quotient      REAL NOT NULL CHECK (respiratory_quotient > 0),   -- CO2 produced / O2 used
+    ambient_pressure_kpa      REAL NOT NULL CHECK (ambient_pressure_kpa > 0),
+    inspired_o2_pct           REAL NOT NULL CHECK (inspired_o2_pct BETWEEN 0 AND 100),
+    ambient_pp_co2_kpa        REAL NOT NULL CHECK (ambient_pp_co2_kpa >= 0),
+    minute_ventilation_l_min  REAL NOT NULL CHECK (minute_ventilation_l_min >= 0),
+    o2_inhaled_l_min          REAL NOT NULL CHECK (o2_inhaled_l_min >= 0),
+    o2_exhaled_l_min          REAL NOT NULL CHECK (o2_exhaled_l_min >= 0),
+    o2_consumed_l_min         REAL NOT NULL CHECK (o2_consumed_l_min >= 0),
+    co2_inhaled_l_min         REAL NOT NULL CHECK (co2_inhaled_l_min >= 0),
+    co2_exhaled_l_min         REAL NOT NULL CHECK (co2_exhaled_l_min >= 0),
+    co2_produced_l_min        REAL NOT NULL CHECK (co2_produced_l_min >= 0),
+    o2_consumed_g             REAL NOT NULL CHECK (o2_consumed_g >= 0),       -- over duration_hr
+    co2_produced_g            REAL NOT NULL CHECK (co2_produced_g >= 0),      -- over duration_hr
+    o2_consumed_kg_per_day    REAL NOT NULL CHECK (o2_consumed_kg_per_day >= 0),   -- rate if kept up all day
+    co2_produced_kg_per_day   REAL NOT NULL CHECK (co2_produced_kg_per_day >= 0)
+);
+COMMENT ON TABLE crew_o2_co2 IS
+    'Simulated crew respiration (NASA BVAD-based model), from mars_astronaut_o2_co2.csv';
+ 
+CREATE INDEX IF NOT EXISTS crew_o2_co2_activity ON crew_o2_co2 (environment, activity);
+
+CREATE TABLE IF NOT EXISTS mars_radiation (
+    id                          BIGSERIAL PRIMARY KEY,
+    planet_id                   TEXT NOT NULL DEFAULT 'mars' REFERENCES planets(id),
+    observed_at                 TIMESTAMPTZ NOT NULL,      
+    silicon_ugy_per_day         REAL NOT NULL CHECK (silicon_ugy_per_day >= 0),
+    tissue_ugy_per_day          REAL NOT NULL CHECK (tissue_ugy_per_day >= 0), 
+    silicon_uncorrected_ugy_per_day REAL NOT NULL CHECK (silicon_uncorrected_ugy_per_day >= 0),
+    observation_seconds         REAL NOT NULL CHECK (observation_seconds > 0),
+    data_flag                   TEXT NOT NULL DEFAULT 'none', 
+    CONSTRAINT mars_radiation_one_reading UNIQUE (planet_id, observed_at)
 );
 
 COMMIT;

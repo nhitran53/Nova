@@ -1,18 +1,7 @@
-"""Run ~16 scripted turns through turn.py and print route, tool call, spoken line and verifier result.
+"""Run scripted turns and print their routes and verified replies.
 
-    python -m router.demo_turn [--model $NOVA_MODELS_DIR/v1]      # real ModernBERT router (CPU)
-    python -m router.demo_turn --fake                              # scripted fake router, no model needed
-    python -m router.demo_turn --fake --speak --max-turns 3        # also speak each line (real ElevenLabs call)
-
-After the scripted turns a "generation demo" prints, for a few turns, the GenerationRequest summary, the rendered prompt,
-the raw generator output and the post-processed verified line (FillerGenerator / forced-bad generators, offline).
-
-A final "DB-backed" section runs the same TurnHandler over FixtureDatasource (rows seeded from schema.sql, offline: no
-Postgres), including an o2_leak advanced until the oxygen alert preempts.
-
-Fake sim values, fake tools, stub LLM, a keyword fake retriever (only "moon" has a document), no arbiter: nothing here
-calls a real LLM or a real tool. Confirmation replies ("yes"/"no") are answered by the deterministic matcher before the
-router, so their fake-router entry is never used.
+Use --fake to skip model loading.
+The optional --speak flag makes real ElevenLabs requests.
 """
 import argparse
 import json
@@ -75,7 +64,8 @@ def demo_retriever(text):
     return [{"text": "unrelated passage", "score": 0.1}]
 
 
-# (title, utterance, sim override, fake-router (label, confidence), zero-arg generator factory, or None for the default FillerGenerator; a factory because scripted generators keep state)
+# (title, utterance, sim override, fake-router (label, confidence), zero-arg generator factory, or
+# None for the default FillerGenerator; a factory because scripted generators keep state)
 GENERATION_TURNS = [
     ("O2 tool turn (template spoken; shadow generation shown)", "how much oxygen do I have left", {}, ("call_o2", 0.98), None),
     ("navigation tool turn, cannot-return feasibility slots", "take me to the outpost", {"minutes_remaining": 45}, ("call_navigation", 0.99), None),
@@ -133,7 +123,8 @@ def generation_demo(router, scripted, sim):
             print(f"  spoken  : {out['spoken']}")
 
 
-# (title, utterance, fake-router (label, confidence), sim seconds to advance the fixture BEFORE this turn, scenario to switch to or None)
+# (title, utterance, fake-router (label, confidence), sim seconds to advance the fixture BEFORE this
+# turn, scenario to switch to or None)
 DB_TURNS = [
     ("o2 from DB telemetry", "how much oxygen do I have left", ("call_o2", 0.98), 0, None),
     ("data: radiation is a delta of the cumulative dose", "what's my heart rate and temperature", ("call_data", 0.97), 0, None),

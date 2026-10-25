@@ -1,73 +1,12 @@
-"""One assistant turn: alert poll -> router -> slot check -> at most one fake tool call -> template -> number verifier.
+"""Handle a request from alert checks through the final verified reply.
 
-    TurnHandler(router, alert_source, registry, llm_fn=..., arbiter_fn=...).handle("take me home") -> result dict
-
-Order inside `handle` (the order is the contract; tests pin it):
- 1. `alert_source()` is polled FIRST and returns the sim snapshot ({"o2_pct": ..., "bpm": ...}). Any field past a
-    CRITICAL threshold speaks a fixed template line FIRST, then read-only requests continue with no offers or
-    LLM generation. Critical lines are verified against
-    the snapshot. A raising alert_source propagates (a silent failure would hide an alert).
- 2. `Pipeline.handle(text)` routes (pipeline_config.json gate: tau_hi 0.90 / tau_lo 0.50, arbiter in the mid band).
- 3. Required slots are validated against the registry's fixed schema. Navigation/map without a resolved place
-    -> a deterministic slot question, no tool call; two candidate places -> "which place" question.
- 4. At most one tool call through the ToolRegistry (max 8 tools, 1 call per turn, schema-checked).
- 5. The spoken line is a template (turn_policy.json) filled from the tool_result. Low confidence and OOD get a
-    template reply. Only call_llm / NO_TOOL use the injectable `llm_fn(text, prompt_policy)` (default: a stub).
- 6. Every spoken line passes `verifier.verify_numbers` against its source (tool_result, sim snapshot for alerts, empty
-    for LLM output). A blocked line is replaced by the policy's safe fallback; the original is kept in `blocked_text`.
-
-Follow-up additions (all values PLACEHOLDER in turn_policy.json):
- * Return-to-home feasibility: after an ok navigation tool_result, `assess_feasibility` computes outbound / return /
-   required minutes (distance / walking speed, plus a reserve) against the sim's O2 minutes remaining, adds the numbers
-   to `tool_result["data"]["feasibility"]` and speaks one outcome line (comfortable / tight / cannot_return /
-   cannot_reach) instead of a separate route line. It only reports; it never refuses the route (the safety loop owns go/no-go).
- * Demo scene (policy `demo_scene`, off by default): whole-utterance "what is this" -> fixed line from snapshot["rover_faults"], arms a `print_offer`
-   confirmation; yes -> one simulated `queue_print` call + result["display"]; no -> nothing queued. No router/LLM/retrieval for speech.
- * Refill-call offer: cannot_return / cannot_reach also speak an offer and store `self.pending_confirmation`
-   (per session, expires after `confirmation.expiry_turns` turns). On the next turn - after the alert poll, before
-   the router - a deterministic yes/no matcher answers it: yes -> ONE send_message call (urgency from the feasibility
-   outcome, never the LLM; recomputed from THIS turn's snapshot - if no refill is needed any more nothing is sent and
-   a fixed line is spoken), no -> ack, anything else -> pending cleared and the turn routes normally. A critical
-   alert clears it too.
- * Speaking scope restricts already-routed LLM turns; it never selects tools. Exact NO_TOOL greeting/identity inputs
-   speak user-requested wording. Repair/procedural terms use a policy offer without arming contact confirmation.
-   Risky NO_TOOL turns and risky call_llm turns without documents also offer clarification/contact. Other call_llm
-   turns prefer retrieval; no-source explanatory forms may use general knowledge with no numeric provenance.
-   Retrieved informational answers retain directive, live-claim and risk-number gates; manual reading is not built.
- * Explicit selection of a current BERT-proposed clarification option is a user-approved narrow exception to
-   first-turn router-only authority. It dispatches only an offered identity, preserves original context, revalidates
-   slots, and uses current telemetry. Cancel, expiry and unresolved answers never enter chitchat. State is per handler,
-   bounded by monotonic time and turn count, and critical alerts clear it. Selection is NOT message consent.
- * Destination-aware safety requests cannot use the generic safety go/no-go. A resolved destination or travel phrase
-   restricts the already-selected safety tool to a policy clarification without a call. No router thresholds change.
- * Navigation scope vetoes unsupported resource trip budgets and projected non-oxygen readings before execution,
-   including retained-slot/choice dispatch. Oxygen-only trip assessment and ordinary current readings are unchanged.
-
-Navigation uses `feasibility.concise` for guidance, assessment and distance questions alike. The response_mode
-metadata is retained, but spoken minutes always come from feasibility.outbound_min, never eta_min.
-
-Post-tool-call generation (router/generation.py; wording in turn_policy.json "generation", all PLACEHOLDER): the LLM
-paths (NO_TOOL chitchat, call_llm) go build_request -> Generator -> postprocess (parse, slot check, prose-number scan,
-length, deny-lists, slot fill, verify_numbers backstop) -> `_speak`. `TurnHandler(generator=...)` injects a Generator
-(default FillerGenerator); the old `llm_fn` is wrapped by LegacyLLMAdapter. Tool and confirmation turns still speak their
-template (llm_called stays False) but also expose the request and rendered prompt as result["generation"] with mode
-"template_only". Active alerts never reach a generator; their read-only answers may expose template requests. result["generation"] (additive) = {"mode":
-"template_only"|"generated", "request" (summary), "prompt" (chat messages), and for generated turns
-"status", "attempts", "violations", "attempt_log", "raw", "text" (final spoken text, attribution included), "refusal",
-"passage_numbers" (EFFECTIVE mode), "configured_passage_numbers", "passage_override_reason" (a risk term in the question or a
-passage forces "off" for a grounded turn), "attribution_prefixed"}. The whole dict is JSON-serializable; the live
-GenerationRequest object of the latest request is `TurnHandler.last_generation_request` (None when a turn built none).
-
-Result keys: text, route ("alert"|"tool"|"slot_question"|"clarify"|"llm"|"ood"|"low_confidence"|"risk_diverted"|
-"no_document"|"greeting"|"repair_offer"|"destination_safety"|"confirmed_yes"|"confirmed_no"|"refill_not_needed"|"session_end"|"fast_reply"|"scene"|"print_confirmed"|"print_declined"), pipeline (the Pipeline.handle dict or None), alerts, tool_call
-({"name","args"} or None), tool_result, tool_calls (0 or 1), llm_called, spoken, verifier, blocked_text,
-pending_confirmation (the offer stored by THIS turn, or None), tool_error / llm_error (only when the tool or the LLM
-raised: templates.tool_error is spoken, nothing is retried; an alert_source failure still propagates), passages (grounded call_llm only), end_session (true only on a whole-utterance goodbye/thanks),
-interim / interim_error (the "Let me think." wait line spoken through `interim_fn(line, "llm_interim")` before a chitchat / general / grounded generation, or why it
-failed), tts_error (only when
-`tts_fn` raised; `tts_fn(line, route)` is called per verified line, alert first before routing; result["lines"] preserves order and
-`spoken` joins lines with a space for backward compatibility).
-All wording lives in turn_policy.json and is PLACEHOLDER pending user sign-off.
+Critical alerts take priority. Required slots are checked before a tool runs.
+Each turn can call at most one tool. All spoken numbers must match their source.
+Pending place choices and refill confirmations expire and clear on critical alerts.
+The LLM cannot select tools or grant trip clearance.
+Response wording and demo limits stay in turn_policy.json.
+Alerts speak first; read-only requests continue without generation or offers.
+The opt-in demo scene offers a simulated print and manual display.
 """
 import json
 import math

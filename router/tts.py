@@ -7,10 +7,10 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-ENV_PATH = Path(__file__).parent / ".env"
+ENV_PATH = Path(os.environ.get("NOVA_ENV_FILE") or Path(__file__).parent.parent / ".env")  # repo-root .env; NOVA_ENV_FILE overrides
 KEY_VAR = "ELEVENLABS_API_KEY"
 DEFAULT_VOICE_ID = "VmPkIaPdP997cjIfBWRB"
-DEFAULT_MODEL_ID = "eleven_v4"  # accepted by the API (a bogus id gets 400 model_not_found); see README
+DEFAULT_MODEL_ID = "eleven_v4"
 PCM_SAMPLE_RATE = 24000
 OUTPUT_FORMAT = f"pcm_{PCM_SAMPLE_RATE}"  # raw signed 16-bit little-endian mono
 NETWORK_TIMEOUT_S = 20
@@ -80,6 +80,31 @@ def _synthesize(text):
     return audio
 
 
+def _use_sounddevice():
+    """Windows has no paplay/aplay, so it plays through sounddevice (the same package the mic already needs)."""
+    return sys.platform == "win32"
+
+
+def _player_name():
+    return "sounddevice" if _use_sounddevice() else _player_command()[0]
+
+
+def _play_sounddevice(audio):
+    """Write the raw PCM to the default output device and wait until it has played. -> {"player","returncode"}."""
+    try:
+        import sounddevice
+    except ImportError:
+        raise SpeechError("playback on Windows needs sounddevice: pip install sounddevice") from None
+    audio = audio[:len(audio) - len(audio) % 2]  # whole 16-bit samples only
+    try:
+        # Leaving the block stops the stream, which waits for the buffered audio to finish.
+        with sounddevice.RawOutputStream(samplerate=PCM_SAMPLE_RATE, channels=1, dtype="int16") as stream:
+            stream.write(audio)
+    except Exception as exc:  # PortAudio errors (no output device...); keep the message short and key-free
+        raise SpeechError(_redacted(f"sounddevice playback failed: {type(exc).__name__}: {exc}"[:240])) from None
+    return {"player": "sounddevice", "returncode": 0}
+
+
 def _player_command():
     if shutil.which("paplay"):
         return ["paplay", "--raw", f"--rate={PCM_SAMPLE_RATE}", "--format=s16le", "--channels=1"]
@@ -89,7 +114,10 @@ def _player_command():
 
 
 def _play(audio):
-    """Pipe raw PCM into the player; -> {"player","returncode"}. Raises SpeechError on a non-zero exit or a timeout."""
+    """Pipe raw PCM into the player (sounddevice on Windows); -> {"player","returncode"}.
+    Raises SpeechError on a non-zero exit, a timeout or a playback error."""
+    if _use_sounddevice():
+        return _play_sounddevice(audio)
     command = _player_command()
     try:
         done = subprocess.run(command, input=audio, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
@@ -114,7 +142,7 @@ def speak(output, route=None, block=True):
     if block:
         return {"bytes": len(audio), **_play(audio)}
     threading.Thread(target=lambda: _play_quietly(audio), daemon=True).start()
-    return {"bytes": len(audio), "player": _player_command()[0], "returncode": None}
+    return {"bytes": len(audio), "player": _player_name(), "returncode": None}
 
 
 def _play_quietly(audio):

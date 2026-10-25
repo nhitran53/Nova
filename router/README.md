@@ -1,65 +1,84 @@
-# Nova router (ModernBERT-base text classifier)
+# Nova router
 
-Text input only (voice later). The base model alone has a random head and every prediction is flagged
-`untrained: true`; use a fine-tuned checkpoint (`/home/isaach/models/Nova/router/v2`, see "Data, training, results") for real labels.
-Checkpoints are git-ignored.
-
-Output of `Router.predict(text)`:
-`{label, confidence, topk:[{label,p}], latency_ms, untrained, warning?}` - softmax probs
-(optionally divided by `temperature`). Runs on CPU; `device='auto'` picks MPS (Mac), then CUDA, then CPU.
+ModernBERT chooses the route for a request
+Python tools read telemetry and the local LLM handles supported conversation
+The voice server connects this to Unity
 
 ## Setup
 
-Install [uv](https://docs.astral.sh/uv/getting-started/installation/), then:
+Use Python 3.12 or newer
+From the repo folder install the locked environment
 
 ```sh
-cd router
-uv sync --locked                  # local .venv, editable router package, includes pytest
+uv sync --project router --locked
 ```
 
-Python >=3.12 is supported; `.python-version` selects 3.14. The resolved torch release has
-Python 3.14 wheels on Linux x86_64 and macOS ARM64, so no Python downgrade is needed.
-Linux uses the explicit PyTorch CPU index; macOS uses the default PyPI wheels (MPS included).
-The latest torch's macOS wheels require Apple Silicon and macOS 14 or newer (including the target M5 Mac);
-older macOS and Intel Macs are not supported by that upstream release.
-`pyproject.toml` declares dependencies and `uv.lock` records exact versions for both platforms;
-`requirements.txt` has been removed. To deliberately refresh dependencies, run
-`uv lock --upgrade` followed by `uv sync --locked` and re-run the checks below.
+Keep model files outside the repo
+Use `NOVA_MODELS_DIR` or `--model` to select a checkpoint
+A base model without a trained classifier head reports `untrained`
+Keep the trained label order matched to `labels.json`
 
-The base model lives **outside the repo**, in `$NOVA_MODELS_DIR/ModernBERT-base` (default
-`/home/isaach/models/Nova/router/ModernBERT-base`); it is not downloaded during sync. **Only for a fresh machine
-without the model**, download it into a new/empty directory (pass `--revision SHA` to pin; the resolved commit and
-file sha256s are printed):
+Put keys and database settings in the repo-root `.env` (next to `router/`)
+Never commit that file
+Microphone and Windows playback need `sounddevice`
+
+## Run with Unity
+
+Start PostgreSQL first
+Run these in separate terminals from the repo folder
+
+```cmd
+.\router\.venv\Scripts\python.exe simulator.py
+```
 
 ```sh
-uv run python -I download_base.py
+cd /home/isaach/Nova-wakeword && /home/isaach/Nova/router/.venv/bin/python -m router.voice_server
 ```
 
-The downloaded model dir is untrusted data: keep scripts out of it, load with `trust_remote_code`
-off (default), and use safetensors. `.gitignore` covers `.venv/`, `models/`, `checkpoints/`, caches and build artifacts.
+The default model on this machine is `/home/isaach/models/Nova/router/v1`; `--model` is optional.
+Append `--datasource postgres` for the shared simulator telemetry (the default is `sim`).
+Server `--device` is the torch device, not the microphone; `--timeout` is seconds of silence that end a conversation.
+Keep the simulator running so readings stay fresh
+Use `--datasource sim` for voice without PostgreSQL
+That mode does not supply the shared HUD telemetry
 
-Base model recorded on 2026-10-24: `answerdotai/ModernBERT-base` @ `8949b909ec900327062f0ebf497f51aef5e6f0c8`,
-`model.safetensors` sha256 `340ac08b74eef0d7bdec2d7981a6a3d4249bf0e6aab60634b72ad02c2b8023a9`.
+The server uses localhost on port 8765
+Unity reads voice status and telemetry from it
+Wrist demo buttons update the simulator oxygen value through the server
+No database credentials go to Unity
 
-## Run (from Nova/router)
+## Demo controls
 
-```sh
-uv run python -m router.cli --text "check my oxygen level"  # pretty; add --json for JSON
-uv run python -m router.cli                               # REPL, empty line quits
-uv run pytest                                            # offline after model download
-uv run python -m router.bench_latency --runs 50 --device cpu
+The simulator consumes oxygen at the mission time scale
+Use the wrist **REFILL** button for a normal conversation demo
+Use **-10 O2** and **+10 O2** to show changing readings
+Critical readings take priority over conversation
+Alert thresholds and response wording live in `turn_policy.json`
+They are demo settings and have not been validated for a real suit
+
+Restart the simulator and server after code updates
+Do not use `--new-mission` unless you want to end the active mission and start another
+Existing mission history is kept
+
+## Checks
+
+```cmd
+.\router\.venv\Scripts\python.exe -m pytest router/tests/test_datasource.py router/tests/test_voice_server.py router/tests/test_db_config.py
 ```
 
-After activating `.venv` (`source .venv/bin/activate`), plain `python -m router.cli` also works.
-From `Nova/`, use `uv run --project router python -m router.cli --text "check my oxygen level"`.
-The package remains flat in this directory; `core.py` holds the implementation so it does not
-shadow the installed `router` package when running commands here. `from router import Router`
-remains supported. Default model path is `$NOVA_MODELS_DIR/ModernBERT-base` (see above), independent of the checkout.
+These checks do not use the microphone or paid speech APIs
+The full suite also contains model and release checks
+Passing synthetic tests does not establish performance on real speech
+Keep released datasets and their provenance records unchanged
 
-Use `--model <dir|HF id>` or `ROUTER_MODEL_DIR` to point at another checkpoint, `--temperature T`, `--device`.
-Set `HF_HUB_OFFLINE=1` to explicitly disable Hub requests when using the local model.
+## More detail
 
-## Swapping labels
+[Unity voice and wrist setup](../Assets/Scripts/Voice/README.md)
+[Local LLM demo](docs/live-demo.md)
+[Response generation](docs/post-tool-generation.md)
+[Reference datasets and units](docs/reference-data.md)
+[Trip clarification](docs/trip-clarification-implementation.md)
+[Dataset handoff](docs/v3-trip-handoff.md)
 
 Edit `labels.json` (`{"labels": [...]}`). Order = class index; the head size is `len(labels)`, so a fine-tuned
 checkpoint is only valid with the label order it was trained on. Current labels are **placeholders**
@@ -324,3 +343,7 @@ config .90/.50 with no arbiter: v2 `okay im home please` -> NO_TOOL/.819/LLM stu
   re-measure on the target Mac. At that earlier checkpoint nine tests passed (six model smoke tests and three packaging checks);
   the CLI still reports `untrained`. macOS 14 ARM64 dependency selection passed a cross-platform
   `uv sync --locked --dry-run`; actual MPS execution still needs verification on the Mac.
+
+Use `python -m router.train --help` for training options
+Use `python -m router.evaluate --help` for evaluation options
+Training and model promotion are separate from running this demo

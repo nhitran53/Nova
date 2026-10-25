@@ -1,13 +1,7 @@
-"""Score a trained checkpoint on the held-out sets: test, paraphrase_test, demo_calls, demo_calls_47.
+"""Score a checkpoint on the saved evaluation sets.
 
-    python -m router.eval_sets --checkpoint $NOVA_MODELS_DIR/v1 [--show-errors]
-
-    python -m router.eval_sets --checkpoint $NOVA_MODELS_DIR/v2 --data-dir data/v2   # "test" from that data dir
-
-REGRESSION sets, not independent validation: the paraphrase/demo files are never trained on and their exact texts are
-excluded from generated data, but the v0 failures on them were known while v1/v2 templates were written, so they are
-development-adjacent. `test` is the generator's own held-out split (family-held-out for data/v2, template-pool-held-out
-only for data/ = v1). Untouched speaker/push-to-talk data is still needed before any generalisation claim.
+Paraphrase and demo sets are regression checks seen during development.
+Keep them separate from independent validation.
 """
 import argparse
 import json

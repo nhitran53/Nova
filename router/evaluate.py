@@ -1,12 +1,7 @@
-"""Evaluate a trained router checkpoint on a labelled JSONL split.
+"""Evaluate a trained checkpoint on a labelled split.
 
-    python -m router.evaluate --checkpoint $NOVA_MODELS_DIR/synthetic-v0 [--split test]
-
-Reports accuracy, macro-F1, per-class precision/recall, confusion matrix, ECE, and a confidence-threshold sweep
-(coverage vs. error), prints a short table and writes exclusive reports/<checkpoint-name>_<split>.json.
-
-HONESTY NOTE: with the synthetic data from data/gen_synthetic.py the test split comes from the same generator
-family as train, so these numbers are optimistic and are NOT evidence for the 95% target on real speech.
+Write accuracy and calibration reports without overwriting existing results.
+Synthetic splits do not establish accuracy on real speech.
 """
 import argparse
 import json

@@ -1,13 +1,7 @@
-"""Tool registry with fixed schemas, plus FAKE tools over a fabricated sim state (no real tool integration yet).
+"""Expose fixed tool schemas to the turn handler.
 
-Hard rules enforced here: at most MAX_TOOLS (8) registered tools, and at most ONE tool call per turn
-(`begin_turn()` resets the counter; a second `call()` in the same turn raises OneCallPerTurnError).
-Schemas are fixed at registration: `{"required": [...], "properties": {arg: type}}`. `call()` rejects unknown tools,
-unknown or missing args and wrong types before the tool runs.
-
-Tool results are `{"tool": name, "ok": bool, "data": {...}}`; every number the assistant speaks must come from `data`.
-All sim numbers below are fabricated demo values, not real suit telemetry, unless `default_registry(datasource=...)` is
-used: then the same six tools read a `router.datasource.Datasource` (staging DB schema; opt-in, SimState stays the default).
+Each turn can call one registered tool.
+Use the supplied datasource or the built-in simulated state.
 """
 import itertools
 import math

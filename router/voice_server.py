@@ -1,37 +1,29 @@
-"""Local HTTP bridge so Unity can start/stop the `stt.converse()` voice conversation and poll its progress.
+"""Connect Unity to the PC voice session and simulator readings.
 
-    router/.venv/bin/python -m router.voice_server [--host 127.0.0.1] [--port 8765] [--model DIR] [--no-speak] ...
-
-    POST /voice/start    start a conversation (ignored while one is running; "started" says which)
-    POST /voice/stop     ask the running conversation to stop (a reply already being spoken finishes first)
-    GET  /voice/status   {state, last_transcript, last_reply, route, error, session_id, seq, router_ready,
-                         display, display_seq, alert}
-
-`alert` is the latest turn's alert line or null; `last_reply` remains the space-joined spoken output.
-`display` is null or {doc_id, section_id, title, asset, source} (the manual page to show, set by a demo turn); it is kept until a
-newer one replaces it (also across sessions), and `display_seq` increases by one each time it is set, so a client shows the page
-when `display_seq` changes. `state` is idle | loading | listening | speaking | ended | error. `seq` increases on every change so a client can tell
-that something new happened. Python owns the microphone and the speaker on THIS machine; nothing audio is sent to Unity.
-The router loads on a background thread at server start (prewarm), so /voice/start is fast once `router_ready` is true.
-The ElevenLabs key is read by stt/tts from the environment (or router/.env) and never appears in a response.
-
-The server has no authentication: it binds 127.0.0.1 by default, and a request carrying an `Origin` header (a web page,
-never Unity) is refused so a browser tab cannot switch the microphone on. Use --host only on a network you trust.
+POST /voice/start and /voice/stop control the conversation.
+GET /voice/status reports progress. GET /telemetry returns fresh readings.
+POST /demo/oxygen changes simulated oxygen from the wrist controls.
+The server defaults to localhost and rejects browser Origin headers.
+Microphone and speaker audio stay on the PC.
+Voice status includes alert, persistent display and display_seq alongside router_error.
 """
 import argparse
 import json
+import math
 import os
 import sys
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 
 from . import stt
 from .llm_generator import API_KEY_ENV, redact_secrets
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8765
-STATES = ("idle", "loading", "listening", "speaking", "ended", "error")
+STATES = ("idle", "loading", "listening", "processing", "speaking", "ended", "error")
 MAX_ERROR_CHARS = 300
+LLM_OPTIONS = {"no_llm": True}  # the server only listens and calls the router; replies are always the offline template generator
 
 
 def _redacted(text):
@@ -43,7 +35,7 @@ def _redacted(text):
 class VoiceSession:
     """One conversation at a time, run on a worker thread. All state changes go through `_update` under a lock.
 
-    `converse_fn(**kwargs)` defaults to `stt.converse`; it is called with on_event, on_turn, stop_event, router_loader and
+    `converse_fn(**kwargs)` defaults to `stt.converse`; it is called with on_event, on_turn, on_transcript, stop_event, router_loader and
     `converse_options`. `router_loader` is loaded once, on a background thread, when the session object is created."""
 
     def __init__(self, router_loader, converse_fn=stt.converse, converse_options=None):
@@ -58,14 +50,21 @@ class VoiceSession:
         self._stop = None
         self._worker = None
         self._router_ready = threading.Event()
+        self._router_error = None
         self._router = stt.BackgroundRouter(self._load_router(router_loader))
 
     def _load_router(self, loader):
         def load():
             try:
-                return loader()
-            finally:
-                self._router_ready.set()
+                router = loader()
+            except BaseException as exc:
+                error = _redacted(f"{type(exc).__name__}: {exc}")[:MAX_ERROR_CHARS]
+                with self._lock:
+                    self._router_error = error
+                print(f"router load failed: {error}", file=sys.stderr)
+                raise
+            self._router_ready.set()
+            return router
         return load
 
     def status(self):
@@ -75,7 +74,7 @@ class VoiceSession:
     def _status_locked(self):
         return {"state": self._state, "last_transcript": self._last_transcript, "last_reply": self._last_reply,
                 "alert": self._alert, "route": self._route, "error": self._error, "session_id": self._session_id, "seq": self._seq,
-                "router_ready": self._router_ready.is_set(), "display": self._display, "display_seq": self._display_seq}
+                "router_ready": self._router_ready.is_set(), "router_error": self._router_error, "display": self._display, "display_seq": self._display_seq}
 
     def _update(self, session_id, **fields):
         """Apply `fields` unless `session_id` is no longer current or its stop was requested (late events of a stopped conversation)."""
@@ -124,8 +123,13 @@ class VoiceSession:
         def on_event(text):
             if text == "listening...":
                 self._update(session_id, state="listening")
-            elif text.startswith("(speech failed:"):  # playback problem: not fatal, shown in `error`
-                self._update(session_id, error=_redacted(text)[:MAX_ERROR_CHARS])
+            else:
+                print(_redacted(text), file=sys.stderr)
+                if text.startswith("(speech failed:"):  # playback problem: not fatal, shown in `error`
+                    self._update(session_id, error=_redacted(text)[:MAX_ERROR_CHARS])
+
+        def on_transcript(text):
+            self._update(session_id, state="processing", last_transcript=text, last_reply=None, route=None)
 
         def on_turn(out):
             turn = out["turn"]
@@ -134,15 +138,17 @@ class VoiceSession:
                          last_reply=turn.get("spoken"), alert=turn.get("alert_line"), route=turn.get("route"), **fields)
 
         try:
-            self._converse_fn(on_event=on_event, on_turn=on_turn, stop_event=stop_event,
+            self._converse_fn(on_event=on_event, on_turn=on_turn, on_transcript=on_transcript, stop_event=stop_event,
                               router_loader=self._router.get, **self._options)
         except BaseException as exc:
-            self._update(session_id, state="error", error=_redacted(f"{type(exc).__name__}: {exc}")[:MAX_ERROR_CHARS])
+            error = _redacted(f"{type(exc).__name__}: {exc}")[:MAX_ERROR_CHARS]
+            print(f"voice session failed: {error}", file=sys.stderr)
+            self._update(session_id, state="error", error=error)
         else:
             self._update(session_id, state="ended")  # ignored when stop() already made the state idle
 
 
-def make_handler(session):
+def make_handler(session, datasource=None):
     class VoiceRequestHandler(BaseHTTPRequestHandler):
         server_version = "NovaVoice/1"
 
@@ -169,16 +175,52 @@ def make_handler(session):
                 return
             if self.path == "/voice/status":
                 self._send(200, session.status())
+            elif self.path == "/telemetry":
+                from .datasource import DataUnavailableError
+
+                try:
+                    if datasource is None:
+                        raise DataUnavailableError("PostgreSQL datasource required")
+                    self._send(200, datasource.telemetry())
+                except DataUnavailableError:
+                    self._send(503, {"schema_version": 1, "available": False,
+                                     "error": "Telemetry unavailable. Check PostgreSQL and simulator.py."})
             else:
                 self._send(404, {"error": "not found"})
 
         def do_POST(self):
             if self._refuse_browser():
                 return
-            length = int(self.headers.get("Content-Length") or 0)
-            if length:
-                self.rfile.read(min(length, 65536))  # the body is ignored
-            if self.path == "/voice/start":
+            try:
+                length = int(self.headers.get("Content-Length") or 0)
+            except ValueError:
+                self._send(400, {"error": "invalid body length"})
+                return
+            if length < 0 or length > 65536:
+                self._send(400, {"error": "invalid body length"})
+                return
+            body = self.rfile.read(length) if length else b""
+            if self.path == "/demo/oxygen":
+                from .datasource import DataUnavailableError
+
+                try:
+                    command = json.loads(body)
+                    if not isinstance(command, dict) or set(command) not in ({"value"}, {"delta"}):
+                        raise ValueError()
+                    relative = "delta" in command
+                    value = command["delta" if relative else "value"]
+                    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+                        raise ValueError()
+                    if not (-100 <= value <= 100 if relative else 0 <= value <= 100):
+                        raise ValueError()
+                    if datasource is None:
+                        raise DataUnavailableError("PostgreSQL datasource required")
+                    self._send(200, {"o2_percent": datasource.set_demo_oxygen(value, relative)})
+                except (ValueError, TypeError, UnicodeDecodeError):
+                    self._send(400, {"error": "Use value 0 to 100 or delta -100 to 100."})
+                except DataUnavailableError:
+                    self._send(503, {"error": "Oxygen demo unavailable. Check PostgreSQL and simulator.py."})
+            elif self.path == "/voice/start":
                 started, status = session.start()
                 self._send(200, {**status, "started": started})
             elif self.path == "/voice/stop":
@@ -189,8 +231,27 @@ def make_handler(session):
     return VoiceRequestHandler
 
 
-def make_server(session, host=DEFAULT_HOST, port=DEFAULT_PORT):
-    return ThreadingHTTPServer((host, port), make_handler(session))
+def make_server(session, host=DEFAULT_HOST, port=DEFAULT_PORT, datasource=None):
+    return ThreadingHTTPServer((host, port), make_handler(session, datasource))
+
+
+def _make_datasource(kind, database_url=None, connect=None, say=None):
+    """None for "sim" (stt keeps its built-in SimState). For "postgres" a PostgresDatasource, checked once now: a failed
+    read is reported but not fatal, since simulator.py may start later; until then each turn fails closed (no made-up values)."""
+    if kind != "postgres":
+        return None
+    from dotenv import load_dotenv
+    from .datasource import DataUnavailableError, PostgresDatasource
+
+    say = say or (lambda line: print(line, file=sys.stderr))
+    load_dotenv(stt.ENV_PATH)  # DATABASE_URL may live in the repo-root .env; never overrides the environment
+    datasource = PostgresDatasource(database_url=database_url, connect=connect)
+    try:
+        snap = datasource.snapshot()
+        say(f"datasource: postgres OK (o2 {snap['o2_pct']}%, {snap['minutes_remaining']} min)")
+    except DataUnavailableError as exc:
+        say(f"datasource: postgres not ready yet ({_redacted(str(exc))[:200]}); is simulator.py running?")
+    return datasource
 
 
 def main(argv=None):
@@ -200,23 +261,38 @@ def main(argv=None):
     ap.add_argument("--host", default=DEFAULT_HOST, help="bind address (default 127.0.0.1; the server has no authentication)")
     ap.add_argument("--port", type=int, default=DEFAULT_PORT)
     ap.add_argument("--model", default=None, help="router checkpoint (default: $NOVA_MODELS_DIR/v1)")
-    ap.add_argument("--device", default="cpu")
+    ap.add_argument("--device", default="cpu", help="torch device for the router (not the microphone)")
     ap.add_argument("--no-speak", action="store_true", help="print replies instead of speaking them")
-    ap.add_argument("--timeout", type=float, default=10.0, help="end a conversation after this many seconds of silence")
-    ap.add_argument("--no-llm", action="store_true", help="force the offline FillerGenerator")
-    ap.add_argument("--runtime", choices=stt.RUNTIMES)
-    ap.add_argument("--base-url", help="LLM server URL")
-    ap.add_argument("--llm-model")
-    ap.add_argument("--deadline-ms", type=int)
+    ap.add_argument("--timeout", type=float, default=10.0, help="seconds of silence that end a conversation")
+    ap.add_argument("--datasource", choices=("sim", "postgres"), default="sim",
+                    help="where readings and places come from: the built-in SimState (default) or the Postgres DB that "
+                         "simulator.py writes (DATABASE_URL, from the environment or the repo-root .env; default 'dbname=nova')")
+    ap.add_argument("--database-url", help="libpq connection string for --datasource postgres (overrides DATABASE_URL)")
     args = ap.parse_args(argv)
-    model = args.model or str(core.models_dir() / "v1")
+    model = str(Path(args.model or core.models_dir() / "v1").expanduser().resolve())
+    if not Path(model).is_dir():
+        print(f"voice_server FAILED: model path is not an existing directory: {model}", file=sys.stderr)
+        return 2
+    from dotenv import load_dotenv
+
+    load_dotenv(stt.ENV_PATH)
+    print(f"router model: {model}", file=sys.stderr)
+    print(f".env path: {stt.ENV_PATH.resolve()}", file=sys.stderr)
+    print(f"{stt.KEY_VAR}: {'found' if os.environ.get(stt.KEY_VAR, '').strip() else 'missing'}", file=sys.stderr)
+    try:
+        import sounddevice
+    except (ImportError, OSError):
+        print("sounddevice import: failed", file=sys.stderr)
+    else:
+        print("sounddevice import: OK", file=sys.stderr)
+    datasource = _make_datasource(args.datasource, args.database_url)
     session = VoiceSession(
         lambda: stt._load_router(model, args.device),
         converse_options={"model": model, "device": args.device, "speak": not args.no_speak, "timeout_s": args.timeout,
-                          "llm_options": {"no_llm": args.no_llm, "runtime": args.runtime, "base_url": args.base_url,
-                                          "llm_model": args.llm_model, "deadline_ms": args.deadline_ms}})
+                          "llm_options": LLM_OPTIONS,
+                          "datasource": datasource})
     try:
-        server = make_server(session, args.host, args.port)
+        server = make_server(session, args.host, args.port, datasource=datasource)
     except OSError as exc:
         print(f"voice_server FAILED: cannot bind {args.host}:{args.port}: {exc}", file=sys.stderr)
         return 1

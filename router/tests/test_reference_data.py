@@ -27,7 +27,8 @@ def radiation_row(minute=0, silicon=100.0, tissue=150.0, flag="none"):
             "data_flag": flag}
 
 
-# ---- module hygiene -------------------------------------------------------------------------------------------------
+# ---- module hygiene
+# -------------------------------------------------------------------------------------------------
 
 def test_importing_reference_data_does_not_import_psycopg():
     code = "import sys, router.reference_data; print('psycopg' in sys.modules)"
@@ -104,7 +105,8 @@ def test_unusable_policy_block_fails_closed(tmp_path, monkeypatch):
         reference_data.spoken_qualifier("reference-simulated")
 
 
-# ---- fixture accessors ----------------------------------------------------------------------------------------------
+# ---- fixture accessors
+# ----------------------------------------------------------------------------------------------
 
 def test_fixture_o2_consumption_is_a_deterministic_labelled_mean():
     result = FixtureReferenceData().o2_consumption("Habitat", "Sleep")
@@ -201,7 +203,8 @@ def test_weather_fails_closed_on_unknown_day_night_empty_all_null_and_nan():
         FixtureReferenceData(weather_rows=[{"day_night": "Day", "air_temp_c": 1.0, "pressure_pa": 2.0}]).weather_summary("Night")
 
 
-# ---- uGy/day -> uSv/h conversion --------------------------------------------------------------------------------------
+# ---- uGy/day -> uSv/h conversion
+# --------------------------------------------------------------------------------------
 
 def test_ugy_per_day_to_usv_h_exact_math():
     convert = reference_data.ugy_per_day_to_usv_h
@@ -276,7 +279,8 @@ def test_postgres_radiation_baseline_usv_h_issues_one_select_and_converts():
         ds.radiation_baseline_usv_h()
 
 
-# ---- O2 burn multiplier and percent-of-tank -----------------------------------------------------------------------------
+# ---- O2 burn multiplier and percent-of-tank
+# -----------------------------------------------------------------------------
 
 def crew_row(environment, activity, l_min):
     return {"environment": environment, "activity": activity, "o2_consumed_l_min": l_min, "o2_consumed_kg_per_day": 1.0,
@@ -380,7 +384,8 @@ def test_scaled_sim_base_burn_is_plain_multiplication_with_validation_and_does_n
     assert "simulator_rules" not in vars(reference_data)
 
 
-# ---- source markers ---------------------------------------------------------------------------------------------------
+# ---- source markers
+# ---------------------------------------------------------------------------------------------------
 
 def test_source_markers_distinguish_simulated_from_observed_extended():
     ds = FixtureReferenceData()
@@ -394,7 +399,8 @@ def test_source_markers_distinguish_simulated_from_observed_extended():
     assert ds.weather_summary()["spoken_qualifier"] == qualifiers["reference-observed-extended"]
 
 
-# ---- Postgres accessor (fake connection) ----------------------------------------------------------------------------
+# ---- Postgres accessor (fake connection)
+# ----------------------------------------------------------------------------
 
 class FakeConnection:
     def __init__(self, rows, log, error=None):
@@ -456,7 +462,8 @@ def test_postgres_missing_psycopg_is_an_import_error_not_a_fake_reading(monkeypa
         PostgresReferenceData().radiation_baseline()
 
 
-# ---- nhi DDL cross-check --------------------------------------------------------------------------------------------
+# ---- nhi DDL cross-check
+# --------------------------------------------------------------------------------------------
 
 def ddl_columns():
     text = DDL_PATH.read_text()

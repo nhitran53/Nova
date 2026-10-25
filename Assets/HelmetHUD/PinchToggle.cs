@@ -63,11 +63,17 @@ public class PinchToggle : MonoBehaviour
             valid = false;
             reason = FistLocomotion.Walking ? "WALKING" : "FIST";
         }
-        // Ignore pinches while a fingertip is at the hand map, so pressing its buttons never closes it.
-        else if (valid && MinimapNavigationPanel.FingerNearMap)
+        // Pause pinches while touching map or wrist controls.
+        else if (valid && (MinimapNavigationPanel.FingerNearMap || WristComputer.FingerNearControls))
         {
             valid = false;
-            reason = "MAP TOUCH";
+            reason = WristComputer.FingerNearControls ? "WRIST TOUCH" : "MAP TOUCH";
+        }
+        // Keep the telephone pose separate from pinches.
+        else if (valid && TelephoneGestureDetector.AnyActive)
+        {
+            valid = false;
+            reason = "TELEPHONE";
         }
         ProcessInput(valid, valid && device.indexPressed.isPressed, Time.unscaledTime, reason);
     }

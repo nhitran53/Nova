@@ -358,3 +358,47 @@ def test_default_handler_enqueues_alert_with_priority_before_read_only_answer(mo
     handler.alert_source = lambda: {'o2_pct': 14.2}
     out = handler.handle('check oxygen')
     assert events == ['clear', (out['lines'][0], 'alert', True), (out['lines'][1], 'tool', False)]
+
+def test_converse_on_transcript_fires_before_the_handler_routes_the_text():
+    import itertools
+    import threading
+    stop, order = threading.Event(), []
+
+    class Handler:
+        def handle(self, text):
+            order.append(("handle", text))
+            stop.set()
+            return {"route": "tool", "spoken": "re: " + text}
+
+    stt.converse(router_loader=lambda: "R", handler_factory=lambda r: Handler(), stop_event=stop,
+                 on_transcript=lambda text: order.append(("transcript", text)),
+                 client_factory=lambda k: FakeClient(FakeConnection("one")), frames=itertools.cycle([b"\x00\x01" * 1600]),
+                 timeout_s=0.5, on_event=lambda e: None)
+    assert order == [("transcript", "one"), ("handle", "one")]
+
+
+@pytest.mark.parametrize("demo", [False, True])
+def test_default_handler_datasource_preserves_live_readings_without_demo_faults(monkeypatch, demo):
+    monkeypatch.delenv("NOVA_DOCS_DIR", raising=False)
+    monkeypatch.delenv("NOVA_DEMO_SCENE", raising=False)
+
+    class Datasource:
+        def snapshot(self):
+            return {"o2_pct": 50.0, "minutes_remaining": 100, "bpm": 80}
+
+    datasource = Datasource()
+    handler = stt._default_handler(FakeRouter("call_o2", .99), speak=False, datasource=datasource,
+                                   llm_options={"no_llm": True, "demo_scene": demo})
+    assert handler.alert_source == datasource.snapshot
+    assert "rover_faults" not in handler.alert_source()
+    assert handler.policy["demo_scene"]["enabled"] is demo
+    if demo:
+        out = handler.handle("what is this")
+        assert out["route"] == "scene"
+        assert out["spoken"] == handler.policy["demo_scene"]["no_fault_line"]
+        assert handler.pending_confirmation is None and out["tool_calls"] == 0
+    else:
+        assert handler.retriever is None
+        out = handler.handle("check oxygen")
+        assert out["tool_calls"] == 1 and out["tool_result"]["ok"]
+        assert out["tool_result"]["data"]["o2_pct"] == 50.0

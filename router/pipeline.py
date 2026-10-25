@@ -1,30 +1,8 @@
-"""Pipeline glue (stub): classifier label -> tool call with resolved args, clarification, or LLM hand-off.
+"""Route a request to a tool or clarification or LLM handoff.
 
-    python -m router.pipeline --text "take me home" [--checkpoint $NOVA_MODELS_DIR/v1] [--tau-hi 0.9] [--tau-lo 0.5]
-
-Confidence gate (calibrated top-1 confidence `c`; thresholds in pipeline_config.json):
-    top class is a TOOL label:
-        c >= tau_hi             -> tool route
-        tau_lo <= c < tau_hi    -> arbiter_fn(text, topk) -> label | "none".  Same label as the router -> tool route;
-                                   anything else, no arbiter supplied, or an arbiter exception -> clarify route (no tool)
-        c < tau_lo              -> LLM route, reason "low_confidence" (clarify policy)
-    top class is NO_TOOL / call_llm / OOD: LLM route with that class's prompt policy (low_confidence if c < tau_lo).
-The arbiter can only CONFIRM the router's class; it never selects another tool, so the LLM never overrides the router.
-
-`Pipeline.handle(text)` returns one of
-    {"route": "tool", "tool": "navigation", "args": {"place": "homebase"}, "confidence": 0.97, "label": "call_navigation",
-     "gate": "tau_hi"|"arbiter_agree"}
-    {"route": "clarify", "reason": "arbiter_disagree"|"no_arbiter"|"arbiter_error"|"ambiguous_place"|"missing_slot",
-     "question": "...", "options": [...], "confidence": 0.7, "label": "..."}      # deterministic text, no LLM
-    ("missing_slot": a tool in `required_slots` (pipeline_config.json) got no value, e.g. navigation/map without a
-    resolved place. It is a clarify route, never a tool route; `question` is None and `missing` lists the slots -
-    turn.py supplies the wording from turn_policy.json.)
-    {"route": "llm", "reason": "OOD"|"NO_TOOL"|"call_llm"|"low_confidence", "prompt_policy": "...",
-     "response": <llm_fn output>, "confidence": 0.9, "label": "..."}
-Navigation/map resolve a place with places.resolve_destination; two or more candidate places -> clarify
-("Which place do you mean: ...?"), never a positional guess. Which labels are tools lives in pipeline_config.json.
-No real LLM or arbiter is called: `llm_fn(text, prompt_policy)` and `arbiter_fn(text, topk)` are injectable.
-`topk` is the router's top-3 [{"label","p"}]; the arbiter picks one of those labels or "none".
+Confidence gates come from pipeline_config.json.
+Check required slots before calling a tool.
+Resolve destinations with explicit spans before fuzzy matching.
 """
 import argparse
 import json

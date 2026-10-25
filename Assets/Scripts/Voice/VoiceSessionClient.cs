@@ -4,9 +4,7 @@ using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.Networking;
 
-// Starts and stops the spoken conversation run by router/voice_server.py and reports its progress.
-// Python owns the microphone and speaker on the PC; this component only sends commands and reads status.
-// See README.md in this folder. If the server is not running it logs one warning and keeps trying quietly.
+// Control the PC voice session and read its status and telemetry.
 public class VoiceSessionClient : MonoBehaviour
 {
     [Tooltip("voice_server address. localhost only works in the Editor / on the same PC; a headset needs the PC's LAN address.")]
@@ -15,6 +13,24 @@ public class VoiceSessionClient : MonoBehaviour
     [Tooltip("Poll interval while the server is unreachable.")]
     [SerializeField] float unreachablePollIntervalSeconds = 3f;
     [SerializeField] float requestTimeoutSeconds = 3f;
+    [Tooltip("While no conversation runs, check the server this often so the HUD can show ready / connection lost. 0 = off.")]
+    [SerializeField] float idleCheckSeconds = 5f;
+
+    [Header("Telemetry")]
+    [SerializeField, Min(0.2f)] float telemetryPollSeconds = 0.5f;
+    [SerializeField, Min(1f)] float telemetryTimeoutSeconds = 3f;
+    public TelemetryStatus Telemetry { get; private set; } = new TelemetryStatus();
+    float telemetryReceivedAt;
+    public bool TelemetryAvailable => isActiveAndEnabled && Telemetry.IsFresh(
+        Time.realtimeSinceStartup - telemetryReceivedAt, telemetryTimeoutSeconds);
+    public bool OxygenDemoBusy { get; private set; }
+    public string OxygenDemoError { get; private set; }
+
+    public void ChangeDemoOxygen(float value, bool relative = true)
+    {
+        if (!TelemetryAvailable || OxygenDemoBusy || float.IsNaN(value) || float.IsInfinity(value)) return;
+        StartCoroutine(OxygenDemoRoutine(value, relative));
+    }
 
     [System.Serializable] public class StringEvent : UnityEvent<string> { }
 
@@ -32,6 +48,13 @@ public class VoiceSessionClient : MonoBehaviour
     public string State => tracker.State;
     public bool IsActive => VoiceStates.IsActive(State);
     public bool ServerReachable { get; private set; } = true;
+    // False until the server has answered (or failed to answer) at least once.
+    public bool ConnectionKnown { get; private set; }
+    public bool RouterReady => tracker.RouterReady;
+    public string LastTranscript => tracker.LastTranscript;
+    public string LastReply => tracker.LastReply;
+    public string LastError => tracker.LastError;
+    public string LastRoute => tracker.LastRoute;
 
     public string BaseUrl
     {
@@ -47,14 +70,95 @@ public class VoiceSessionClient : MonoBehaviour
         else StartVoiceSession();
     }
 
+    void OnEnable()
+    {
+        // Standalone builds need the PC address.
+        if (Application.platform == RuntimePlatform.Android && IsLoopback(baseUrl))
+            Report($"Base URL {baseUrl} points at the headset itself. Use the PC's LAN address (server started with --host).");
+        if (idleCheckSeconds > 0) StartCoroutine(IdleCheckRoutine());
+        StartCoroutine(TelemetryRoutine());
+    }
+
     void OnDisable()
     {
         StopAllCoroutines();
         polling = false;
         commandInFlight = false;
+        Telemetry = new TelemetryStatus();
+        OxygenDemoBusy = false;
+    }
+
+    static bool IsLoopback(string url) =>
+        System.Uri.TryCreate(url, System.UriKind.Absolute, out var uri) && (uri.IsLoopback || uri.Host == "localhost");
+
+    // Check the connection while voice is idle.
+    IEnumerator IdleCheckRoutine()
+    {
+        while (true)
+        {
+            if (!polling && !commandInFlight && !string.IsNullOrWhiteSpace(baseUrl))
+            {
+                using (var req = UnityWebRequest.Get(Url("/voice/status")))
+                {
+                    req.timeout = Mathf.Max(1, Mathf.CeilToInt(requestTimeoutSeconds));
+                    yield return req.SendWebRequest();
+                    if (req.result == UnityWebRequest.Result.Success)
+                    {
+                        MarkReachable();
+                        if (VoiceStatusParser.TryParse(req.downloadHandler.text, out var status)) Apply(status);
+                        if (IsActive) EnsurePolling();
+                    }
+                    else ReportUnreachable("GET /voice/status", req);
+                }
+            }
+            yield return new WaitForSeconds(Mathf.Max(1f, idleCheckSeconds));
+        }
     }
 
     string Url(string path) => baseUrl.TrimEnd('/') + path;
+
+    IEnumerator TelemetryRoutine()
+    {
+        while (true)
+        {
+            if (!string.IsNullOrWhiteSpace(baseUrl))
+            {
+                using (var req = UnityWebRequest.Get(Url("/telemetry")))
+                {
+                    req.timeout = Mathf.Max(1, Mathf.CeilToInt(requestTimeoutSeconds));
+                    yield return req.SendWebRequest();
+                    if (req.result == UnityWebRequest.Result.Success &&
+                        TelemetryStatusParser.TryParse(req.downloadHandler.text, out var status))
+                    {
+                        Telemetry = status;
+                        telemetryReceivedAt = Time.realtimeSinceStartup;
+                    }
+                    else Telemetry = new TelemetryStatus();
+                }
+            }
+            else Telemetry = new TelemetryStatus();
+            yield return new WaitForSecondsRealtime(Mathf.Max(0.2f, telemetryPollSeconds));
+        }
+    }
+
+    IEnumerator OxygenDemoRoutine(float value, bool relative)
+    {
+        OxygenDemoBusy = true;
+        OxygenDemoError = null;
+        string body = "{\"" + (relative ? "delta" : "value") + "\":"
+            + value.ToString(System.Globalization.CultureInfo.InvariantCulture) + "}";
+        using (var req = new UnityWebRequest(Url("/demo/oxygen"), UnityWebRequest.kHttpVerbPOST))
+        {
+            req.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(body));
+            req.downloadHandler = new DownloadHandlerBuffer();
+            req.SetRequestHeader("Content-Type", "application/json");
+            req.timeout = Mathf.Max(1, Mathf.CeilToInt(requestTimeoutSeconds));
+            yield return req.SendWebRequest();
+            if (req.result != UnityWebRequest.Result.Success)
+                OxygenDemoError = "O2 control unavailable";
+        }
+        OxygenDemoBusy = false;
+    }
 
     void SendCommand(string path)
     {
@@ -102,7 +206,7 @@ public class VoiceSessionClient : MonoBehaviour
         StartCoroutine(PollRoutine());
     }
 
-    // Polls while a conversation is active (retrying more slowly when the server cannot be reached); stops once the state is terminal.
+    // Poll during voice sessions and retry more slowly while offline.
     IEnumerator PollRoutine()
     {
         while (true)
@@ -140,13 +244,14 @@ public class VoiceSessionClient : MonoBehaviour
 
     void MarkReachable()
     {
-        ServerReachable = true;
+        ServerReachable = ConnectionKnown = true;
         unreachableReported = false;
     }
 
     void ReportUnreachable(string what, UnityWebRequest req)
     {
         ServerReachable = false;
+        ConnectionKnown = true;
         if (unreachableReported) return;   // one diagnostic per outage, not one per poll
         unreachableReported = true;
         Report($"{what} failed ({req.responseCode} {req.error}). Is `python -m router.voice_server` running at {baseUrl}? "

@@ -1343,7 +1343,8 @@ def test_verifier_vague_words_are_found_through_zero_width_and_fullwidth_spellin
     assert not verify_numbers("Ｓeve\u200bral of them.", {})["ok"] and not verify_numbers("tw\u200bice", {})["ok"]
 
 
-# ---- review3 P1s: prose is an allowlist (printable ASCII + generation.allowed_extra_chars), fractions fail closed ----
+# ---- review3 P1s: prose is an allowlist (printable ASCII + generation.allowed_extra_chars),
+# fractions fail closed ----
 INVISIBLE_AND_HOMOGLYPH_EVASIONS = {  # text -> a specific violation that must ALSO fire when one exists (None: only non_ascii_in_prose)
     "The cycle takes fi\u034fve minutes.": "number_word_in_prose",  # combining grapheme joiner (Mn) splits the word
     "The cycle takes fi\ufe0fve minutes.": "number_word_in_prose",  # variation selector
@@ -1458,7 +1459,8 @@ def test_the_final_gate_rejects_a_spoken_fraction_and_split_tokens():
     assert verify_numbers("The cycle takes 12 minutes.", ["The cycle takes 12 minutes."])["ok"]
 
 
-# ---- review4: allowed_extra_chars is punctuation only, spelled ordinals, split spellings, accented tool text ----
+# ---- review4: allowed_extra_chars is punctuation only, spelled ordinals, split spellings, accented
+# tool text ----
 @pytest.mark.parametrize("bad", ["\u0456", "\u03bf", "\uff46", "\u2122", "\u00a9", "(", "\uff08", "\u2768", "\u27e6", "\u3010", "\u00e9", "\u00b5", "\u20ac",
                                 "\u2019\u0456"], ids=repr)
 def test_allowed_extra_chars_rejects_letters_symbols_and_brackets(bad):

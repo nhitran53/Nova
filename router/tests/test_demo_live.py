@@ -154,7 +154,8 @@ def test_successful_startup_never_prints_the_api_key_from_the_model_name(capsys,
 @pytest.mark.parametrize("secret", SECRETS)
 @pytest.mark.parametrize("where", ["userinfo", "query"])
 def test_fallback_line_never_prints_the_api_key_from_the_base_url(capsys, tmp_path, llm_server, monkeypatch, secret, where):
-    # the adapter cannot talk to a URL with userinfo or a query (urllib / the /v1 suffix), so the session falls back; its line is redacted
+    # the adapter cannot talk to a URL with userinfo or a query (urllib / the /v1 suffix), so the
+    # session falls back; its line is redacted
     monkeypatch.setenv("NOVA_LLM_API_KEY", secret)
     quoted = urllib.parse.quote(secret, safe="")
     url = llm_server.base_url.replace("//", f"//user:{quoted}@") if where == "userinfo" else f"{llm_server.base_url}?key={quoted}"

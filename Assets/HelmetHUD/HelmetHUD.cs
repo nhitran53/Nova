@@ -42,6 +42,9 @@ public class HelmetHUD : MonoBehaviour
     Vector3 horizontalForward = Vector3.forward;
     float diagnosticUntil;
     int displayedHeading = -1;
+    string assistantMessage = "";
+    float orbPulseSpeed = 1.4f, orbPulseAmount = 0.035f;
+    Graphic orbGraphic;
 
     public float Heading { get; private set; }
 
@@ -76,11 +79,13 @@ public class HelmetHUD : MonoBehaviour
     {
         if (diagnosticUntil > 0 && Time.unscaledTime >= diagnosticUntil)
         {
-            subtitle.gameObject.SetActive(false);
+            // Restore the reply after the gesture message.
+            subtitle.text = assistantMessage;
+            subtitle.gameObject.SetActive(!string.IsNullOrWhiteSpace(assistantMessage));
             diagnosticUntil = 0;
         }
-        float pulse = Mathf.Sin(Time.unscaledTime * 1.4f);
-        orb.localScale = Vector3.one * (1 + pulse * 0.035f);
+        float pulse = Mathf.Sin(Time.unscaledTime * orbPulseSpeed);
+        orb.localScale = Vector3.one * (1 + pulse * orbPulseAmount);
         orb.anchoredPosition = new Vector2(0, 28 + pulse * 2);
     }
 
@@ -128,9 +133,20 @@ public class HelmetHUD : MonoBehaviour
     public void SetAssistant(string status, string message)
     {
         diagnosticUntil = 0;
+        assistantMessage = message ?? "";
         assistantStatus.text = status;
-        subtitle.text = message;
-        subtitle.gameObject.SetActive(!string.IsNullOrWhiteSpace(message));
+        subtitle.text = assistantMessage;
+        subtitle.gameObject.SetActive(!string.IsNullOrWhiteSpace(assistantMessage));
+    }
+
+    // Update the orb color and pulse for the voice state.
+    public void SetAssistantStyle(Color tint, float pulseSpeed = 1.4f, float pulseAmount = 0.035f)
+    {
+        if (orbGraphic == null) orbGraphic = orb.GetComponent<Graphic>();
+        if (orbGraphic != null) orbGraphic.color = tint;
+        assistantStatus.color = tint;
+        orbPulseSpeed = pulseSpeed;
+        orbPulseAmount = pulseAmount;
     }
 
     public void ReportPinch(string message)
@@ -142,6 +158,15 @@ public class HelmetHUD : MonoBehaviour
 
     void Refresh(SuitReadings value)
     {
+        if (!telemetry.HasData)
+        {
+            SetValue(oxygen, "<size=60%>O2</size>  --", SuitAlert.Warning);
+            warningRoot.gameObject.SetActive(true);
+            alert.text = "TELEMETRY UNAVAILABLE";
+            alert.color = statusLine.color = Amber;
+            return;
+        }
+        statusLine.color = Cyan;
         states[0] = Low(value.oxygenPercent, 30, 15);
         states[1] = Band(value.heartRate, 50, 110, 40, 140);
         states[2] = Band(value.pressureKpa, 28, 35, 25, 40);

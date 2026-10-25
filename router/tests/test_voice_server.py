@@ -1,5 +1,6 @@
 """voice_server with a fake converse and a fake router loader: localhost ephemeral port only, no mic, no TTS, no model."""
 import json
+import sys
 import threading
 import time
 import urllib.error
@@ -31,11 +32,11 @@ def wait_for(predicate, timeout=3.0):
 def serve():
     started = []
 
-    def make(script, router_loader=lambda: "ROUTER", options=None):
+    def make(script, router_loader=lambda: "ROUTER", options=None, datasource=None):
         calls = []
         session = voice_server.VoiceSession(router_loader, converse_fn=fake_converse_factory(script, calls),
                                             converse_options=options)
-        server = voice_server.make_server(session, "127.0.0.1", 0)
+        server = voice_server.make_server(session, "127.0.0.1", 0, datasource=datasource)
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
         started.append((server, session))
@@ -48,8 +49,9 @@ def serve():
         server.server_close()
 
 
-def call(base, path, method="GET", headers=None):
-    request = urllib.request.Request(base + path, method=method, data=b"" if method == "POST" else None, headers=headers or {})
+def call(base, path, method="GET", headers=None, body=None):
+    data = json.dumps(body).encode() if body is not None else b"" if method == "POST" else None
+    request = urllib.request.Request(base + path, method=method, data=data, headers=headers or {})
     try:
         with urllib.request.urlopen(request, timeout=5) as response:
             return response.status, json.loads(response.read())
@@ -103,6 +105,68 @@ def test_display_is_exposed_kept_after_a_turn_without_one_and_display_seq_counts
     assert status["display"] == DISPLAY and status["display_seq"] == 1 and status["route"] == "session_end"
 
 
+def test_telemetry_can_be_read_without_starting_voice(serve):
+    class Source:
+        def telemetry(self):
+            return {"schema_version": 1, "available": True, "source": "postgres", "o2_percent": 87.5}
+
+    base, session, calls = serve(blocking_until_stopped, datasource=Source())
+    code, payload = call(base, "/telemetry")
+    assert code == 200 and payload["o2_percent"] == 87.5
+    assert payload["available"] and session.status()["state"] == "idle" and calls == []
+    assert call(base, "/telemetry", headers={"Origin": "http://example.com"})[0] == 403
+
+
+def test_telemetry_requires_the_postgres_source(serve):
+    base, _, _ = serve(blocking_until_stopped)
+    code, payload = call(base, "/telemetry")
+    assert code == 503 and not payload["available"]
+
+
+def test_telemetry_errors_do_not_expose_database_details(serve):
+    from router.datasource import DataUnavailableError
+
+    class Source:
+        def telemetry(self):
+            raise DataUnavailableError("password=secret host=private")
+
+    base, _, _ = serve(blocking_until_stopped, datasource=Source())
+    code, payload = call(base, "/telemetry")
+    assert code == 503 and not payload["available"]
+    assert "secret" not in json.dumps(payload) and "private" not in json.dumps(payload)
+
+
+def test_wrist_oxygen_controls_use_the_shared_source(serve):
+    changes = []
+
+    class Source:
+        def set_demo_oxygen(self, value, relative):
+            changes.append((value, relative))
+            return 80
+
+    base, session, calls = serve(blocking_until_stopped, datasource=Source())
+    for command in ({"delta": -10}, {"delta": 10}, {"value": 100}):
+        code, result = call(base, "/demo/oxygen", "POST", body=command)
+        assert code == 200 and result["o2_percent"] == 80
+    assert changes == [(-10, True), (10, True), (100, False)]
+    assert calls == [] and session.status()["state"] == "idle"
+    assert call(base, "/demo/oxygen", "POST", headers={"Origin": "http://example.com"}, body={"value": 100})[0] == 403
+
+
+@pytest.mark.parametrize("command", [{}, {"value": 101}, {"value": -1}, {"delta": 101},
+                                      {"delta": float("nan")}, {"value": True}, {"value": "80"},
+                                      {"value": 80, "delta": 10}, [80]])
+def test_wrist_oxygen_controls_reject_invalid_commands(serve, command):
+    base, _, _ = serve(blocking_until_stopped)
+    assert call(base, "/demo/oxygen", "POST", body=command)[0] == 400
+
+
+def test_wrist_oxygen_controls_need_postgres(serve):
+    base, _, _ = serve(blocking_until_stopped)
+    code, result = call(base, "/demo/oxygen", "POST", body={"value": 80})
+    assert code == 503 and "o2_percent" not in result
+
+
 def test_start_runs_converse_and_reports_listening_then_turn_then_ended(serve):
     release = threading.Event()
 
@@ -122,6 +186,38 @@ def test_start_runs_converse_and_reports_listening_then_turn_then_ended(serve):
     assert wait_for(lambda: call(base, "/voice/status")[1]["state"] == "ended")
     assert calls[0]["speak"] is False and calls[0]["timeout_s"] == 3.0 and callable(calls[0]["router_loader"])
     assert calls[0]["router_loader"]() == "ROUTER"
+
+
+def test_committed_utterance_reports_processing_with_the_transcript_until_the_reply(serve):
+    heard, release = threading.Event(), threading.Event()
+
+    def script(on_event, on_turn, stop_event, on_transcript):
+        on_event("listening...")
+        on_transcript("check oxygen")
+        heard.set()
+        release.wait(5)
+        on_turn({"transcript": "check oxygen", "turn": {"spoken": "Oxygen is 84 percent.", "route": "tool"}})
+        stop_event.wait(5)
+        return []
+
+    calls = []
+    session = voice_server.VoiceSession(lambda: "ROUTER", converse_fn=lambda **kw: calls.append(kw) or script(
+        kw["on_event"], kw["on_turn"], kw["stop_event"], kw["on_transcript"]))
+    server = voice_server.make_server(session, "127.0.0.1", 0)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    base = f"http://127.0.0.1:{server.server_address[1]}"
+    try:
+        call(base, "/voice/start", "POST")
+        assert heard.wait(3)
+        status = call(base, "/voice/status")[1]
+        assert (status["state"], status["last_transcript"], status["last_reply"]) == ("processing", "check oxygen", None)
+        release.set()
+        assert wait_for(lambda: call(base, "/voice/status")[1]["state"] == "speaking")
+        assert call(base, "/voice/status")[1]["last_reply"] == "Oxygen is 84 percent."
+    finally:
+        session.stop()
+        server.shutdown()
+        server.server_close()
 
 
 def test_seq_increases_on_every_change(serve):
@@ -182,7 +278,7 @@ def test_start_while_the_stopped_run_is_still_shutting_down_is_refused(serve):
     assert call(base, "/voice/start", "POST")[1]["started"] is True
 
 
-def test_converse_exception_becomes_error_state_without_the_secret(serve, monkeypatch):
+def test_converse_exception_becomes_error_state_without_the_secret(serve, monkeypatch, capsys):
     monkeypatch.setenv(stt.KEY_VAR, "sk-supersecret-123")
 
     def script(on_event, on_turn, stop_event):
@@ -194,13 +290,21 @@ def test_converse_exception_becomes_error_state_without_the_secret(serve, monkey
     status = call(base, "/voice/status")[1]
     assert "SttError" in status["error"] and "sk-supersecret-123" not in json.dumps(status)
     session.join(3)
+    console = capsys.readouterr().err
+    assert "voice session failed: SttError:" in console
+    assert "sk-supersecret-123" not in console
     assert call(base, "/voice/start", "POST")[1]["started"] is True  # an error session can be restarted
 
 
-def test_playback_failure_is_reported_without_ending_the_session(serve):
+def test_playback_failure_is_reported_without_ending_the_session(serve, monkeypatch, capsys):
+    monkeypatch.setenv(stt.KEY_VAR, "secret-playback-key")
+    emitted = threading.Event()
+
     def script(on_event, on_turn, stop_event):
         on_event("listening...")
-        on_event("(speech failed: RuntimeError: no audio device)")
+        on_event("(speech failed: RuntimeError: no audio device secret-playback-key)")
+        on_event("(silence - ending conversation)")
+        emitted.set()
         stop_event.wait(5)
         return []
 
@@ -209,6 +313,12 @@ def test_playback_failure_is_reported_without_ending_the_session(serve):
     assert wait_for(lambda: call(base, "/voice/status")[1]["error"] is not None)
     status = call(base, "/voice/status")[1]
     assert status["state"] == "listening" and "no audio device" in status["error"]
+    assert emitted.wait(3)
+    console = capsys.readouterr().err
+    assert "(speech failed: RuntimeError: no audio device" in console
+    assert "(silence - ending conversation)" in console
+    assert "listening..." not in console
+    assert "secret-playback-key" not in console + status["error"]
 
 
 def test_router_is_prewarmed_at_construction_and_ready_flag_is_reported(serve):
@@ -222,7 +332,8 @@ def test_router_is_prewarmed_at_construction_and_ready_flag_is_reported(serve):
 
     base, _, _ = serve(blocking_until_stopped, router_loader=slow_loader)
     assert wait_for(lambda: loads)  # loading began before any /voice/start
-    assert call(base, "/voice/status")[1]["router_ready"] is False
+    status = call(base, "/voice/status")[1]
+    assert status["router_ready"] is False and status["router_error"] is None
     gate.set()
     assert wait_for(lambda: call(base, "/voice/status")[1]["router_ready"] is True)
     call(base, "/voice/start", "POST")
@@ -305,3 +416,125 @@ def test_status_alert_tracks_turn_and_clears_on_next_non_alert_turn(serve):
     assert wait_for(lambda: call(base, '/voice/status')[1]['last_reply'] == 'Hello.')
     assert call(base, '/voice/status')[1]['alert'] is None
     release.set()
+
+def test_datasource_sim_is_the_default_and_builds_nothing():
+    assert voice_server._make_datasource("sim") is None
+
+
+def test_datasource_postgres_reports_a_db_that_is_not_ready_without_failing(monkeypatch):
+    def refused(url):
+        raise ConnectionError(f"could not connect to {url}")
+
+    said = []
+    monkeypatch.setattr("dotenv.load_dotenv", lambda *a, **k: None)
+    ds = voice_server._make_datasource("postgres", "host=localhost dbname=nova", connect=refused, say=said.append)
+    assert ds is not None and ds.database_url == "host=localhost dbname=nova"
+    assert len(said) == 1 and "not ready" in said[0] and "simulator.py" in said[0]
+
+
+def test_default_handler_reads_a_given_datasource_instead_of_simstate(monkeypatch):
+    from router import tools
+
+    class FakeDatasource:
+        def snapshot(self):
+            return {"o2_pct": 50.0, "minutes_remaining": 100, "bpm": 80, "radiation_usv_h": 1.0, "temp_c": 20.0,
+                    "suit_pressure_kpa": 29.6}
+
+        def place(self, name):
+            return None
+
+        def queue_message(self, *args):
+            return False
+
+    seen = {}
+    real_registry = tools.default_registry
+    monkeypatch.setattr(tools, "default_registry", lambda sim=None, datasource=None: seen.update(sim=sim, ds=datasource)
+                        or real_registry(sim=sim, datasource=datasource))
+    ds = FakeDatasource()
+    handler = stt._default_handler(router=object(), speak=False, llm_options={"no_llm": True}, datasource=ds)
+    assert seen["ds"] is ds and seen["sim"] is None
+    assert handler.alert_source == ds.snapshot
+
+
+def test_server_never_uses_an_llm(monkeypatch):
+    assert voice_server.LLM_OPTIONS == {"no_llm": True}
+    for flag in ("--no-llm", "--runtime", "--base-url", "--llm-model", "--deadline-ms"):
+        with pytest.raises(SystemExit):  # the LLM flags no longer exist
+            voice_server.main([flag, "x"])
+
+
+def test_router_load_failure_is_visible_before_start_and_redacted(serve, monkeypatch, capsys):
+    monkeypatch.setenv(stt.KEY_VAR, "secret-router-key")
+
+    def bad_loader():
+        raise RuntimeError("bad checkpoint secret-router-key")
+
+    base, session, calls = serve(blocking_until_stopped, router_loader=bad_loader)
+    assert wait_for(lambda: call(base, "/voice/status")[1]["router_error"] is not None)
+    status = call(base, "/voice/status")[1]
+    assert status["router_ready"] is False
+    assert "RuntimeError: bad checkpoint" in status["router_error"]
+    assert calls == []
+    with pytest.raises(RuntimeError):
+        session._router.get(timeout=3)
+    console = capsys.readouterr().err
+    assert "router load failed: RuntimeError: bad checkpoint" in console
+    assert "secret-router-key" not in console + json.dumps(status)
+
+
+@pytest.mark.parametrize("kind", ["missing", "file"])
+def test_main_rejects_model_that_is_not_a_directory(tmp_path, monkeypatch, capsys, kind):
+    model = tmp_path / kind
+    if kind == "file":
+        model.write_text("not a checkpoint directory")
+    monkeypatch.setattr(voice_server, "VoiceSession", lambda *a, **kw: pytest.fail("must not start loading"))
+    assert voice_server.main(["--model", str(model)]) == 2
+    assert f"model path is not an existing directory: {model}" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("key", ["", "secret-startup-key"])
+@pytest.mark.parametrize("sounddevice_available", [True, False])
+def test_main_prints_startup_diagnostics(tmp_path, monkeypatch, capsys, key, sounddevice_available):
+    env = tmp_path / ".env"
+    env.write_text(f"ELEVENLABS_API_KEY={key}\n")
+    monkeypatch.setattr(stt, "ENV_PATH", env)
+    monkeypatch.delenv(stt.KEY_VAR, raising=False)
+    monkeypatch.setattr(stt, "_load_router", lambda *a: "ROUTER")
+    monkeypatch.setitem(sys.modules, "sounddevice", object() if sounddevice_available else None)
+
+    class Server:
+        server_address = ("127.0.0.1", 8766)
+
+        def serve_forever(self):
+            raise KeyboardInterrupt
+
+        def server_close(self):
+            pass
+
+    monkeypatch.setattr(voice_server, "make_server", lambda *a, **kw: Server())
+    assert voice_server.main(["--model", str(tmp_path)]) == 0
+    console = capsys.readouterr().err
+    assert f"router model: {tmp_path.resolve()}" in console
+    assert f".env path: {env.resolve()}" in console
+    assert f"ELEVENLABS_API_KEY: {'found' if key else 'missing'}" in console
+    assert f"sounddevice import: {'OK' if sounddevice_available else 'failed'}" in console
+    assert "voice server on http://127.0.0.1:8766" in console
+    assert "secret-startup-key" not in console
+
+
+def test_main_flag_help_clarifies_device_and_timeout(capsys):
+    with pytest.raises(SystemExit) as exc:
+        voice_server.main(["--help"])
+    assert exc.value.code == 0
+    help_text = " ".join(capsys.readouterr().out.split())
+    assert "torch device for the router (not the microphone)" in help_text
+    assert "seconds of silence that end a conversation" in help_text
+
+
+def test_status_contains_router_error_alert_and_display_together(serve):
+    base, _, _ = serve(blocking_until_stopped)
+    code, status = call(base, "/voice/status")
+    assert code == 200
+    assert {"router_error", "alert", "display", "display_seq"} <= status.keys()
+    assert status["router_error"] is status["alert"] is status["display"] is None
+    assert status["display_seq"] == 0
