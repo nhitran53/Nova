@@ -170,7 +170,9 @@ def main():
     tz = (np.arange(texture_size) + .5) / texture_size * length
     grey = ortho.read(*to_source(ctx["west"] + x + tx, ctx["south"] + z + tz, ctx, ortho)) / 255
     texture_weight = blend_weight(tx, tz, width, length)
-    rgb = GROUND + texture_weight[..., None] * (grey[..., None] - GROUND)
+    # HiRISE is greyscale; tint it so its average matches the CTX ground colour.
+    tint = GROUND / grey[texture_weight == 1].mean()
+    rgb = GROUND + texture_weight[..., None] * (grey[..., None] * tint - GROUND)
     # PNG rows run north to south; terrain height rows run south to north.
     pixels = np.rint(np.clip(rgb[::-1], 0, 1) * 255).astype("u1")
     DESTINATION.mkdir(parents=True, exist_ok=True)
@@ -187,7 +189,8 @@ def main():
                 sourceInfo=sources, heightMinimum=float(high.min()), heightMaximum=float(high.max()),
                 deltaMinimum=float(delta.min()), deltaMedian=float(np.median(delta)), deltaMaximum=float(delta.max()),
                 deltaP95Absolute=float(np.percentile(abs(delta), 95)), verticalOffsetApplied=0,
-                maxQuantizationError=error, imagery="Grayscale source DN / 255; no invented color or contrast stretch",
+                maxQuantizationError=error, imagery="Grayscale source DN / 255, tinted so its mean matches the CTX ground color; no contrast stretch",
+                imageryTint=tint.tolist(),
                 transition="64 m smoothstep collar blends to original quantized CTX; the inner area retains HiRISE heights",
                 raw="heights.raw", texture="ortho.png",
                 metadataUrls=["https://astrogeology.usgs.gov/search/map/mars_2020_terrain_relative_navigation_hirise_dtm_mosaic",

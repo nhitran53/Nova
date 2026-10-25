@@ -39,6 +39,9 @@ Thumbs.db
 .env.*
 !.env.example
 
+# Python virtual environment
+/.venv/
+
 # Local elevation data and generated terrain
 /Data/Source/*.tif
 /JEZ_hirise_*.tif
