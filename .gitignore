@@ -41,5 +41,7 @@ Thumbs.db
 
 # Local elevation data and generated terrain
 /Data/Source/*.tif
+/JEZ_hirise_*.tif
+__pycache__/
 /Assets/JezeroTerrain/Generated/
 /Assets/JezeroTerrain/Generated.meta

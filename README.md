@@ -29,9 +29,39 @@ The Jezero Crater terrain is generated locally and is not included in the reposi
 
 5. In Unity, select **Tools > Jezero > Import Terrain**.
 
-If the terrain is missing, add `Assets/JezeroTerrain/Generated/Jezero Terrain.prefab` to the scene at position `(0, 0, 0)`, rotation `(0, 0, 0)`, and scale `(1, 1, 1)`.
+If the terrain is missing, add `Assets/JezeroTerrain/Generated/Jezero Terrain.prefab` to the scene at position `(-25494, 2567, -51220)`, rotation `(0, 0, 0)`, and scale `(1, 1, 1)`.
 
 Terrain data: USGS Astrogeology (Mangold et al., 2021).
+
+### HiRISE Test Area
+
+This adds a **557 × 633 m high-resolution terrain area** around the player's starting location. The rest of Jezero Crater uses the original CTX terrain.
+
+1. Download the following files from USGS:
+   - [HiRISE Elevation Model](https://astrogeology.usgs.gov/search/map/mars_2020_terrain_relative_navigation_hirise_dtm_mosaic)
+   - [HiRISE Surface Imagery](https://astrogeology.usgs.gov/search/map/mars_2020_terrain_relative_navigation_hirise_orthorectified_image_mosaic)
+
+2. Keep their original filenames and place both files in `Data/Source/`.
+
+3. After completing the main CTX terrain setup, run:
+
+   ```bash
+   python Tools/convert_hirise.py
+   ```
+
+4. In Unity, select **Tools > Jezero > Import HiRISE Test Area**.
+
+The importer automatically adds the detailed terrain to the existing Jezero prefab. Open `SampleScene.unity` to see it. **Do not add another terrain instance.**
+
+The HiRISE area uses 1 m elevation data and 25 cm grayscale imagery. Its edges blend into the surrounding CTX terrain to create a smoother transition.
+
+All generated files are stored in `Assets/JezeroTerrain/Generated/HiRISE/` and are ignored by Git. Each teammate will need to generate the terrain locally.
+
+**Notes:**
+- The terrain is positioned so the player starts near Unity's origin, helping reduce precision-related jitter.
+- Both desktop and VR player rigs start inside the detailed area.
+- Test the terrain's appearance, collision, and performance in Quest Link and on standalone Quest 3.
+- To restore the original CTX-only terrain, select **Tools > Jezero > Import Terrain**.
 
 ## Running in VR
 
@@ -60,9 +90,10 @@ Press **F8** during Play Mode to test different warning levels. All sensor readi
 
 The left-wrist computer displays additional suit readings.
 
-**Pinch your right thumb and index finger** to open or close it.
+**Pinch your left thumb and index finger** to open or close it. Release before pinching again.
 
 Hand tracking must be enabled. You can adjust the wrist computer's position and size in Unity.
+If it feels too floaty or too shaky, tweak the **Smoothing** settings on Wrist Computer.
 
 ## Development Notes
 

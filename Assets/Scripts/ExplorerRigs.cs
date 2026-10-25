@@ -19,7 +19,7 @@ public class ExplorerRigs : MonoBehaviour
 
         foreach (var terrain in FindObjectsByType<Terrain>(FindObjectsSortMode.None))
         {
-            terrain.heightmapPixelError = 10;
+            terrain.heightmapPixelError = terrain.groupingID == 2021 ? 3 : 10;
             terrain.basemapDistance = 500;
             terrain.drawTreesAndFoliage = false;
             terrain.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
