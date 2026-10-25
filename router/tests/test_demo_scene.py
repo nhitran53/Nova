@@ -115,7 +115,7 @@ def test_critical_alert_during_the_offer_wins_and_clears_it():
     rig.say("what is this")
     rig.snapshot = CRITICAL
     out = rig.say("yes please")
-    assert out["route"] == "alert" and rig.registry.log == [] and "display" not in out and rig.handler.pending_confirmation is None
+    assert out["alert_line"] and rig.registry.log == [] and "display" not in out and rig.handler.pending_confirmation is None
     rig.snapshot = None
     assert rig.say("yes please")["route"] != "print_confirmed" and rig.registry.log == []
 
@@ -123,7 +123,8 @@ def test_critical_alert_during_the_offer_wins_and_clears_it():
 def test_critical_alert_preempts_the_scene_phrase():
     rig = Rig(snapshot=CRITICAL)
     out = rig.say("what is this")
-    assert out["route"] == "alert" and rig.router.seen == [] and rig.handler.pending_confirmation is None
+    assert out["route"] == "scene" and out["alert_line"] and rig.router.seen == [] and rig.handler.pending_confirmation is None
+    assert "Want me" not in out["spoken"] and "3D" not in out["spoken"]
 
 
 @pytest.mark.parametrize("faults", [None, [], [{"part": "x", "label": "x", "status": "ok", "print_part": "wheel"}]]) 

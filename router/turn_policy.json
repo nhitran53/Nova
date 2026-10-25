@@ -55,6 +55,7 @@
     "ambiguous_place": "Which place do you mean: {options}?"
   },
   "templates": {
+    "alert_active_deferred": "I'll answer that once the alert is clear.",
     "status": "PLACEHOLDER - pending user sign-off (every number must come from the tool_result; the verifier blocks the rest)",
     "safety": "Safety check: {status_word}.",
     "navigation": "Heading to {place_name}. About {distance_m:.0f} meters. Estimated time in minutes: {eta_min:.0f}.",
@@ -313,6 +314,7 @@
       "hi",
       "hello"
     ],
+    "alert_result_line": "That's your rover. Its diagnostics flag damage on the {part_label}.",
     "scene_line": "That's your rover. Its diagnostics flag damage on the {part_label}. Want me to send a replacement {print_part} to the 3D printer?",
     "no_fault_line": "That's your rover. No faults reported.",
     "queued_line": "Replacement wheel queued.",

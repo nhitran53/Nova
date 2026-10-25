@@ -4,8 +4,8 @@
 
 Order inside `handle` (the order is the contract; tests pin it):
  1. `alert_source()` is polled FIRST and returns the sim snapshot ({"o2_pct": ..., "bpm": ...}). Any field past a
-    CRITICAL threshold in turn_policy.json speaks a fixed template line and returns: the router, the arbiter and the
-    LLM are never called, for every class (tool, mid-band, low-confidence, OOD). Critical lines are verified against
+    CRITICAL threshold speaks a fixed template line FIRST, then read-only requests continue with no offers or
+    LLM generation. Critical lines are verified against
     the snapshot. A raising alert_source propagates (a silent failure would hide an alert).
  2. `Pipeline.handle(text)` routes (pipeline_config.json gate: tau_hi 0.90 / tau_lo 0.50, arbiter in the mid band).
  3. Required slots are validated against the registry's fixed schema. Navigation/map without a resolved place
@@ -51,7 +51,7 @@ paths (NO_TOOL chitchat, call_llm) go build_request -> Generator -> postprocess 
 length, deny-lists, slot fill, verify_numbers backstop) -> `_speak`. `TurnHandler(generator=...)` injects a Generator
 (default FillerGenerator); the old `llm_fn` is wrapped by LegacyLLMAdapter. Tool and confirmation turns still speak their
 template (llm_called stays False) but also expose the request and rendered prompt as result["generation"] with mode
-"template_only". Alerts build no request and never reach a generator. result["generation"] (additive) = {"mode":
+"template_only". Active alerts never reach a generator; their read-only answers may expose template requests. result["generation"] (additive) = {"mode":
 "template_only"|"generated", "request" (summary), "prompt" (chat messages), and for generated turns
 "status", "attempts", "violations", "attempt_log", "raw", "text" (final spoken text, attribution included), "refusal",
 "passage_numbers" (EFFECTIVE mode), "configured_passage_numbers", "passage_override_reason" (a risk term in the question or a
@@ -65,7 +65,8 @@ pending_confirmation (the offer stored by THIS turn, or None), tool_error / llm_
 raised: templates.tool_error is spoken, nothing is retried; an alert_source failure still propagates), passages (grounded call_llm only), end_session (true only on a whole-utterance goodbye/thanks),
 interim / interim_error (the "Let me think." wait line spoken through `interim_fn(line, "llm_interim")` before a chitchat / general / grounded generation, or why it
 failed), tts_error (only when
-`tts_fn` raised; `tts_fn(spoken, route)` is called once per turn with the verified/substituted line, after everything else).
+`tts_fn` raised; `tts_fn(line, route)` is called per verified line, alert first before routing; result["lines"] preserves order and
+`spoken` joins lines with a space for backward compatibility).
 All wording lives in turn_policy.json and is PLACEHOLDER pending user sign-off.
 """
 import json
@@ -327,16 +328,43 @@ class TurnHandler:
         validate_execute_immediately(self.policy.get("execute_immediately"), self.pipeline.config)
 
     def handle(self, text):
-        """Run one turn (`_run_turn`), then speak `result["spoken"]` once through `tts_fn` on every route.
-        A TTS failure never changes the turn: it is recorded as result["tts_error"] ("ExcType: message")."""
+        """Deliver independently verified lines in order; spoken joins them with a space for older clients.
+        Alert callbacks run before routing. Playback cannot interrupt an already playing line."""
         self.last_generation_request = None
         result = self._run_turn(text)
+        # Generation already re-polls before accepting its answer. Non-LLM paths must do so too.
+        if not result["llm_called"]:
+            snapshot = self.alert_source()
+            alerts = evaluate_alerts(snapshot, self.policy)
+            critical = self._critical_alert_line(alerts)
+            if critical and critical != result.get("alert_line"):
+                self.pending_clarification = self.pending_confirmation = None
+                result["pending_confirmation"] = None
+                result["alerts"] = alerts
+                self._speak(result, "alert", critical, snapshot)
+                result["alert_line"] = result["spoken"]
+                result["alert_verifier"] = result["verifier"]
+                self._deliver(result, result["spoken"], "alert")
+                result["lines"] = [result["spoken"]]
+                return result
+        answer = result["spoken"]
+        if result["route"] == "alert":  # alert appeared during generation; it replaces the answer
+            result["alert_line"] = answer
+            result["alert_verifier"] = result["verifier"]
+            result["lines"] = [answer]
+            self._deliver(result, answer, "alert")
+        else:
+            result["lines"] = ([result["alert_line"]] if result.get("alert_line") else []) + [answer]
+            self._deliver(result, answer, result["route"])
+        result["spoken"] = " ".join(result["lines"])
+        return result
+
+    def _deliver(self, result, line, route):
         if self.tts_fn is not None:
             try:
-                self.tts_fn(result["spoken"], result["route"])
+                self.tts_fn(line, route)
             except Exception as exc:
                 result["tts_error"] = f"{type(exc).__name__}: {exc}"[:300]
-        return result
 
     def _run_turn(self, text):
         self.registry.begin_turn()
@@ -349,7 +377,11 @@ class TurnHandler:
         critical = self._critical_alert_line(alerts)
         if critical:
             self.pending_clarification = None
-            return self._speak(result, "alert", critical, snapshot)
+            pending = None
+            alert = self._speak({}, "alert", critical, snapshot)
+            result["alert_line"] = alert["spoken"]
+            result["alert_verifier"] = alert["verifier"]
+            self._deliver(result, alert["spoken"], "alert")
 
         session_end = self.policy["session_end"]
         if normalized(text) in {normalized(p) for p in session_end["phrases"]}:  # whole utterance only: "yes thank you" is not an end
@@ -418,6 +450,8 @@ class TurnHandler:
 
     def _llm_turn(self, result, text, out):
         """Scope is decided here by router class (reason), risk terms and retrieval score; never by the LLM."""
+        if result.get("alert_line"):
+            return self._speak(result, "alert_active_deferred", self.policy["templates"]["alert_active_deferred"], {})
         scope = self.policy["llm_scope"]
         speaking = scope["speaking_scope"]
         # Restrict only already-authorized LLM turns; never select a tool or bypass router gates.
@@ -448,6 +482,8 @@ class TurnHandler:
         Failed generations keep the model's text in blocked_text and speak (through _speak, so the replacement is verified too) templates.verifier_blocked (grounded answers, and
         any chitchat rejected for a number) or generation.neutral_chitchat (other chitchat rejections). The final verifier source is the same as before: the retrieved passages
         under passage_numbers="digits", nothing otherwise."""
+        if result.get("alert_line"):
+            return self._speak(result, "alert_active_deferred", self.policy["templates"]["alert_active_deferred"], {})
         gen, templates = self.policy["generation"], self.policy["templates"]
         result["llm_called"] = True
         keep = gen["history_turns"]
@@ -577,6 +613,8 @@ class TurnHandler:
             return self._speak(result, "scene", scene["no_fault_line"], {})
         offer = {"kind": "print_offer", "turn": self.turn_index, "part": fault["print_part"], "part_label": fault["label"],
                  "query": fault["part"].replace("_", " ")}
+        if result.get("alert_line"):
+            return self._speak(result, "scene", scene["alert_result_line"].format(part_label=fault["label"]), snapshot)
         line = scene["scene_line"].format(part_label=fault["label"], print_part=fault["print_part"])
         self._speak(result, "scene", line, PRINTER_SOURCE)
         if result["blocked_text"] is None:  # a blocked line offers nothing
@@ -682,6 +720,8 @@ class TurnHandler:
         return self._speak(result, 'clarify', cfg['reask'] if self.pending_clarification else cfg['disregard'], {})
 
     def _clarify_turn(self, result, out):
+        if result.get("alert_line"):
+            return self._speak(result, "clarify", self.policy["templates"]["alert_active_deferred"], {})
         context = result.get("context_text", result["text"])
         if out.get("tool") == "navigation" and _unsupported_navigation_scope(context, self.policy):
             self.pending_clarification = None
@@ -715,6 +755,8 @@ class TurnHandler:
 
     def _tool_turn(self, result, out, snapshot):
         tool, args = out["tool"], out["args"]
+        if result.get("alert_line") and tool not in READ_ONLY_TOOLS:
+            return self._speak(result, "alert_active_deferred", self.policy["templates"]["alert_active_deferred"], {})
         speaking = self.policy["llm_scope"]["speaking_scope"]
         context = result.get("context_text", result["text"])
         selected_safety = tool == "safety" and "clarification_selection" in result
@@ -740,7 +782,7 @@ class TurnHandler:
             if tool == "navigation":
                 mode = 'assessment' if _contains_phrase(normalized(context), self.policy['clarification']['assessment_phrases']) else 'guidance'
                 tool_result['data']['response_mode'] = 'distance' if any(p in normalized(context) for p in DISTANCE_PHRASES) else mode
-                tool_result, spoken, offer = self._navigation_feasibility(tool_result, snapshot)
+                tool_result, spoken, offer = self._navigation_feasibility(tool_result, snapshot, allow_offer=not result.get("alert_line"))
                 result["tool_result"] = tool_result
             else:
                 template = self.policy['clarification']['selected_safety'] if selected_safety else templates[tool]
@@ -754,7 +796,7 @@ class TurnHandler:
             result["pending_confirmation"] = dict(offer)
         return result
 
-    def _navigation_feasibility(self, tool_result, snapshot):
+    def _navigation_feasibility(self, tool_result, snapshot, allow_offer=True):
         """-> (tool_result with data["feasibility"] added, concise result line, refill-call offer or None).
         Explicit unavailable when there is no O2 data. No offer for a home place, comfortable trip or tight margin."""
         feasibility = assess_feasibility(tool_result["data"], snapshot, self.policy)
@@ -768,7 +810,7 @@ class TurnHandler:
         lines = self.policy["feasibility"]["concise"]
         suffix = lines.get(key, lines[feasibility["outcome"]]).format(place_name=data["place_name"], **feasibility)
         offer = None
-        if feasibility["outcome"] in self.policy["send_message"]["urgency_by_outcome"] and not feasibility["is_home"]:  # no refill call to the home base itself
+        if allow_offer and feasibility["outcome"] in self.policy["send_message"]["urgency_by_outcome"] and not feasibility["is_home"]:  # no refill call to the home base itself
             offer = {"kind": "refill_call", "turn": self.turn_index, "place": data["place"], "place_name": data["place_name"],
                      "distance_m": data["distance_m"], "outcome": feasibility["outcome"], "feasibility": feasibility}
             suffix += " " + self.policy["confirmation"]["offer"].format(recipient_label=offer["place_name"])

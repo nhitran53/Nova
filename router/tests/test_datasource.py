@@ -345,14 +345,14 @@ def test_o2_leak_reaches_critical_oxygen_and_the_alert_preempts_the_router():
     ds.advance(6000)  # 100 sim min x 0.9 %/min = 90 points
     out = handler_for(ds).handle("how much oxygen do I have left")
     o2 = ds.snapshot()["o2_pct"]
-    assert o2 < 16.0 and out["route"] == "alert" and out["pipeline"] is None and out["tool_call"] is None
+    assert o2 < 16.0 and out["alert_line"] and out["route"] == "tool" and out["tool_call"]["name"] == "o2"
     assert out["spoken"].startswith(f"Critical alert. Oxygen at {o2:.1f} percent") and out["verifier"]["ok"]
     assert {"field": "o2_pct", "severity": "critical", "value": o2} in out["alerts"]
 
 
 def test_radiation_event_preempts_with_a_critical_radiation_alert():
     out = handler_for(FixtureDatasource(scenario="radiation_event")).handle("how much oxygen do I have left")
-    assert out["route"] == "alert" and "Radiation 775.0 microsieverts per hour" in out["spoken"]
+    assert out["alert_line"] and out["route"] == "tool" and "Radiation 775.0 microsieverts per hour" in out["spoken"]
 
 
 def test_pinned_current_behavior_nominal_radiation_is_a_warning_on_every_normal_turn():

@@ -134,3 +134,6 @@ Colab L4 smoke passed (3.1 GB peak). Returned checkpoint (provenance: manual tra
   Validation: 1719 full router tests passed; numbered-place provenance, one-message yes and zero-message orders covered. Recipient remains destination, not base; owner wording/sign-off and independent review remain pending. No dependencies, staging or commits.
 - 2026-10-25 (W5 execute-immediately): read-only mid-band reports now bypass intent menus at min_confidence 0.75, an UNMEASURED PLACEHOLDER; slot/place/scope guards and confirmation ordering remain intact.
   README mid-band errors remain unmeasured: the owner must choose/sign off this threshold after held-out/real-speech replay; cancellation acknowledges read-only reports, never undoes effects.
+
+- 2026-10-25 (W6 safety path): critical alert repeats first per utterance, independently snapshot-verified, then read-only/fixed answers; no generation/interim/messages or new offers/menus. `lines` preserves order; backward-compatible `spoken` joins with spaces; voice status adds `alert`.
+  SpeechQueue prioritizes alerts and clears queued normal lines, but cannot interrupt current playback (alert waits). Wording, thresholds and safety-loop/go-no-go ownership remain owner decisions; no live audio/real-model safety claim. Independent review required.

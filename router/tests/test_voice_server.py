@@ -67,9 +67,9 @@ def test_status_is_idle_before_any_session_and_has_the_documented_keys(serve):
     base, _, _ = serve(blocking_until_stopped)
     code, status = call(base, "/voice/status")
     assert code == 200
-    assert set(status) >= {"state", "last_transcript", "last_reply", "route", "error", "session_id", "seq", "display", "display_seq"}
+    assert set(status) >= {"state", "last_transcript", "last_reply", "route", "error", "session_id", "seq", "display", "display_seq", "alert"}
     assert status["state"] == "idle" and status["session_id"] == 0 and status["error"] is None
-    assert status["display"] is None and status["display_seq"] == 0
+    assert status["display"] is None and status["display_seq"] == 0 and status["alert"] is None
 
 
 DISPLAY = {"doc_id": "assembledrivemodules", "section_id": "assembledrivemodules:drive-module-assembly:0",
@@ -92,7 +92,7 @@ def test_display_is_exposed_kept_after_a_turn_without_one_and_display_seq_counts
     call(base, "/voice/start", "POST")
     assert wait_for(lambda: call(base, "/voice/status")[1]["last_reply"] == "scene")
     status = call(base, "/voice/status")[1]
-    assert status["display"] is None and status["display_seq"] == 0
+    assert status["display"] is None and status["display_seq"] == 0 and status["alert"] is None
     step.set()
     assert wait_for(lambda: call(base, "/voice/status")[1]["last_reply"] == "queued")
     status = call(base, "/voice/status")[1]
@@ -286,3 +286,22 @@ def test_real_stt_converse_honours_the_stop_flag_through_the_session(serve, monk
     finally:
         server.shutdown()
         server.server_close()
+
+
+def test_status_alert_tracks_turn_and_clears_on_next_non_alert_turn(serve):
+    advance, release = threading.Event(), threading.Event()
+
+    def script(on_event, on_turn, stop_event):
+        on_turn({'transcript': 'directions', 'turn': {'spoken': 'Alert. Directions.', 'alert_line': 'Alert.', 'route': 'tool'}})
+        assert advance.wait(5)
+        on_turn({'transcript': 'hello', 'turn': {'spoken': 'Hello.', 'route': 'fast_reply'}})
+        release.wait(5)
+
+    base, _, _ = serve(script)
+    call(base, '/voice/start', 'POST')
+    assert wait_for(lambda: call(base, '/voice/status')[1]['alert'] == 'Alert.')
+    assert call(base, '/voice/status')[1]['last_reply'] == 'Alert. Directions.'
+    advance.set()
+    assert wait_for(lambda: call(base, '/voice/status')[1]['last_reply'] == 'Hello.')
+    assert call(base, '/voice/status')[1]['alert'] is None
+    release.set()

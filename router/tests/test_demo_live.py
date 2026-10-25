@@ -89,7 +89,7 @@ def test_deadline_flag_bounds_the_turn(capsys, tmp_path, llm_server):
 
 def test_critical_alert_bypasses_the_llm(capsys, tmp_path, llm_server):
     out = run(capsys, ["--base-url", llm_server.base_url], "/set o2_pct=14\nhi\n", tmp_path)
-    assert "Critical alert. Oxygen at 14.0 percent" in out and "llm     : no (critical alert" in out and llm_server.requests == []
+    assert "Critical alert. Oxygen at 14.0 percent" in out and "llm     : no (route fast_reply: template)" in out and llm_server.requests == []
 
 
 def test_advance_flag_and_command_move_the_sim(capsys, tmp_path):

@@ -354,7 +354,7 @@ def test_critical_alert_never_calls_the_retriever_or_generator(tmp_path):
     spy = lambda text: calls.append(text) or inner(text)
     handler, generator = _grounded_handler(spy, snapshot=lambda: SimState(o2_pct=14.2).snapshot())
     result = handler.handle("how long is the airlock cycle")
-    assert result["route"] == "alert" and calls == [] and not generator.calls
+    assert result["alert_line"] and result["route"] == "alert_active_deferred" and calls == [] and not generator.calls
 
 
 def test_retrieved_passage_digits_get_an_attribution_prefix_in_digits_mode(tmp_path):

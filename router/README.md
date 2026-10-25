@@ -157,8 +157,11 @@ uv run python -m router.demo_turn --fake     # same turns with a scripted fake r
 ```
 
 `TurnHandler(router, alert_source, registry, llm_fn=..., arbiter_fn=...).handle(text)` order: (1) poll
-`alert_source()` (sim snapshot) - a **critical** alert speaks a fixed template and returns before the router, arbiter
-or LLM run, for every class; (2) `Pipeline.handle`; (3) required-slot check: navigation/map without a resolved place
+`alert_source()` (sim snapshot) - a **critical** alert speaks a fixed, snapshot-verified template first, then normal read-only routing continues.
+No interim/LLM generation, menus, refill/print offers or messages are allowed while it persists; greetings and
+scene diagnostics still work. Pending offers/clarifications clear. `lines` holds alert then answer, each independently
+verified against its own source; `spoken` joins them with a space for older clients. A new/changed critical alert
+at the final re-poll replaces the answer. The alert repeats on every utterance; (2) `Pipeline.handle`; (3) required-slot check: navigation/map without a resolved place
 -> deterministic slot question, ambiguous place -> "which place" question, never a tool call (`pipeline.py` now returns
 `clarify/missing_slot` for a tool whose `required_slots` are unfilled; note map now requires a place, so "zoom out"
 alone asks where); (4) at most one call through `ToolRegistry` (max 8 tools, 1 call per turn, fixed schemas; six fake

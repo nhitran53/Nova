@@ -50,7 +50,7 @@ def test_a_greeting_phrase_is_matched_before_a_wake_prefix_is_stripped():
 def test_critical_alert_wins_over_a_fast_reply():
     rig = Rig(snapshot=CRITICAL)
     out = rig.say("hello")
-    assert out["route"] == "alert" and "fast_intent" not in out and rig.router.seen == []
+    assert out["alert_line"] and out["route"] == "fast_reply" and out["fast_intent"] == "greeting" and rig.router.seen == []
 
 
 def test_pending_confirmation_answer_is_not_swallowed_by_a_fast_reply():

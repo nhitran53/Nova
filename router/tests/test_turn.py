@@ -86,16 +86,27 @@ class Rig:
 def test_critical_alert_preempts_every_class_and_calls_neither_router_nor_llm(label, confidence):
     arbiter = FakeArbiter(label)
     rig = Rig(label, confidence, snapshot=CRITICAL, arbiter=arbiter)
+    class CountingGenerator:
+        calls = 0
+        def generate(self, request):
+            self.calls += 1
+            raise AssertionError("generator must never run under an alert")
+    generator = rig.handler.generator = CountingGenerator()
     out = rig.say("take me to the airlock")
-    assert out["route"] == "alert" and out["spoken"].startswith("Critical alert. Oxygen at 14.2 percent")
-    assert rig.router.seen == [] and rig.llm.calls == [] and arbiter.calls == []
-    assert rig.registry.log == [] and out["tool_calls"] == 0 and out["pipeline"] is None and not out["llm_called"]
-    assert out["verifier"]["ok"]
+    assert out["lines"][0] == out["alert_line"] and out["spoken"].startswith("Critical alert. Oxygen at 14.2 percent")
+    assert out["alert_verifier"]["ok"] and out["verifier"]["ok"]
+    assert rig.router.seen and rig.llm.calls == [] and generator.calls == 0 and not out["llm_called"]
+    assert all(name in {"navigation", "map", "data", "o2", "safety"} for name, _ in rig.registry.log)
+    assert rig.handler.pending_confirmation is None and rig.handler.pending_clarification is None
+    if label in {"NO_TOOL", "call_llm"} and confidence == .99:
+        assert out["lines"][1] == rig.handler.policy["templates"]["alert_active_deferred"]
 
 
 def test_several_critical_alerts_are_all_spoken_in_policy_priority_order():
     rig = Rig(snapshot={**CRITICAL, "radiation_usv_h": 60.0})
-    spoken = rig.say("hi")["spoken"]
+    out = rig.say("hi")
+    spoken = out["lines"][0]
+    assert spoken == out["alert_line"] and out["alert_verifier"]["ok"]
     assert spoken.index("Oxygen") < spoken.index("Radiation")
 
 
@@ -296,7 +307,8 @@ def test_verifier_hook_is_injectable_and_applies_to_every_route():
         Rig(label, conf, verifier=spy).say("take me to the airlock")
         assert len(seen) == before + 1
     Rig(snapshot=CRITICAL, verifier=spy).say("x")
-    assert seen[-1][1] == CRITICAL  # alerts are verified against the sim snapshot
+    # Deliberately two verifications now: alert/snapshot, then answer/tool result (not a merged source).
+    assert seen[-2][1] == CRITICAL and seen[-1][1]["tool"] == "o2"
 
 
 @pytest.mark.parametrize("text, source, ok", [
@@ -344,8 +356,8 @@ def test_vague_quantity_words_are_reported_as_unsupported():
 def test_negative_temperature_critical_alert_is_spoken_unblocked():
     rig = Rig(snapshot={**CRITICAL, "o2_pct": 87.5, "temp_c": -20})
     out = rig.say("hi")
-    assert out["route"] == "alert" and out["blocked_text"] is None and out["verifier"]["ok"]
-    assert out["spoken"] == "Critical alert. Suit temperature -20.0 degrees Celsius. Return to the airlock now."
+    assert out["alert_line"] and out["blocked_text"] is None and out["alert_verifier"]["ok"]
+    assert out["alert_line"] == "Critical alert. Suit temperature -20.0 degrees Celsius. Return to the airlock now."
     assert rig.router.seen == [] and rig.llm.calls == []
 
 
@@ -353,7 +365,8 @@ def test_two_critical_alerts_with_a_negative_value_are_both_spoken():
     rig = Rig(snapshot={**CRITICAL, "temp_c": -20})  # CRITICAL already has o2 at 14.2
     out = rig.say("hi")
     assert out["blocked_text"] is None and out["verifier"]["ok"]
-    assert "Oxygen at 14.2 percent" in out["spoken"] and "Suit temperature -20.0 degrees Celsius" in out["spoken"]
+    assert out["lines"][0] == out["alert_line"] and out["alert_verifier"]["ok"]
+    assert "Oxygen at 14.2 percent" in out["alert_line"] and "Suit temperature -20.0 degrees Celsius" in out["alert_line"]
 
 
 def test_hard_tool_cap_applies_to_the_constructor():
@@ -621,7 +634,7 @@ def test_critical_alert_preempts_and_clears_a_pending_offer():
     rig, _ = nav(45)
     rig.snapshot = CRITICAL
     out = rig.say("yes")
-    assert out["route"] == "alert" and out["tool_calls"] == 0 and rig.handler.pending_confirmation is None
+    assert out["alert_line"] and out["tool_calls"] == 0 and rig.handler.pending_confirmation is None
     rig.snapshot = None
     assert rig.say("yes")["route"] != "confirmed_yes" and len(rig.registry.log) == 1
 
@@ -1013,3 +1026,37 @@ def test_cancel_at_read_only_execution_expiry_boundary():
     for _ in range(rig.handler.policy['clarification']['expiry_turns'] - 1):
         rig.say('hello')
     assert rig.say('cancel')['cancelled'] == 'o2'
+
+
+def test_alert_repeats_each_turn_before_read_only_answer_without_offers():
+    seen, delivered = [], []
+
+    def verifier(line, source):
+        seen.append((line, source))
+        return verify_numbers(line, source)
+
+    rig = Rig('call_navigation', snapshot=CRITICAL, verifier=verifier)
+    rig.handler.tts_fn = lambda line, route: delivered.append((line, route, len(rig.router.seen)))
+    for _ in range(2):
+        out = rig.say('take me to crater')
+        assert out['route'] == 'tool' and out['tool_calls'] == 1
+        assert out['lines'] == [out['alert_line'], seen[-1][0]]
+        assert out['spoken'] == ' '.join(out['lines'])
+        assert seen[-2][1] == CRITICAL and seen[-1][1] == out['tool_result']
+        assert rig.handler.pending_confirmation is None and out['pending_confirmation'] is None
+        assert rig.handler.policy['confirmation']['offer'].split('{')[0] not in out['lines'][1]
+    assert [route for _, route, _ in delivered] == ['alert', 'tool', 'alert', 'tool']
+    assert delivered[0][2] == 0 and delivered[2][2] == 1  # alert delivered before routing
+
+
+@pytest.mark.parametrize('initial', [None, CRITICAL])
+def test_new_or_changed_alert_after_read_only_answer_replaces_answer(initial):
+    rig = Rig('call_o2')
+    snapshots = iter([initial or rig.sim.snapshot(), {**CRITICAL, 'o2_pct': 10.0}])
+    rig.handler.alert_source = lambda: next(snapshots)
+    spoken = []
+    rig.handler.tts_fn = lambda line, route: spoken.append((line, route))
+    out = rig.say('check oxygen')
+    assert out['route'] == 'alert' and out['lines'] == [out['alert_line']]
+    assert 'Oxygen at 10.0 percent' in out['spoken'] and out['alert_verifier']['ok']
+    assert all(route == 'alert' for _, route in spoken) and out['tool_calls'] == 1

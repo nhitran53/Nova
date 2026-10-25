@@ -187,7 +187,15 @@ def run_acceptance(router, data_dir):
                       and len(observed.outputs) == before,
                       'cancellation executes no tools/messages, LLM/chitchat or encoder reclassification')
             if spec.get('expected_outcome') == 'critical_preemption_clears_pending':
-                check(log, result.get('route') == 'alert' and len(observed.outputs) == before, 'critical preempts encoder and tools')
+                check(log, bool(result.get('alert_line'))
+                      and result.get('lines', [None])[0] == result['alert_line']
+                      and result.get('spoken', '').startswith(result['alert_line'])
+                      and result.get('alert_verifier', {}).get('ok') is True
+                      and result.get('llm_called') is False and not handler.generator.calls
+                      and not ds.messages and (result.get('tool_call') or {}).get('name') in (None, *TOOL_LABELS.values())
+                      and handler.pending_confirmation is None and handler.pending_clarification is None
+                      and result.get('pending_confirmation') is None,
+                      'critical alert first and verified; no generation, messages or offers; read-only routing allowed')
             if spec.get('clearance') is False:
                 check(log, result.get('tool_calls') == 0 and result.get('route') in ('clarify', 'risk_diverted', 'repair_offer', 'destination_safety', 'no_document'),
                       'mixed hazard challenge refuses clearance without tool')

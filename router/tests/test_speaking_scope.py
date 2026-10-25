@@ -95,7 +95,7 @@ def test_scope_never_overrides_selected_tool_or_critical_alert():
     sim = SimState(o2_pct=10)
     h.alert_source = sim.snapshot
     result = h.handle("hi")
-    assert result["route"] == "alert" and not generator.calls and result["tool_calls"] == 0
+    assert result["alert_line"] and not generator.calls and result["tool_calls"] == 1
 
 
 @pytest.mark.parametrize("text", ["can i make it to base 2", "can i make it to base 3", "can I get there", "is it safe at the tower"])

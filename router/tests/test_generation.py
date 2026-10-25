@@ -649,7 +649,8 @@ def test_critical_alert_never_builds_a_request_or_calls_the_generator(label):
     snapshot = {"o2_pct": 14.2, "bpm": 72, "radiation_usv_h": 0.34, "temp_c": 21.5, "suit_pressure_kpa": 29.6}
     rig = Rig(label, 0.97, snapshot=snapshot, retriever=lambda t: [MOON])
     out = rig.say("hello there")
-    assert out["route"] == "alert" and "generation" not in out and not out["llm_called"]
+    assert out["alert_line"] and not out["llm_called"]
+    assert out.get("generation", {}).get("mode") != "generated"
     assert rig.generator.calls == []
 
 

@@ -60,7 +60,7 @@ def test_wall_expiry_and_critical_preemption_clear_state():
     assert h.pending_clarification is None
     h, sim, _ = rig()
     sim.values["o2_pct"] = 10
-    assert h.handle('navigation')['route'] == 'alert'
+    assert h.handle('navigation')['alert_line']
     assert h.pending_clarification is None and h.pending_confirmation is None
 
 

@@ -5,8 +5,9 @@
     POST /voice/start    start a conversation (ignored while one is running; "started" says which)
     POST /voice/stop     ask the running conversation to stop (a reply already being spoken finishes first)
     GET  /voice/status   {state, last_transcript, last_reply, route, error, session_id, seq, router_ready,
-                         display, display_seq}
+                         display, display_seq, alert}
 
+`alert` is the latest turn's alert line or null; `last_reply` remains the space-joined spoken output.
 `display` is null or {doc_id, section_id, title, asset, source} (the manual page to show, set by a demo turn); it is kept until a
 newer one replaces it (also across sessions), and `display_seq` increases by one each time it is set, so a client shows the page
 when `display_seq` changes. `state` is idle | loading | listening | speaking | ended | error. `seq` increases on every change so a client can tell
@@ -50,7 +51,7 @@ class VoiceSession:
         self._converse_fn = converse_fn
         self._options = dict(converse_options or {})
         self._state = "idle"
-        self._last_transcript = self._last_reply = self._route = self._error = None
+        self._last_transcript = self._last_reply = self._route = self._error = self._alert = None
         self._session_id = 0
         self._seq = 0
         self._display, self._display_seq = None, 0
@@ -73,7 +74,7 @@ class VoiceSession:
 
     def _status_locked(self):
         return {"state": self._state, "last_transcript": self._last_transcript, "last_reply": self._last_reply,
-                "route": self._route, "error": self._error, "session_id": self._session_id, "seq": self._seq,
+                "alert": self._alert, "route": self._route, "error": self._error, "session_id": self._session_id, "seq": self._seq,
                 "router_ready": self._router_ready.is_set(), "display": self._display, "display_seq": self._display_seq}
 
     def _update(self, session_id, **fields):
@@ -95,7 +96,7 @@ class VoiceSession:
             self._session_id += 1
             self._seq += 1
             self._state = "loading"
-            self._last_transcript = self._last_reply = self._route = self._error = None
+            self._last_transcript = self._last_reply = self._route = self._error = self._alert = None
             session_id, self._stop = self._session_id, threading.Event()
             self._worker = threading.Thread(target=self._run, args=(session_id, self._stop), daemon=True, name="voice-session")
             self._worker.start()
@@ -130,7 +131,7 @@ class VoiceSession:
             turn = out["turn"]
             fields = {"display": turn["display"]} if turn.get("display") else {}  # no display on this turn keeps the last one
             self._update(session_id, state="speaking", last_transcript=out["transcript"],
-                         last_reply=turn.get("spoken"), route=turn.get("route"), **fields)
+                         last_reply=turn.get("spoken"), alert=turn.get("alert_line"), route=turn.get("route"), **fields)
 
         try:
             self._converse_fn(on_event=on_event, on_turn=on_turn, stop_event=stop_event,
