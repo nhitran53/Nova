@@ -43,15 +43,14 @@ Flow: this process listens for `hey_nova`; on a detection it `POST`s `/voice/sta
 `GET /voice/status` until `ended` / `idle` / `error`, waits a cooldown, reopens the mic and listens again. Nothing here
 talks to Unity.
 
-**Unity visibility (follow-up needed).** Unity's `VoiceSessionClient` only polls `/voice/status` after a command *it* sent,
-so a session started by this wake process is **not** automatically shown in Unity until the Unity side adds idle status
-discovery (poll `/voice/status` while idle and pick up `session_id` / `seq` changes). That is a follow-up on the Unity side
-and is deliberately not part of this change. The mic, STT and TTS run in Python regardless, so the spoken conversation works
-without Unity noticing it.
+**Unity visibility.** Staging's `VoiceSessionClient` checks `GET /voice/status` every `idleCheckSeconds` (default 5 s)
+while idle and starts polling when it sees an active state, so a session started by this wake process shows up in Unity
+within about 5 s (the orb/HUD may lag the first moments of the conversation). Lower `idleCheckSeconds` on the client for a
+snappier demo. The mic, STT and TTS run in Python regardless.
 
 **Mic ownership.** voice_server owns the microphone during a conversation, so before *every* mic open (startup, after a mic
 error, after a conversation) this process calls `GET /voice/status` and, while the state is `loading` / `listening` /
-`speaking`, keeps the mic closed and polls every second (sleeping, no hot loop). An unreachable server does not block the
+`processing` / `processing` / `speaking`, keeps the mic closed and polls every second (sleeping, no hot loop). An unreachable server does not block the
 mic. Residual race: if something else (e.g. the telephone gesture) starts a conversation *after* the status check while this
 process already holds the mic, it is only noticed at the next periodic status check (about 1 s), so the two can briefly
 compete for the device. Likewise `idle` after `/voice/stop` only means the server cleared its state, not that its worker

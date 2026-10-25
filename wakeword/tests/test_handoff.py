@@ -458,7 +458,7 @@ class FakeVoiceServer:
                 if (method, self.path) == ("GET", "/voice/status"):
                     self._send(200, outer.status)
                 elif (method, self.path) == ("POST", "/voice/start"):
-                    started = outer.status["state"] not in ("loading", "listening", "speaking")
+                    started = outer.status["state"] not in ("loading", "listening", "processing", "speaking")
                     if started:
                         outer.status = {**outer.status, "state": "loading", "session_id": outer.status["session_id"] + 1}
                     self._send(200, {**outer.status, "started": started})
@@ -540,3 +540,8 @@ def test_full_handoff_loop_over_http_with_fake_mic(voice_server):
     assert events[-2:] == ["mic-open", "mic-close"]
     assert voice_server.status["state"] == "ended"
     assert all(origin is None for _, _, origin in voice_server.requests)
+
+
+def test_processing_state_counts_as_busy():
+    from handoff import BUSY_STATES
+    assert "processing" in BUSY_STATES  # staging's voice_server reports `processing` between listening and speaking

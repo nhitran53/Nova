@@ -6,7 +6,7 @@ someone else (e.g. the Unity telephone gesture) starts a conversation: a periodi
 mic is released for its duration too.
 
 Mic ownership: before EVERY mic open (startup, after an error, after a conversation) GET /voice/status is checked and
-the mic stays closed, polling with a sleep, while the server reports loading/listening/speaking. An external start while
+the mic stays closed, polling with a sleep, while the server reports loading/listening/processing/speaking. An external start while
 this process already holds the mic is only noticed on the next periodic status check (residual race, see README).
 
 `idle` after POST /voice/stop does not mean voice_server's worker finished: it sets idle at once, and POST /voice/start
@@ -25,7 +25,7 @@ from config import DEFAULT_VOICE_URL
 
 log = logging.getLogger("nova.wakeword.handoff")
 
-BUSY_STATES = ("loading", "listening", "speaking")
+BUSY_STATES = ("loading", "listening", "processing", "speaking")
 DONE_STATES = ("ended", "idle", "error")
 
 
