@@ -71,7 +71,7 @@ def main():
     width_m, length_m = width * sx, height * sy
     columns = int(np.ceil(width / (RESOLUTION - 1)))
     rows = int(np.ceil(height / (RESOLUTION - 1)))
-    # One global grid gives every pair of neighboring tiles identical edge samples.
+    # Use one grid so neighboring tiles share the same edge heights.
     xs = np.linspace(0, width, columns * (RESOLUTION - 1) + 1) - 0.5
     ys = height - 0.5 - np.linspace(0, height, rows * (RESOLUTION - 1) + 1)
     OUTPUT.mkdir(parents=True, exist_ok=True)

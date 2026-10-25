@@ -4,10 +4,10 @@ using System.Text;
 using UnityEngine;
 using UnityEngine.Networking;
 
-// OPTIONAL bridge between the minimap and the backend API. The minimap works without it.
-// Leave apiBaseUrl empty until the API is running; then set it (Mac's LAN IP on the Quest).
-//   - GET  /map       -> extra pins on the minimap (seed rows, vision pins). Scene MapMarkers still win.
-//   - POST /position  -> where the astronaut is, so the backend can raise/clear hazard-zone alerts.
+// Optional API link. Leave apiBaseUrl empty to disable it.
+// On Quest use the server's LAN address.
+// GET /map adds pins. Scene markers take priority over matching API pins.
+// POST /position sends the player location for backend hazard checks.
 [RequireComponent(typeof(MarsMinimap))]
 public class MinimapApiLink : MonoBehaviour
 {
@@ -74,7 +74,7 @@ public class MinimapApiLink : MonoBehaviour
         try { parsed = JsonUtility.FromJson<MapResponse>(json); }
         catch (Exception e) { Debug.LogWarning($"[Minimap] Could not read /map: {e.Message}"); return; }
         if (parsed == null) return;
-        // JsonUtility turns missing arrays into empty ones (not null), so take the first one that has rows.
+        // Use the first nonempty array supported by the API response.
         MapPoint[] pins = parsed.items;
         if (pins == null || pins.Length == 0) pins = parsed.locations;
         if (pins == null || pins.Length == 0) pins = parsed.markers;

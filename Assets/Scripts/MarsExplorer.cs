@@ -38,7 +38,8 @@ public class MarsExplorer : MonoBehaviour
         if (Keyboard.current?.escapeKey.wasPressedThisFrame == true)
             SetCursor(false);
         else if (Cursor.lockState != CursorLockMode.Locked &&
-                 Mouse.current?.leftButton.wasPressedThisFrame == true)
+                 Mouse.current?.leftButton.wasPressedThisFrame == true &&
+                 !MinimapNavigationPanel.MouseOverControls())   // clicks on the minimap stay with the map
         {
             SetCursor(true);
             recaptured = true;
