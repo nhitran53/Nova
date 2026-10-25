@@ -64,6 +64,20 @@ public static class VoiceStates
         state == Loading || state == Listening || state == Processing || state == Speaking;
 }
 
+// World X/Z and radius are metres; inactive is the default for absent/null hazards.
+[Serializable]
+public class HazardZoneData
+{
+    public bool active;
+    public string kind = "";
+    public float center_x_m;
+    public float center_z_m;
+    public float radius_m;
+    public int eta_s;
+    public bool inside;
+    public float edge_distance_m;
+}
+
 // Fields match the voice server response.
 [Serializable]
 public class VoiceStatus
@@ -75,6 +89,9 @@ public class VoiceStatus
     public string error = "";
     public int session_id;
     public int seq;
+    public string alert = "";
+    public HazardZoneData hazard = new HazardZoneData();
+    public int hazard_seq;
     public bool router_ready;
     public bool started;   // only present in the /voice/start answer: false = ignored (already running)
     // The latest route command and its sequence number.
@@ -98,6 +115,8 @@ public static class VoiceStatusParser
         parsed.last_reply = parsed.last_reply ?? "";
         parsed.route = parsed.route ?? "";
         parsed.error = parsed.error ?? "";
+        parsed.alert = parsed.alert ?? "";
+        parsed.hazard = parsed.hazard ?? new HazardZoneData();
         parsed.navigation_action = parsed.navigation_action ?? "";
         parsed.navigation_destination = parsed.navigation_destination ?? "";
         status = parsed;
@@ -110,7 +129,7 @@ public sealed class VoiceStatusTracker
 {
     public struct Changes
     {
-        public bool StateChanged, TranscriptChanged, ReplyChanged, ErrorChanged, NavigationRequested;
+        public bool StateChanged, TranscriptChanged, ReplyChanged, ErrorChanged, NavigationRequested, HazardChanged;
     }
 
     public string State { get; private set; } = VoiceStates.Idle;
@@ -122,12 +141,24 @@ public sealed class VoiceStatusTracker
     public bool RouterReady { get; private set; }
     public string NavigationAction { get; private set; } = "";
     public string NavigationDestination { get; private set; } = "";
+    public string Alert { get; private set; } = "";
+    public HazardZoneData Hazard { get; private set; } = new HazardZoneData();
+    bool hasHazardSequence;
+    int hazardSequence;
     int sessionId;
     int navigationSeq = -1;   // Skip commands from before Unity connected
 
     public Changes Apply(VoiceStatus status)
     {
         var changes = new Changes();
+        Alert = status.alert;
+        changes.HazardChanged = !hasHazardSequence || status.hazard_seq != hazardSequence;
+        if (changes.HazardChanged)
+        {
+            Hazard = status.hazard ?? new HazardZoneData();
+            hazardSequence = status.hazard_seq;
+            hasHazardSequence = true;
+        }
         if (status.session_id != sessionId)   // a new conversation: forget the old texts
         {
             sessionId = status.session_id;
