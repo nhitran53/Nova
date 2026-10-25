@@ -68,12 +68,70 @@
   },
   "navigation_scope": {
     "status": "PLACEHOLDER - deterministic navigation scope vocabulary and wording; owner must rewrite/sign off",
-    "unsupported_resources": ["battery", "batteries", "water", "fuel", "food", "power"],
-    "budget_phrases": ["enough", "sufficient", "adequate", "suffice", "last", "hold out", "make it", "get me", "budget", "range", "run out", "running out"],
-    "trip_phrases": ["trip", "travel", "make it", "get home", "get there", "get to", "reach", "arrive", "arrival", "return"],
-    "unsupported_readings": ["radiation", "heart rate", "heart beat", "pulse", "bpm", "beats per minute", "temperature"],
-    "projection_phrases": ["what will", "will my", "would my", "would be", "will be", "projected", "predict", "expected", "at", "when i get", "when we get"],
-    "arrival_phrases": ["on arrival", "at arrival", "when i arrive", "when we arrive", "when i get there", "when we get there"],
+    "unsupported_resources": [
+      "battery",
+      "batteries",
+      "water",
+      "fuel",
+      "food",
+      "power"
+    ],
+    "budget_phrases": [
+      "enough",
+      "sufficient",
+      "adequate",
+      "suffice",
+      "last",
+      "hold out",
+      "make it",
+      "get me",
+      "budget",
+      "range",
+      "run out",
+      "running out"
+    ],
+    "trip_phrases": [
+      "trip",
+      "travel",
+      "make it",
+      "get home",
+      "get there",
+      "get to",
+      "reach",
+      "arrive",
+      "arrival",
+      "return"
+    ],
+    "unsupported_readings": [
+      "radiation",
+      "heart rate",
+      "heart beat",
+      "pulse",
+      "bpm",
+      "beats per minute",
+      "temperature"
+    ],
+    "projection_phrases": [
+      "what will",
+      "will my",
+      "would my",
+      "would be",
+      "will be",
+      "projected",
+      "predict",
+      "expected",
+      "at",
+      "when i get",
+      "when we get"
+    ],
+    "arrival_phrases": [
+      "on arrival",
+      "at arrival",
+      "when i arrive",
+      "when we arrive",
+      "when i get there",
+      "when we get there"
+    ],
     "clarification": "PLACEHOLDER: I can estimate an oxygen trip budget, not other resource budgets or projected readings. Would you like an oxygen-only trip assessment?"
   },
   "feasibility": {
@@ -242,7 +300,8 @@
         "what are ",
         "explain "
       ],
-      "general_prompt": "You may explain general knowledge without a retrieved source. This is not a live observation. Do not diagnose, give repair or operational instructions, claim an action, or state live conditions. If unsure, refuse. Never include numbers. Empty passages are expected for general explanations. For an answer, use refusal:null and text containing the answer. When refusing, use a refusal code and empty text; never combine an answer with a refusal."
+      "general_prompt": "You may explain general knowledge without a retrieved source. This is not a live observation. Do not diagnose, give repair or operational instructions, claim an action, or state live conditions. If unsure, refuse. Never include numbers. Empty passages are expected for general explanations. For an answer, use refusal:null and text containing the answer. When refusing, use a refusal code and empty text; never combine an answer with a refusal. The user is on Mars, not Earth. The showcase sky is grey; answer a sky-color question with grey.",
+      "unknown_safety_refusal": "Please contact base."
     },
     "risk_diverted": "I can't answer that from memory. Ask me for your live readings, or check the procedure documents.",
     "retrieval_min_score": 0.5,
@@ -278,19 +337,30 @@
   },
   "session_end": {
     "status": "PLACEHOLDER - pending user sign-off (phrases matched against the WHOLE normalized utterance; line is spoken once and the turn result carries end_session=true)",
-    "phrases": ["thank you", "thanks", "thank you nova", "thanks nova", "that's all", "goodbye", "bye"],
+    "phrases": [
+      "thank you",
+      "thanks",
+      "thank you nova",
+      "thanks nova",
+      "that's all",
+      "goodbye",
+      "bye"
+    ],
     "line": "Happy to help!"
   },
   "_comment_generation": "Post-tool-call generation (router/generation.py). The whole 'generation' section is PLACEHOLDER pending user sign-off: persona, style limits, attempt/deadline budget, passage-number provenance (default 'digits'; 'off' available; 'quote_span' documented but unbuilt and refused by the loader; risk_term_passage_override forces 'off' for a grounded turn whose question or passage hits llm_scope.risk_terms; attribution_prefix is prepended by code to a grounded answer that speaks a passage number), history length, refusal and fallback wording, retry wording, deny-lists, slot formats/units and the raw-output size cap (max_raw_chars). Qualitative tier labels (critical/warning/normal) are NOT configured here: they are derived from the human-owned sim_fields thresholds. No real model, mission document or suit rule backs any value.",
   "generation": {
     "status": "PLACEHOLDER - pending user sign-off (every value; passage_numbers 'digits' is the default, 'off' bans model-written numbers from documents, 'quote_span' is unbuilt; risk_term_passage_override and attribution_prefix are new)",
-    "interim": {"enabled": true, "line": "Let me think."},
-    "persona": "You are Nova, a calm navigation and observation voice assistant.",
+    "interim": {
+      "enabled": false,
+      "line": "Let me think."
+    },
+    "persona": "You are Nova, a calm navigation and observation voice assistant. The user is at a Mars base. In this showcase, the sky is grey; answer sky-color questions with grey.",
     "max_sentences": 2,
     "max_words": 40,
     "max_tokens": 80,
     "max_attempts": 2,
-    "deadline_ms": 1500,
+    "deadline_ms": 8000,
     "passage_numbers": "digits",
     "history_turns": 0,
     "max_raw_chars": 2000,
@@ -480,12 +550,12 @@
       }
     }
   },
-  "_comment_live_llm": "Live LLM adapter (router/llm_generator.py, router/demo_live.py). The whole 'live_llm' section is PLACEHOLDER pending user sign-off: which local runtime, URL, model name, timeout cap, and request options. Overridable per run by env (NOVA_LLM_RUNTIME, NOVA_LLM_BASE_URL, NOVA_LLM_MODEL, NOVA_LLM_CONSTRAIN, NOVA_LLM_API_KEY) and by demo_live flags. 'runtime' only changes extra request fields: llama-server -> chat_template_kwargs enable_thinking=false + json_schema|grammar; ollama -> response_format json_schema + reasoning_effort none (unverified); mlx -> no constraint, no seed, thinking-off is launch-time; openai -> response_format json_schema. 'model' is the name the runtime knows (llama-server ignores it; ollama qwen3.5:4b; mlx mlx-community/Qwen3.5-4B-4bit). The per-request deadline is generation.deadline_ms; request_timeout_cap_s can only shorten it. Never run against a real Qwen yet.",
+  "_comment_live_llm": "Gemini uses its OpenAI-compatible endpoint for generation and tool self-check. Set GEMINI_API_KEY (or NOVA_LLM_API_KEY); credentials are never stored here. NOVA_LLM_* and CLI flags override runtime/base_url/model. Local runtimes remain explicitly selectable. Live Gemini requests have not been verified.",
   "live_llm": {
-    "status": "PLACEHOLDER - pending user sign-off (every value; never run against a real model: runtime, URL, model name, constraint mode and thinking-off fields are unverified)",
-    "runtime": "llama-server",
-    "base_url": "http://localhost:8080/v1",
-    "model": "qwen3.5-4b",
+    "status": "PLACEHOLDER - Gemini model, deadlines and request options need live verification; backend selected by user",
+    "runtime": "gemini",
+    "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
+    "model": "gemini-3.5-flash-lite",
     "request_timeout_cap_s": 10,
     "health_timeout_s": 1.5,
     "temperature": 0,
@@ -617,7 +687,10 @@
     "o2": {
       "tank_capacity_l": 400.0,
       "tank_capacity_note": "UNSIGNED-OFF round demo number, litres of O2 at STPD. Not a suit specification and not a physiological claim; the owner must replace it with the real suit tank figure.",
-      "multiplier_reference": ["EVA suit", "EVA surface geology"]
+      "multiplier_reference": [
+        "EVA suit",
+        "EVA surface geology"
+      ]
     },
     "spoken_qualifiers": {
       "reference-observed-extended": "extended reference value",

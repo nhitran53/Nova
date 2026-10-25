@@ -45,6 +45,7 @@ class SttError(RuntimeError):
 
 def _api_key():
     load_dotenv(ENV_PATH)  # does not override variables already set in the environment
+    load_dotenv(ENV_PATH.parent.parent / ".env")  # repo-root fallback; exported/local values win
     key = os.environ.get(KEY_VAR, "").strip()
     if not key:
         raise SttError(f"{KEY_VAR} is not set: put it in {ENV_PATH} or the environment")
@@ -172,6 +173,8 @@ class BackgroundRouter:
 
 
 def _load_router(model, device):
+    from .pipeline import require_router_checkpoint
+    require_router_checkpoint(model)
     from .core import Router
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
@@ -268,7 +271,7 @@ def listen_and_route(model=None, device="cpu", speak=False, frames=None, router_
 
     if background is None:
         if router_loader is None:
-            model = model or str(core.models_dir() / "v1")
+            model = model or str(core.models_dir() / "binary")
             router_loader = lambda: _load_router(model, device)
         background = BackgroundRouter(router_loader)
     stop = threading.Event()
@@ -314,16 +317,17 @@ def converse(model=None, device="cpu", speak=True, timeout_s=10.0, max_turns=Non
     custom `handler_factory`). Playback errors go to on_event and turn["tts_error"]. -> list of turn dicts."""
     from . import core
 
-    loader = router_loader or (lambda: _load_router(model or str(core.models_dir() / "v1"), device))
+    loader = router_loader or (lambda: _load_router(model or str(core.models_dir() / "binary"), device))
     background = BackgroundRouter(loader)
     speech = speech_queue
     if speech is None and speak and handler_factory is None:
         speech = default_speech_queue()
     handler = _LazyHandler(background, handler_factory or (lambda router: _default_handler(router, speak, llm_options, speech)))
     turns = []
+    listen_timeout = timeout_s
     while max_turns is None or len(turns) < max_turns:
         on_event("listening...")
-        out = listen_and_route(timeout_s=timeout_s, background=background, handler=handler, **kwargs)
+        out = listen_and_route(timeout_s=listen_timeout, background=background, handler=handler, **kwargs)
         if out["turn"] is None:
             on_event("(silence - ending conversation)")
             break
@@ -334,9 +338,10 @@ def converse(model=None, device="cpu", speak=True, timeout_s=10.0, max_turns=Non
         if speech is not None:
             for error in _speech_errors(speech, turn):
                 on_event(f"(speech failed: {error})")
-        if turn.get("end_session"):
+        if turn.get("end_session") or not turn.get("expect_followup", False):
             on_event("(goodbye - ending conversation)")
             break
+        listen_timeout = turn.get("listen_timeout_s") or timeout_s
     if speech is not None:
         speech.close()
     return turns
@@ -353,7 +358,7 @@ def main(argv=None):
     ap.add_argument("--runtime", choices=RUNTIMES, help="LLM runtime (default: turn_policy.json live_llm.runtime, env NOVA_LLM_RUNTIME)")
     ap.add_argument("--base-url", help="LLM server URL (default: live_llm.base_url, env NOVA_LLM_BASE_URL)")
     ap.add_argument("--llm-model", help="model name the LLM runtime knows (env NOVA_LLM_MODEL)")
-    ap.add_argument("--deadline-ms", type=int, help="override generation.deadline_ms for this run (a slow CPU may need more than 1500)")
+    ap.add_argument("--deadline-ms", type=int, help="override generation.deadline_ms for this run (default: 8000 ms)")
     args = ap.parse_args(argv)
     print("router loading in background; speak when you see 'listening...' (Ctrl-C to quit)", file=sys.stderr)
     try:

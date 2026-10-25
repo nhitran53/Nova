@@ -44,6 +44,7 @@ def init():
         with _client_lock:
             if _client is None:
                 load_dotenv(ENV_PATH)  # does not override variables already set in the environment
+                load_dotenv(ENV_PATH.parent.parent / ".env")  # repo-root fallback; exported/local values win
                 api_key = os.environ.get(KEY_VAR, "").strip()
                 if not api_key:
                     raise SpeechError(f"{KEY_VAR} is not set: put it in {ENV_PATH} or the environment")
