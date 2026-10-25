@@ -24,7 +24,7 @@ Microphone and Windows playback need `sounddevice`
 
 ## Run with Unity
 
-Start PostgreSQL and Ollama first
+Start PostgreSQL first
 Run these in separate terminals from the repo folder
 
 ```cmd
