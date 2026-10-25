@@ -1,21 +1,70 @@
 using System;
 using UnityEngine;
 
+[Serializable]
+public class TelemetryStatus
+{
+    public int schema_version;
+    public bool available;
+    public string source;
+    public int mission_id;
+    public long sample_id;
+    public float age_seconds = float.NaN;
+    public float max_age_seconds = float.NaN;
+    public float o2_percent = float.NaN;
+    public float heart_rate = float.NaN;
+    public float suit_pressure_kpa = float.NaN;
+    public float battery_percent = float.NaN;
+    public float radiation_usv_h = float.NaN;
+    public float suit_temp_c = float.NaN;
+
+    public bool IsFresh(float elapsed, float timeout) => available && elapsed >= 0 && elapsed <= timeout
+        && Mathf.Abs(age_seconds + elapsed) <= max_age_seconds;
+}
+
+public static class TelemetryStatusParser
+{
+    public static bool TryParse(string json, out TelemetryStatus status)
+    {
+        status = null;
+        if (string.IsNullOrWhiteSpace(json)) return false;
+        TelemetryStatus parsed;
+        try { parsed = JsonUtility.FromJson<TelemetryStatus>(json); }
+        catch (ArgumentException) { return false; }
+        if (parsed == null || parsed.schema_version != 1) return false;
+        if (parsed.available)
+        {
+            if (parsed.source != "postgres" || parsed.mission_id <= 0 || parsed.sample_id <= 0) return false;
+            foreach (var value in new[] { parsed.age_seconds, parsed.max_age_seconds, parsed.o2_percent,
+                parsed.heart_rate, parsed.suit_pressure_kpa, parsed.battery_percent, parsed.radiation_usv_h, parsed.suit_temp_c })
+                if (float.IsNaN(value) || float.IsInfinity(value)) return false;
+            if (parsed.max_age_seconds <= 0 || !parsed.IsFresh(0, 1) || parsed.o2_percent < 0 || parsed.o2_percent > 100
+                || parsed.battery_percent < 0 || parsed.battery_percent > 100 || parsed.heart_rate < 0
+                || parsed.heart_rate > 250 || parsed.suit_pressure_kpa < 0 || parsed.radiation_usv_h < 0) return false;
+        }
+        status = parsed;
+        return true;
+    }
+}
+
 // States reported by GET /voice/status (router/voice_server.py).
 public static class VoiceStates
 {
     public const string Idle = "idle";
     public const string Loading = "loading";
     public const string Listening = "listening";
+    // Processing lasts until the reply is ready.
+    public const string Processing = "processing";
     public const string Speaking = "speaking";
     public const string Ended = "ended";
     public const string Error = "error";
 
-    // A conversation is running on the server while loading, listening or speaking.
-    public static bool IsActive(string state) => state == Loading || state == Listening || state == Speaking;
+    // States with an active conversation.
+    public static bool IsActive(string state) =>
+        state == Loading || state == Listening || state == Processing || state == Speaking;
 }
 
-// JSON body of GET /voice/status (and of the POST /voice/start and /voice/stop answers). Field names match the server.
+// Fields match the voice server response.
 [Serializable]
 public class VoiceStatus
 {
@@ -32,7 +81,7 @@ public class VoiceStatus
 
 public static class VoiceStatusParser
 {
-    // False for malformed JSON or a body without "state". JSON null strings become "".
+    // Reject missing state and normalize null text.
     public static bool TryParse(string json, out VoiceStatus status)
     {
         status = null;
@@ -50,7 +99,7 @@ public static class VoiceStatusParser
     }
 }
 
-// Turns successive status snapshots into "what is new", so the same words in two turns still raise two events.
+// Report new turns even when their words repeat.
 public sealed class VoiceStatusTracker
 {
     public struct Changes
@@ -62,6 +111,9 @@ public sealed class VoiceStatusTracker
     public string LastTranscript { get; private set; } = "";
     public string LastReply { get; private set; } = "";
     public string LastError { get; private set; } = "";
+    // Last reply route. Python still owns tool selection.
+    public string LastRoute { get; private set; } = "";
+    public bool RouterReady { get; private set; }
     int sessionId;
 
     public Changes Apply(VoiceStatus status)
@@ -70,18 +122,22 @@ public sealed class VoiceStatusTracker
         if (status.session_id != sessionId)   // a new conversation: forget the old texts
         {
             sessionId = status.session_id;
-            LastTranscript = LastReply = LastError = "";
+            LastTranscript = LastReply = LastError = LastRoute = "";
         }
         changes.StateChanged = status.state != State;
-        // A turn arrives as the move to "speaking"; compare that too so a repeated "yes" still counts as new.
-        bool newTurn = changes.StateChanged && status.state == VoiceStates.Speaking;
-        changes.TranscriptChanged = status.last_transcript.Length > 0 && (status.last_transcript != LastTranscript || newTurn);
-        changes.ReplyChanged = status.last_reply.Length > 0 && (status.last_reply != LastReply || newTurn);
+        // Use state changes so a repeated reply still counts as a new turn.
+        bool newUtterance = changes.StateChanged && (status.state == VoiceStates.Processing ||
+            (status.state == VoiceStates.Speaking && State != VoiceStates.Processing));
+        bool newReply = changes.StateChanged && status.state == VoiceStates.Speaking;
+        changes.TranscriptChanged = status.last_transcript.Length > 0 && (status.last_transcript != LastTranscript || newUtterance);
+        changes.ReplyChanged = status.last_reply.Length > 0 && (status.last_reply != LastReply || newReply);
         changes.ErrorChanged = status.error.Length > 0 && status.error != LastError;
         State = status.state;
         LastTranscript = status.last_transcript;
         LastReply = status.last_reply;
         LastError = status.error;
+        LastRoute = status.route;
+        RouterReady = status.router_ready;
         return changes;
     }
 }

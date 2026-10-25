@@ -4,12 +4,12 @@ namespace Nova.Gestures
 {
     public enum TelephoneGestureEvent { None, Started, Ended }
 
-    // Per-frame hand input. Reach is fingertip-to-palm distance divided by hand size (wrist to middle knuckle):
-    // small means curled, large means extended.
+    // Reach is fingertip distance from the palm divided by hand size.
+    // Lower values mean a curled finger.
     public struct TelephoneHandSample
     {
         public bool Tracked;
-        // The caller sets this while a fist, walking, a system gesture or a minimap touch owns the hand.
+        // Another control is using this hand.
         public bool Blocked;
         public float IndexReach, MiddleReach, RingReach, ThumbReach, PinkyReach;
     }
@@ -48,7 +48,7 @@ namespace Nova.Gestures
         }
 
         public bool Active { get; private set; }
-        // True when the finger pose matches, after hysteresis and ignoring hold time.
+        // The fingers match before the hold timer completes.
         public bool PoseMatches { get; private set; }
 
         public void Configure(TelephoneGestureSettings value)
@@ -64,7 +64,7 @@ namespace Nova.Gestures
             settings = value;
         }
 
-        // Ends an active gesture silently (no Ended event) and clears all timers.
+        // Clear the pose and timers without sending an end event.
         public void Reset()
         {
             Active = PoseMatches = false;

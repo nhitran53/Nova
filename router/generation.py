@@ -1,50 +1,9 @@
-"""Post-tool-call text generation scaffolding (pure Python, no model, no network).
+"""Build and check NOVA replies after a tool call.
 
-Design rule: the model writes literal prose with named slot placeholders ("About {minutes_remaining} left."); code
-fills the slots from the tool_result with fixed formats. The model never writes a number, except that grounded answers
-under passage_numbers="digits" may copy numbers that appear in the retrieved passages (see below). Every output is parsed,
-checked, filled and number-verified here, and the result is still spoken only through `TurnHandler._speak`.
-
-    req = build_request(turn_id=1, kind="tool_result", route="tool", user_text="oxygen?", policy=policy,
-                        tool="o2", tool_result={"tool": "o2", "ok": True, "data": {...}})
-    messages = render_prompt(req)                          # what a real model would be shown (no tool values)
-    outcome = run_generation(req, FillerGenerator(), policy["generation"], fallback_text="...")
-    outcome.text                                           # hand this to _speak
-
-Pieces:
- * `GenerationRequest` (frozen) is built deterministically by `build_request` from the turn; same inputs -> equal request.
- * `Generator` Protocol: `generate(req) -> GenerationResult(raw=...)`. `stream(req)` (sentence-level TTS) is documented
-   only and unbuilt. `FillerGenerator` is the deterministic stub (also a scripted mode for forcing bad outputs);
-   `LegacyLLMAdapter` wraps the old `llm_fn(text, prompt_policy, passages=None) -> str`.
- * `render_prompt` / `render_prompt_text` build the chat messages; `output_json_schema` / `output_gbnf` are
-   ILLUSTRATIVE per-request constraints for a future runtime (string output only; nothing here executes them).
- * `postprocess` is the pure checker/filler, `run_generation` the retry/fallback policy around a generator.
-
-Output shape the model must produce: {"refusal": null | "<code>", "text": "prose with {slot} placeholders"}.
-
-Prose numbers (`passage_numbers`, policy generation.passage_numbers):
- * "off"    : model prose may contain NO number at all (digits, number words, half/quarter/...); passage digits are
-              masked in the prompt and are not provenance.
- * "digits" : CURRENT behaviour. Grounded (call_llm) prose may carry numbers; they are not scanned in prose but are
-              checked by `verify_numbers` against the retrieved passages (digits in passages count, spelled-out numbers
-              in passages do not). All other kinds still ban prose numbers entirely.
- * "quote_span" is documented in the research brief but UNBUILT: the policy loader and `build_request` reject it with
-              a clear error instead of pretending (a silent fallback would change number provenance).
-Per-turn risk override (generation.risk_term_passage_override, PLACEHOLDER, default true): for a grounded turn configured as
-"digits", if the user text OR any retrieved passage hits llm_scope.risk_terms, `build_request` uses the EFFECTIVE mode "off"
-for that turn (passage digits masked in the prompt, every prose number banned), so the answer carries no document numbers;
-the model must refuse or answer without numbers. The turn is not diverted to a template. The configured mode, the effective
-mode and the reason are recorded on the request (`passage_override_reason`) and in `summary()`.
-Attribution (generation.attribution_prefix, PLACEHOLDER): `attribute_passage_numbers` makes CODE prepend the prefix to a
-grounded "digits"-mode answer whose spoken text contains a number (the model is not trusted to attribute); it never doubles.
-Model prose is an allowlist: only printable ASCII plus generation.allowed_extra_chars (PLACEHOLDER; curly quotes, en/em dash) is accepted,
-anything else is `non_ascii_in_prose` whatever its Unicode category (invisible marks, homoglyphs, fullwidth letters).
-allowed_extra_chars itself may only hold Unicode Pd/Pi/Pf/Po punctuation (never letters, symbols, brackets). Postprocess also runs a
-detection-only pass for number/vague/ordinal/directive words split into pieces ("f i v e", "fi-ve", "re-turn": `split_token_in_prose`);
-the spoken text is never altered. Spelled ordinals "fourth" and up are vague-quantity words; "first"/"second" are allowed on purpose.
-Directive-verb rejection stays on for grounded answers. Reading a manual verbatim is a separate, unbuilt mode.
-Numbers for tool/confirmation kinds only ever come from slots filled out of the tool_result.
-All wording and limits live in turn_policy.json["generation"] and are PLACEHOLDER pending user sign-off.
+The model writes prose with named slots. Code fills readings from tool results.
+Grounded answers may use numbers allowed by the passage policy.
+Parse and verify every reply before TurnHandler speaks it.
+Wording and limits come from turn_policy.json and remain demo settings.
 """
 import json
 import re
@@ -204,7 +163,6 @@ class GenerationOutcome:
     wall_ms: int = 0            # measured with the monotonic clock inside run_generation
 
 
-# ------------------------------------------------------------------ policy validation
 def validate_generation_policy(gen, where="turn_policy.json"):
     """Raise ValueError (clear message) for a generation section the code cannot trust. Fixed lines must be spoken-number free
     because they pass through _speak like every other line."""
@@ -271,7 +229,6 @@ def validate_generation_policy(gen, where="turn_policy.json"):
             raise ValueError(f"{where}: generation fixed line {line!r} contains a number")
 
 
-# ------------------------------------------------------------------ request building
 def _flatten(facts):
     """name -> scalar for the top level and one nested dict level (e.g. facts["feasibility"]). Two fields with the same
     name would make a slot ambiguous (the wrong number could be spoken), so a collision raises ValueError."""
@@ -408,7 +365,6 @@ def build_request(*, turn_id, kind, route, user_text, policy, tool=None, tool_re
         general_prompt=policy["llm_scope"]["speaking_scope"]["general_prompt"] if kind == "general_explanation" else "")
 
 
-# ------------------------------------------------------------------ prompt rendering
 def _escape(text):
     """Untrusted text can never close or open a delimiter tag."""
     return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
@@ -518,7 +474,6 @@ def output_gbnf(req):
     return "\n".join(rules)
 
 
-# ------------------------------------------------------------------ generators
 FILLER_PROSE = {  # (kind, tool) -> prose with {slot} and {label:name} placeholders; stub data, not policy
     ("tool_result", "o2"): "Oxygen is {o2_pct}, {label:o2_pct_tier}, with about {minutes_remaining} left.",
     ("tool_result", "data"): "Heart rate {bpm}, radiation {radiation_usv_h}, temperature {temp_c}.",
@@ -616,7 +571,6 @@ class LegacyLLMAdapter:
         return GenerationResult(json.dumps({"refusal": None, "text": reply}))
 
 
-# ------------------------------------------------------------------ post-processing
 def _tokens(text):
     return re.findall(r"[a-z0-9']+", SLOT.sub(" ", text).lower().replace("\u2019", "'"))
 
@@ -773,7 +727,6 @@ def postprocess(req, result_or_raw, policy, verifier=verify_numbers):
     return PostprocessOutcome(True, filled, template, None, (), (), verdict, raw, None)
 
 
-# ------------------------------------------------------------------ retry / fallback policy
 def corrective_line(gen, violations):
     retry = gen["corrective_retry"]
     hints = " ".join(retry["hints"][v] for v in dict.fromkeys(violations) if v in retry["hints"])

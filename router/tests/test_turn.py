@@ -431,7 +431,8 @@ def test_every_critical_field_has_an_alert_line_and_every_tool_a_template():
     assert {"safety", "navigation", "map", "data", "o2"} <= set(policy["templates"])
 
 
-# ---- A. return-to-home feasibility (outpost: 1500 m -> 25 min out at 60 m/min, 25 back, 10 reserve, 60 required) ----
+# ---- A. return-to-home feasibility (outpost: 1500 m -> 25 min out at 60 m/min, 25 back, 10
+# reserve, 60 required) ----
 def nav(minutes, text="take me to the outpost", **kwargs):
     rig = Rig("call_navigation", minutes_remaining=minutes, **kwargs)
     return rig, rig.say(text)
@@ -644,7 +645,8 @@ def test_a_message_with_a_number_not_from_the_feasibility_data_is_not_sent():
     assert out["spoken"] == policy["templates"]["verifier_blocked"] and len(rig.registry.log) == 1 and out["tool_calls"] == 0
 
 
-# ---- C. tool / LLM / retrieval failures are spoken, never raised (an alert_source failure still propagates) ----
+# ---- C. tool / LLM / retrieval failures are spoken, never raised (an alert_source failure still
+# propagates) ----
 class Boom(Exception):
     pass
 

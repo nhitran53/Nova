@@ -1,9 +1,7 @@
-"""ModernBERT sequence-classifier router (text in -> label probabilities out).
+"""Route text with ModernBERT.
 
-The classification head is UNTRAINED until a training script writes
-`router_meta.json` ({"trained": true, ...}) next to the saved model. Without
-that marker every prediction carries `untrained: true` and a warning: labels
-from a random head are meaningless.
+A checkpoint needs router_meta.json with trained=true.
+Without it predictions are marked untrained.
 """
 import json
 import os

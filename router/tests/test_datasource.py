@@ -54,7 +54,8 @@ def handler_for(ds, label="call_o2"):
     return TurnHandler(FakeRouter(label), ds.snapshot, default_registry(datasource=ds))
 
 
-# ---- module hygiene -------------------------------------------------------------------------------------------------
+# ---- module hygiene
+# -------------------------------------------------------------------------------------------------
 
 def test_importing_datasource_does_not_import_psycopg():
     code = "import sys, router.datasource; print('psycopg' in sys.modules)"
@@ -80,7 +81,8 @@ def test_data_source_policy_section_is_placeholder_and_loads():
     assert set(policy["data_source"]) >= {"max_age_s", "place_aliases", "message", "definitions"}
 
 
-# ---- field mapping (D1, D2) -----------------------------------------------------------------------------------------
+# ---- field mapping (D1, D2)
+# -----------------------------------------------------------------------------------------
 
 def test_each_snapshot_field_maps_from_its_telemetry_column():
     latest = row(30.0, o2_percent=60.0, heart_rate=101.0, suit_pressure_kpa=28.2, suit_temp_c=23.4, radiation_msv=1.0,
@@ -194,7 +196,8 @@ def test_max_age_comes_from_the_placeholder_policy():
     assert POLICY["data_source"]["max_age_s"] == 10
 
 
-# ---- places, distance, eta -------------------------------------------------------------------------------------------
+# ---- places, distance, eta
+# -------------------------------------------------------------------------------------------
 
 def test_alias_hit_maps_to_the_db_location_and_a_miss_is_none():
     ds = FixtureDatasource()
@@ -227,7 +230,8 @@ def test_unmapped_place_returns_the_existing_unknown_place_result_for_navigation
         assert registry.call(tool, {"place": "lander"}) == {"tool": tool, "ok": False, "data": {"error": "unknown place"}}
 
 
-# ---- send_message ---------------------------------------------------------------------------------------------------
+# ---- send_message
+# ---------------------------------------------------------------------------------------------------
 
 def test_send_message_persists_the_formatted_body_with_policy_delays_and_keeps_the_result_shape():
     ds = FixtureDatasource()
@@ -254,7 +258,8 @@ def test_a_failed_message_write_is_ok_false_not_an_exception():
     assert result["ok"] is False and result["tool"] == "send_message"
 
 
-# ---- registry contract (D5) -----------------------------------------------------------------------------------------
+# ---- registry contract (D5)
+# -----------------------------------------------------------------------------------------
 
 def test_datasource_registry_has_the_same_six_tools_schemas_and_result_keys_as_the_default():
     fake, real = default_registry(), default_registry(datasource=FixtureDatasource())
@@ -304,7 +309,8 @@ def test_a_stale_datasource_makes_the_turn_raise_instead_of_speaking():
         handler_for(ds).handle("how much oxygen do I have left")
 
 
-# ---- end to end: TurnHandler over FixtureDatasource -------------------------------------------------------------------
+# ---- end to end: TurnHandler over FixtureDatasource
+# -------------------------------------------------------------------
 
 def test_o2_turn_speaks_numbers_that_pass_the_verifier():
     ds = FixtureDatasource()
@@ -378,7 +384,8 @@ def test_end_to_end_low_oxygen_navigation_offers_a_refill_call_and_confirming_pe
     assert len(ds.messages) == 1 and ds.messages[0]["body"].startswith("[urgent] to crater rim: Nova relay")
 
 
-# ---- PostgresDatasource over a fake connection ----------------------------------------------------------------------
+# ---- PostgresDatasource over a fake connection
+# ----------------------------------------------------------------------
 
 class FakeCursor:
     def __init__(self, conn):
@@ -452,6 +459,29 @@ def test_postgres_snapshot_equals_the_fixture_snapshot_for_the_same_rows():
     assert [sql for sql, _ in conn.executed] == [datasource.SQL_RECENT_TELEMETRY]
 
 
+def test_display_telemetry_matches_router_readings_and_includes_battery():
+    rows = [row(30, sample_id=2, battery_percent=88), row(0, sample_id=1, battery_percent=89, radiation_msv=.49)]
+    ds, _, _ = fake_postgres(rows)
+    display, router = ds.telemetry(), ds.snapshot()
+    for display_key, router_key in [("o2_percent", "o2_pct"), ("heart_rate", "bpm"),
+                                     ("suit_pressure_kpa", "suit_pressure_kpa"), ("suit_temp_c", "temp_c"),
+                                     ("radiation_usv_h", "radiation_usv_h")]:
+        assert display[display_key] == router[router_key]
+    assert display["available"] and display["source"] == "postgres"
+    assert display["sample_id"] == 2 and display["mission_id"] == 1
+    assert display["age_seconds"] == 0 and display["battery_percent"] == 88
+
+
+def test_display_telemetry_rejects_stale_or_incomplete_readings():
+    rows = [row(30, sample_id=2, battery_percent=88), row(0, sample_id=1)]
+    stale = [{**r, "ts": T0 - timedelta(seconds=11)} for r in rows]
+    with pytest.raises(DataUnavailableError):
+        fake_postgres(stale)[0].telemetry()
+    rows[0].pop("battery_percent")
+    with pytest.raises(DataUnavailableError, match="battery"):
+        fake_postgres(rows)[0].telemetry()
+
+
 def test_postgres_snapshot_fails_closed_without_mission_rows_or_with_old_rows():
     rows = [row(30.0), row(0.0)]
     with pytest.raises(DataUnavailableError, match="no active mission"):
@@ -497,7 +527,8 @@ def test_message_row_formats_body_from_policy():
     assert message_row(POLICY["data_source"], "crater_rim", "urgent", "go") == ("[urgent] to crater rim: go", 600.0, 5.0)
 
 
-# ---- schema.sql cross-check -----------------------------------------------------------------------------------------
+# ---- schema.sql cross-check
+# -----------------------------------------------------------------------------------------
 
 def schema_columns():
     text = (ROOT / "schema.sql").read_text()
