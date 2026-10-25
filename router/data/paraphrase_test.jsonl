@@ -1,64 +1,64 @@
-{"text": "take me home", "label": "call_navigation"}
-{"text": "take me to home", "label": "call_navigation"}
-{"text": "bring me back home", "label": "call_navigation"}
-{"text": "directions to homebase", "label": "call_navigation"}
-{"text": "back to the base please", "label": "call_navigation"}
-{"text": "lead me to the home base", "label": "call_navigation"}
-{"text": "go to home", "label": "call_navigation"}
-{"text": "get me back to base camp", "label": "call_navigation"}
-{"text": "is the trail to the ridge safe", "label": "call_safety"}
-{"text": "am I okay to go out to the rover", "label": "call_safety"}
-{"text": "any radiation risk right now", "label": "call_safety"}
-{"text": "should I be worried about the storm", "label": "call_safety"}
-{"text": "is it a good idea to stay out another half hour", "label": "call_safety"}
-{"text": "is it dangerous to walk back to base", "label": "call_safety"}
-{"text": "check the conditions before I head to the lander", "label": "call_safety"}
-{"text": "can I make it home safely", "label": "call_safety"}
-{"text": "open up the map", "label": "call_map"}
-{"text": "zoom in on home base", "label": "call_map"}
-{"text": "put a marker at the crater", "label": "call_map"}
-{"text": "show me where the waypoints are", "label": "call_map"}
-{"text": "zoom the map out a little", "label": "call_map"}
-{"text": "center the view on the airlock", "label": "call_map"}
-{"text": "remove the last pin", "label": "call_map"}
-{"text": "switch the map to satellite", "label": "call_map"}
-{"text": "what's my pulse", "label": "call_data"}
-{"text": "how are my suit pressure and temperature", "label": "call_data"}
-{"text": "give me all my readings", "label": "call_data"}
-{"text": "read the battery level", "label": "call_data"}
-{"text": "what does the telemetry say", "label": "call_data"}
-{"text": "let me hear my vitals", "label": "call_data"}
-{"text": "tell me my core temp", "label": "call_data"}
-{"text": "what's the radiation reading outside", "label": "call_data"}
-{"text": "how's my air supply", "label": "call_o2"}
-{"text": "how many minutes of oxygen do I have", "label": "call_o2"}
-{"text": "what's my breathing gas level", "label": "call_o2"}
-{"text": "o2 level please", "label": "call_o2"}
-{"text": "am I going through oxygen too quickly", "label": "call_o2"}
-{"text": "how much air is left in the tank", "label": "call_o2"}
-{"text": "oxygen remaining", "label": "call_o2"}
-{"text": "will my oxygen get me back to base", "label": "call_o2"}
-{"text": "why does mars look red", "label": "call_llm"}
-{"text": "what causes the northern lights", "label": "call_llm"}
-{"text": "how do rockets get to orbit", "label": "call_llm"}
-{"text": "what is a black hole", "label": "call_llm"}
-{"text": "why is there less gravity on the moon", "label": "call_llm"}
-{"text": "how does a spacesuit keep me warm", "label": "call_llm"}
-{"text": "how long does light from the sun take to reach us", "label": "call_llm"}
-{"text": "explain what a solar eclipse is", "label": "call_llm"}
-{"text": "hi", "label": "NO_TOOL"}
-{"text": "hey there nova", "label": "NO_TOOL"}
-{"text": "thanks a lot", "label": "NO_TOOL"}
-{"text": "good night", "label": "NO_TOOL"}
-{"text": "cool thanks", "label": "NO_TOOL"}
-{"text": "that works for me", "label": "NO_TOOL"}
-{"text": "see you tomorrow", "label": "NO_TOOL"}
-{"text": "you rock", "label": "NO_TOOL"}
-{"text": "what's the stock price of apple", "label": "OOD"}
-{"text": "who is the president of france", "label": "OOD"}
-{"text": "how do I bake chocolate chip cookies", "label": "OOD"}
-{"text": "will it rain in london tomorrow", "label": "OOD"}
-{"text": "play some jazz music", "label": "OOD"}
-{"text": "blorp zeng quib flarn", "label": "OOD"}
-{"text": "what's the score of the baseball game", "label": "OOD"}
-{"text": "how do I change my wifi password", "label": "OOD"}
+{"text": "take me home", "label": "call_navigation", "fine_label": "call_navigation"}
+{"text": "take me to home", "label": "call_navigation", "fine_label": "call_navigation"}
+{"text": "bring me back home", "label": "call_navigation", "fine_label": "call_navigation"}
+{"text": "directions to homebase", "label": "call_navigation", "fine_label": "call_navigation"}
+{"text": "back to the base please", "label": "call_navigation", "fine_label": "call_navigation"}
+{"text": "lead me to the home base", "label": "call_navigation", "fine_label": "call_navigation"}
+{"text": "go to home", "label": "call_navigation", "fine_label": "call_navigation"}
+{"text": "get me back to base camp", "label": "call_navigation", "fine_label": "call_navigation"}
+{"text": "is the trail to the ridge safe", "label": "call_safety", "fine_label": "call_safety"}
+{"text": "am I okay to go out to the rover", "label": "call_safety", "fine_label": "call_safety"}
+{"text": "any radiation risk right now", "label": "call_safety", "fine_label": "call_safety"}
+{"text": "should I be worried about the storm", "label": "call_safety", "fine_label": "call_safety"}
+{"text": "is it a good idea to stay out another half hour", "label": "call_safety", "fine_label": "call_safety"}
+{"text": "is it dangerous to walk back to base", "label": "call_safety", "fine_label": "call_safety"}
+{"text": "check the conditions before I head to the lander", "label": "call_safety", "fine_label": "call_safety"}
+{"text": "can I make it home safely", "label": "call_safety", "fine_label": "call_safety"}
+{"text": "open up the map", "label": "call_map", "fine_label": "call_map"}
+{"text": "zoom in on home base", "label": "call_map", "fine_label": "call_map"}
+{"text": "put a marker at the crater", "label": "call_map", "fine_label": "call_map"}
+{"text": "show me where the waypoints are", "label": "call_map", "fine_label": "call_map"}
+{"text": "zoom the map out a little", "label": "call_map", "fine_label": "call_map"}
+{"text": "center the view on the airlock", "label": "call_map", "fine_label": "call_map"}
+{"text": "remove the last pin", "label": "call_map", "fine_label": "call_map"}
+{"text": "switch the map to satellite", "label": "call_map", "fine_label": "call_map"}
+{"text": "what's my pulse", "label": "call_data", "fine_label": "call_data"}
+{"text": "how are my suit pressure and temperature", "label": "call_data", "fine_label": "call_data"}
+{"text": "give me all my readings", "label": "call_data", "fine_label": "call_data"}
+{"text": "read the battery level", "label": "call_data", "fine_label": "call_data"}
+{"text": "what does the telemetry say", "label": "call_data", "fine_label": "call_data"}
+{"text": "let me hear my vitals", "label": "call_data", "fine_label": "call_data"}
+{"text": "tell me my core temp", "label": "call_data", "fine_label": "call_data"}
+{"text": "what's the radiation reading outside", "label": "call_data", "fine_label": "call_data"}
+{"text": "how's my air supply", "label": "call_o2", "fine_label": "call_o2"}
+{"text": "how many minutes of oxygen do I have", "label": "call_o2", "fine_label": "call_o2"}
+{"text": "what's my breathing gas level", "label": "call_o2", "fine_label": "call_o2"}
+{"text": "o2 level please", "label": "call_o2", "fine_label": "call_o2"}
+{"text": "am I going through oxygen too quickly", "label": "call_o2", "fine_label": "call_o2"}
+{"text": "how much air is left in the tank", "label": "call_o2", "fine_label": "call_o2"}
+{"text": "oxygen remaining", "label": "call_o2", "fine_label": "call_o2"}
+{"text": "will my oxygen get me back to base", "label": "call_o2", "fine_label": "call_o2"}
+{"text": "why does mars look red", "label": "llm", "fine_label": "call_llm"}
+{"text": "what causes the northern lights", "label": "llm", "fine_label": "call_llm"}
+{"text": "how do rockets get to orbit", "label": "llm", "fine_label": "call_llm"}
+{"text": "what is a black hole", "label": "llm", "fine_label": "call_llm"}
+{"text": "why is there less gravity on the moon", "label": "llm", "fine_label": "call_llm"}
+{"text": "how does a spacesuit keep me warm", "label": "llm", "fine_label": "call_llm"}
+{"text": "how long does light from the sun take to reach us", "label": "llm", "fine_label": "call_llm"}
+{"text": "explain what a solar eclipse is", "label": "llm", "fine_label": "call_llm"}
+{"text": "hi", "label": "llm", "fine_label": "NO_TOOL"}
+{"text": "hey there nova", "label": "llm", "fine_label": "NO_TOOL"}
+{"text": "thanks a lot", "label": "llm", "fine_label": "NO_TOOL"}
+{"text": "good night", "label": "llm", "fine_label": "NO_TOOL"}
+{"text": "cool thanks", "label": "llm", "fine_label": "NO_TOOL"}
+{"text": "that works for me", "label": "llm", "fine_label": "NO_TOOL"}
+{"text": "see you tomorrow", "label": "llm", "fine_label": "NO_TOOL"}
+{"text": "you rock", "label": "llm", "fine_label": "NO_TOOL"}
+{"text": "what's the stock price of apple", "label": "llm", "fine_label": "OOD"}
+{"text": "who is the president of france", "label": "llm", "fine_label": "OOD"}
+{"text": "how do I bake chocolate chip cookies", "label": "llm", "fine_label": "OOD"}
+{"text": "will it rain in london tomorrow", "label": "llm", "fine_label": "OOD"}
+{"text": "play some jazz music", "label": "llm", "fine_label": "OOD"}
+{"text": "blorp zeng quib flarn", "label": "llm", "fine_label": "OOD"}
+{"text": "what's the score of the baseball game", "label": "llm", "fine_label": "OOD"}
+{"text": "how do I change my wifi password", "label": "llm", "fine_label": "OOD"}

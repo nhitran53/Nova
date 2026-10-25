@@ -1,320 +1,320 @@
-{"text": "evaluate the risk a 30 minute stay at base camp", "label": "call_safety"}
-{"text": "uh current suit staus", "label": "call_data"}
-{"text": "how much breathable air is left right now", "label": "call_o2"}
-{"text": "Zonzonmu fried rice.", "label": "OOD"}
-{"text": "open way points quick", "label": "call_map"}
-{"text": "i need my suit temperature reading", "label": "call_data"}
-{"text": "why is ice mining a thing", "label": "call_llm"}
-{"text": "do a quick breathable air check", "label": "call_o2"}
-{"text": "could you clarify orbital mechanics", "label": "call_llm"}
-{"text": "steer me souutheast toward our landing site", "label": "call_navigation"}
-{"text": "hold on cheeck the readouts", "label": "call_data"}
-{"text": "er hows the tank", "label": "call_o2"}
-{"text": "listen what percent oh to is left", "label": "call_o2"}
-{"text": "Will a rockslide be an issue back to our base?", "label": "call_safety"}
-{"text": "Where should I buy a bicycle?", "label": "OOD"}
-{"text": "well best movie this year", "label": "OOD"}
-{"text": "Place a marker on the relay tower.", "label": "call_map"}
-{"text": "okay so im home now", "label": "NO_TOOL"}
-{"text": "yeah thats fine", "label": "NO_TOOL"}
-{"text": "do quick oxign reserve check right now", "label": "call_o2"}
-{"text": "good good stuff please", "label": "NO_TOOL"}
-{"text": "how do get a cheaper phone plan", "label": "OOD"}
-{"text": "thanks back at base camp", "label": "NO_TOOL"}
-{"text": "hold on zoomed way out", "label": "call_map"}
-{"text": "how habitat domes different from the greenhouse effect for me", "label": "call_llm"}
-{"text": "okay so sensor check", "label": "call_data"}
-{"text": "nova what are the tradeoffs of neutron stars", "label": "call_llm"}
-{"text": "how does the air lock keep my alive", "label": "call_llm"}
-{"text": "right so much appreciated so much", "label": "NO_TOOL"}
-{"text": "nova quick one current suit status", "label": "call_data"}
-{"text": "yeah thats fine fine", "label": "NO_TOOL"}
-{"text": "whats my oh to draw", "label": "call_o2"}
-{"text": "clear all waypoints", "label": "call_map"}
-{"text": "safe or not to head home", "label": "call_safety"}
-{"text": "Sensor check.", "label": "call_data"}
-{"text": "just walk my toward toward home bass", "label": "call_navigation"}
-{"text": "tell me where to turn", "label": "call_navigation"}
-{"text": "How hot is it in London?", "label": "OOD"}
-{"text": "thats neat", "label": "NO_TOOL"}
-{"text": "any danger ahead", "label": "call_safety"}
-{"text": "nova quick one navigation back toward the crater rim quick", "label": "call_navigation"}
-{"text": "um whats left my breathable air air", "label": "call_o2"}
-{"text": "check whether i can return over to greenhouse safely", "label": "call_safety"}
-{"text": "baring to bass please", "label": "call_navigation"}
-{"text": "uh prahepmumuja toronto prahepmumuja", "label": "OOD"}
-{"text": "hold on current suit status", "label": "call_data"}
-{"text": "show me live telemetry numbers", "label": "call_data"}
-{"text": "What's for lunch?", "label": "OOD"}
-{"text": "um can you show me home bass the map", "label": "call_map"}
-{"text": "trak the home bass with way point nova", "label": "call_map"}
-{"text": "how do satellitse stay up", "label": "call_llm"}
-{"text": "much better better", "label": "NO_TOOL"}
-{"text": "whats left of my o2", "label": "call_o2"}
-{"text": "Suit pressure reading.", "label": "call_data"}
-{"text": "listen show my live telemetry numbers", "label": "call_data"}
-{"text": "whats the quickest path toward the dune field", "label": "call_navigation"}
-{"text": "hey nova ive arriived at the homebase", "label": "NO_TOOL"}
-{"text": "safe or not to head to habitat please", "label": "call_safety"}
-{"text": "suit pressure reading", "label": "call_data"}
-{"text": "where should i buy backpack", "label": "OOD"}
-{"text": "hey nova zoom in near my habitat thanks", "label": "call_map"}
-{"text": "well open way points", "label": "call_map"}
-{"text": "verify its safe at the base", "label": "call_safety"}
-{"text": "ive arrived at home bass nova", "label": "NO_TOOL"}
-{"text": "well why asteroid belts a thing", "label": "call_llm"}
-{"text": "whats the quickest path too our bass quick", "label": "call_navigation"}
-{"text": "hey nova hey assistant how are you", "label": "NO_TOOL"}
-{"text": "listen get my the body temeprature", "label": "call_data"}
-{"text": "nova quick one can you tick me toward the outpost if you can", "label": "call_navigation"}
-{"text": "is my oh to good", "label": "call_o2"}
-{"text": "clear all waypoitns right now", "label": "call_map"}
-{"text": "nova we should go back too home base", "label": "call_navigation"}
-{"text": "scroll the map west", "label": "call_map"}
-{"text": "could you clarify asteroid belts", "label": "call_llm"}
-{"text": "How much breathable air is left?", "label": "call_o2"}
-{"text": "listen oh okay thanks", "label": "NO_TOOL"}
-{"text": "well whats latest on my coolant level", "label": "call_data"}
-{"text": "Read me my breathing gas.", "label": "call_o2"}
-{"text": "Toggle the grid overlay.", "label": "call_map"}
-{"text": "Steer me north toward the landing pad.", "label": "call_navigation"}
-{"text": "Read me my breathable air.", "label": "call_o2"}
-{"text": "What powers a heat pump?", "label": "call_llm"}
-{"text": "okay so who scored in cricket final", "label": "OOD"}
-{"text": "okay so will the breathhing gas last too bass", "label": "call_o2"}
-{"text": "whats for lunch", "label": "OOD"}
-{"text": "is tom hanks still famous", "label": "OOD"}
-{"text": "Bye for now.", "label": "NO_TOOL"}
-{"text": "will a suit leak be an issue home bass", "label": "call_safety"}
-{"text": "hey nova what percent oxygen rseerve is left", "label": "call_o2"}
-{"text": "nova quick one map of my rover if you can", "label": "call_map"}
-{"text": "how much longer will my breathable air last", "label": "call_o2"}
-{"text": "um read back the heart rate", "label": "call_data"}
-{"text": "whats left of my breathing gas", "label": "call_o2"}
-{"text": "hey nova do a quick breatthing gas check", "label": "call_o2"}
-{"text": "right so how does lander keep me alve", "label": "call_llm"}
-{"text": "best movie this year", "label": "OOD"}
-{"text": "Will the breathing gas last to our base?", "label": "call_o2"}
-{"text": "hey partner how are are you", "label": "NO_TOOL"}
-{"text": "What are my current readings?", "label": "call_data"}
-{"text": "how have you you been right now", "label": "NO_TOOL"}
-{"text": "well map of home", "label": "call_map"}
-{"text": "nova track home with a way point if you can", "label": "call_map"}
-{"text": "can you describe venus", "label": "call_llm"}
-{"text": "how high is the suit temperature", "label": "call_data"}
-{"text": "Why is it hard to land on pluto?", "label": "call_llm"}
-{"text": "okay so ive arrived at the base", "label": "NO_TOOL"}
-{"text": "hey nova whats breathable air draw", "label": "call_o2"}
-{"text": "Check whether I can return back to the ridge safely.", "label": "call_safety"}
-{"text": "er going back toward the bass bass a bad idea", "label": "call_safety"}
-{"text": "where should should i buy a backpack", "label": "OOD"}
-{"text": "er we should go toward the dune field", "label": "call_navigation"}
-{"text": "whats the latest on my co2 level right now", "label": "call_data"}
-{"text": "Tell me a good basketball team.", "label": "OOD"}
-{"text": "okay so whats the forecast for chicago", "label": "OOD"}
-{"text": "is it wise to keep going with a rockslide", "label": "call_safety"}
-{"text": "nova quick one toggle the grid overlay for me", "label": "call_map"}
-{"text": "Can I safely make the trip home?", "label": "call_safety"}
-{"text": "um give me a a rundown of my sensors", "label": "call_data"}
-{"text": "Am I heading the right way for home base?", "label": "call_navigation"}
-{"text": "Get me the pulse.", "label": "call_data"}
-{"text": "map please", "label": "call_map"}
-{"text": "nova quick one oh okay", "label": "NO_TOOL"}
-{"text": "Do I need an umbrella in Chicago?", "label": "OOD"}
-{"text": "nova talk me through habitat domes nova", "label": "call_llm"}
-{"text": "Oh okay.", "label": "NO_TOOL"}
-{"text": "am i heading the right way for home", "label": "call_navigation"}
-{"text": "much better", "label": "NO_TOOL"}
-{"text": "whats the story with ice mining", "label": "call_llm"}
-{"text": "current current suit status thanks", "label": "call_data"}
-{"text": "How high is the suit pressure?", "label": "call_data"}
-{"text": "could you focus the map on landing pad", "label": "call_map"}
-{"text": "hold on who scored in the cricket final final", "label": "OOD"}
-{"text": "cool im home home", "label": "NO_TOOL"}
-{"text": "Explain supernovae like I'm new.", "label": "call_llm"}
-{"text": "what are the tradeoffs of solar flars", "label": "call_llm"}
-{"text": "focus the map on the home base thanks", "label": "call_map"}
-{"text": "how high is the suit pressure", "label": "call_data"}
-{"text": "How do I get a cheaper phone plan?", "label": "OOD"}
-{"text": "okay im home please", "label": "NO_TOOL"}
-{"text": "save this spot as a waypoint", "label": "call_map"}
-{"text": "hows my body doing", "label": "call_data"}
-{"text": "um how can i reach our home bass", "label": "call_navigation"}
-{"text": "can you guide me over to the comms tower nova", "label": "call_navigation"}
-{"text": "nova quick one thats thats helpful", "label": "NO_TOOL"}
-{"text": "listen save this spot as way point", "label": "call_map"}
-{"text": "uh steer me west toward the comms tower", "label": "call_navigation"}
-{"text": "Appreciate it.", "label": "NO_TOOL"}
-{"text": "um is it wise too keep going with suit leak", "label": "call_safety"}
-{"text": "read back the signal strength", "label": "call_data"}
-{"text": "carry my home when you can", "label": "call_navigation"}
-{"text": "nova show me the homebase on the map", "label": "call_map"}
-{"text": "Scroll the map west.", "label": "call_map"}
-{"text": "all good now", "label": "NO_TOOL"}
-{"text": "just just assess the danger around our homebase", "label": "call_safety"}
-{"text": "Give me a rundown of my sensors.", "label": "call_data"}
-{"text": "My breathing gas usage rate.", "label": "call_o2"}
-{"text": "tell me where to turn quick", "label": "call_navigation"}
-{"text": "thank you so much so much for me", "label": "NO_TOOL"}
-{"text": "read back the body temperature", "label": "call_data"}
-{"text": "nova appreciate it right now", "label": "NO_TOOL"}
-{"text": "uh whats the surface of jupiter like", "label": "call_llm"}
-{"text": "How do I bake pasta?", "label": "OOD"}
-{"text": "okay so how do i get a cheaper phone plan", "label": "OOD"}
-{"text": "right so what are the tradeoffs of regolith", "label": "call_llm"}
-{"text": "talk my through the speed light", "label": "call_llm"}
-{"text": "uh where home from here", "label": "call_navigation"}
-{"text": "would you mind check the readouts", "label": "call_data"}
-{"text": "How much longer will my oxygen reserve last?", "label": "call_o2"}
-{"text": "how can i reach the homebase", "label": "call_navigation"}
-{"text": "listen how much breathable air do i have to trek to the base for me", "label": "call_o2"}
-{"text": "can you describe pluto please", "label": "call_llm"}
-{"text": "verify its safe at homebase", "label": "call_safety"}
-{"text": "er whats the body temperature number", "label": "call_data"}
-{"text": "wihep an omelette", "label": "OOD"}
-{"text": "zoomed in near our base camp if you can", "label": "call_map"}
-{"text": "right so what powers an electrolyzer", "label": "call_llm"}
-{"text": "how does the rover keep me alive", "label": "call_llm"}
-{"text": "hold on zoomed in near the home base", "label": "call_map"}
-{"text": "what powers a radio", "label": "call_llm"}
-{"text": "directions fore the ridge", "label": "call_navigation"}
-{"text": "Oxygen reserve minutes.", "label": "call_o2"}
-{"text": "okay so show my our home on the map", "label": "call_map"}
-{"text": "safe or not to head back too my habitat habitat", "label": "call_safety"}
-{"text": "do i need an umbrella in toronto", "label": "OOD"}
-{"text": "save this spot as a way point right now", "label": "call_map"}
-{"text": "right so map pllease", "label": "call_map"}
-{"text": "well is my oxygen reserve good", "label": "call_o2"}
-{"text": "hiya nova how are you", "label": "NO_TOOL"}
-{"text": "we should walk back to our home base", "label": "call_navigation"}
-{"text": "well how much longer will my oxigen last", "label": "call_o2"}
-{"text": "uh navigation navigation home", "label": "call_navigation"}
-{"text": "am going too be okay to the lnder", "label": "call_safety"}
-{"text": "what percent oxygen oxygen reserve left", "label": "call_o2"}
-{"text": "er why is it hard to land on mars", "label": "call_llm"}
-{"text": "do i need an umbrella in sydney", "label": "OOD"}
-{"text": "clear all waypoints if you can", "label": "call_map"}
-{"text": "well how much breathable air do i have too make my way back to the habitats", "label": "call_o2"}
-{"text": "okay so lead me home when you can", "label": "call_navigation"}
-{"text": "okay so just get me toward home bass", "label": "call_navigation"}
-{"text": "nova quick one talk through the water recycler", "label": "call_llm"}
-{"text": "who scored in the rugby final", "label": "OOD"}
-{"text": "how do satellites stay up", "label": "call_llm"}
-{"text": "breathing gas reserve minutes", "label": "call_o2"}
-{"text": "Read me my oxygen reserve.", "label": "call_o2"}
-{"text": "is it smart to trek over to base camp", "label": "call_safety"}
-{"text": "hey nova whats the surface of titan like", "label": "call_llm"}
-{"text": "evaluate the risk of a 20 minute stay at homebase", "label": "call_safety"}
-{"text": "okay so get me back to outpost", "label": "call_navigation"}
-{"text": "Explain neutron stars like I'm new.", "label": "call_llm"}
-{"text": "Any danger ahead?", "label": "call_safety"}
-{"text": "nova what are asteroids made of quick", "label": "call_llm"}
-{"text": "Can I see the map?", "label": "call_map"}
-{"text": "uh where is home from here", "label": "call_navigation"}
-{"text": "just bring me back toward the greenhouse", "label": "call_navigation"}
-{"text": "assess the danger around the bass", "label": "call_safety"}
-{"text": "okay so how is ocean currents different from radiation radiation shielding", "label": "call_llm"}
-{"text": "hey nova im home now", "label": "NO_TOOL"}
-{"text": "whats whats my breathable air draw", "label": "call_o2"}
-{"text": "I need my pulse reading.", "label": "call_data"}
-{"text": "is it smart to walk toward the airlock", "label": "call_safety"}
-{"text": "whats the weather like at home", "label": "OOD"}
-{"text": "scroll map northwest", "label": "call_map"}
-{"text": "the breathable air supply holding", "label": "call_o2"}
-{"text": "hows the tank", "label": "call_o2"}
-{"text": "are conditions good enough to trek back to our landing site right now", "label": "call_safety"}
-{"text": "well can i safely make the trip over to our base", "label": "call_safety"}
-{"text": "right so whats the sotry with thermal insulation", "label": "call_llm"}
-{"text": "can you describe pluto nova", "label": "call_llm"}
-{"text": "what are the risks back too our home bass", "label": "call_safety"}
-{"text": "what are asteroids made of of", "label": "call_llm"}
-{"text": "whats whats the latest on my pulse", "label": "call_data"}
-{"text": "nova tell my a good soccer team", "label": "OOD"}
-{"text": "whats the story with with solar flares", "label": "call_llm"}
-{"text": "fair enough im home", "label": "NO_TOOL"}
-{"text": "get my to home", "label": "call_navigation"}
-{"text": "how much breathable air left", "label": "call_o2"}
-{"text": "thank you back the home bass", "label": "NO_TOOL"}
-{"text": "nova good stuff", "label": "NO_TOOL"}
-{"text": "Get me the coolant level.", "label": "call_data"}
-{"text": "hold on how do i bake banana bread", "label": "OOD"}
-{"text": "toggle the grid overlay", "label": "call_map"}
-{"text": "have to get too the bass camp", "label": "call_navigation"}
-{"text": "map of our rover", "label": "call_map"}
-{"text": "Body temperature reading.", "label": "call_data"}
-{"text": "how hot is it in madrid", "label": "OOD"}
-{"text": "Best movie this year.", "label": "OOD"}
-{"text": "um is it wise too keep going with a suit leak", "label": "call_safety"}
-{"text": "thats helpful thanks", "label": "NO_TOOL"}
-{"text": "My O2 usage rate.", "label": "call_o2"}
-{"text": "uh evaluate the risk of 5 minute stay at the supply depot", "label": "call_safety"}
-{"text": "appreciate it", "label": "NO_TOOL"}
-{"text": "Check whether I can return back to homebase safely.", "label": "call_safety"}
-{"text": "sensor check", "label": "call_data"}
-{"text": "could you clarify tides", "label": "call_llm"}
-{"text": "right so how much o2 do have to make my way to our landing site", "label": "call_o2"}
-{"text": "okay so give me a rundown of my sensors", "label": "call_data"}
-{"text": "What's the suit temperature number?", "label": "call_data"}
-{"text": "thats thats neat", "label": "NO_TOOL"}
-{"text": "nova quick one will a dust storm be be an issue back toward our base camp", "label": "call_safety"}
-{"text": "nova is o2 o2 good", "label": "call_o2"}
-{"text": "Show me the way home when you can.", "label": "call_navigation"}
-{"text": "Open waypoints.", "label": "call_map"}
-{"text": "what are the risks too base camp", "label": "call_safety"}
-{"text": "read the coolant level", "label": "call_data"}
-{"text": "nova directions fore home", "label": "call_navigation"}
-{"text": "well whats fore lunch", "label": "OOD"}
-{"text": "how do i bake risotto", "label": "OOD"}
-{"text": "who scored in the football final", "label": "OOD"}
-{"text": "how have you been for me", "label": "NO_TOOL"}
-{"text": "Can I safely make the trip to my home?", "label": "call_safety"}
-{"text": "listen all good now", "label": "NO_TOOL"}
-{"text": "if you could assess the danger around the base camp", "label": "call_safety"}
-{"text": "place marker on the coms tower", "label": "call_map"}
-{"text": "tell me good soccer team", "label": "OOD"}
-{"text": "Directions for the landing pad.", "label": "call_navigation"}
-{"text": "bearing to home base please", "label": "call_navigation"}
-{"text": "Zoom way out.", "label": "call_map"}
-{"text": "listen whats the forecast for london london", "label": "OOD"}
-{"text": "er am i heating right way for the base", "label": "call_navigation"}
-{"text": "I have to get back to the homebase.", "label": "call_navigation"}
-{"text": "bearing too our homebase please", "label": "call_navigation"}
-{"text": "can see the map", "label": "call_map"}
-{"text": "verify its safe at home", "label": "call_safety"}
-{"text": "um hows body doing please", "label": "call_data"}
-{"text": "hey nova are conditions good enough to walk back to the habitat", "label": "call_safety"}
-{"text": "how radiation shielding different from cosmic rays", "label": "call_llm"}
-{"text": "er kejajamu pizza", "label": "OOD"}
-{"text": "nova whats the quickest path to the homebase", "label": "call_navigation"}
-{"text": "okay so thats helpful", "label": "NO_TOOL"}
-{"text": "hold on i need need my suit pressure reading thanks", "label": "call_data"}
-{"text": "If you could focus the map on the crater rim.", "label": "call_map"}
-{"text": "Am I going to be okay to the comms tower?", "label": "call_safety"}
-{"text": "is breathable air supply holding", "label": "call_o2"}
-{"text": "zoomed way out", "label": "call_map"}
-{"text": "okay so its time too head back to base camp", "label": "call_navigation"}
-{"text": "kezonlowizon sydney kezonlowizon", "label": "OOD"}
-{"text": "track the homebase with waypoint", "label": "call_map"}
-{"text": "how do satellites stay up for me", "label": "call_llm"}
-{"text": "Is the oxygen supply holding?", "label": "call_o2"}
-{"text": "muci chicago muci", "label": "OOD"}
-{"text": "Is it smart to make my way to base?", "label": "call_safety"}
-{"text": "Explain radiation shielding like I'm new.", "label": "call_llm"}
-{"text": "It's time to head back toward our base camp.", "label": "call_navigation"}
-{"text": "oxigen rserve reserve minutes", "label": "call_o2"}
-{"text": "How have you been?", "label": "NO_TOOL"}
-{"text": "er why is it hard to land on titan", "label": "call_llm"}
-{"text": "will the breathable air last back too the sample depot", "label": "call_o2"}
-{"text": "is going homebase bad idea", "label": "call_safety"}
-{"text": "bye for now", "label": "NO_TOOL"}
-{"text": "is keanu reeves still famous", "label": "OOD"}
-{"text": "what are the risks back to our home base", "label": "call_safety"}
-{"text": "can you place a marker on the base", "label": "call_map"}
-{"text": "whats the surface of the moon like", "label": "call_llm"}
-{"text": "okay so nova can you check the readouts", "label": "call_data"}
-{"text": "Is Tom Hanks still famous?", "label": "OOD"}
-{"text": "hey nova is going to homebase a bad idea", "label": "call_safety"}
-{"text": "uh whats pulse number", "label": "call_data"}
-{"text": "whats the forecast for london", "label": "OOD"}
-{"text": "thank you back our base camp", "label": "NO_TOOL"}
-{"text": "nova quick one are conditions good enough too trek trek back too the rover", "label": "call_safety"}
+{"text": "evaluate the risk a 30 minute stay at base camp", "label": "call_safety", "fine_label": "call_safety"}
+{"text": "uh current suit staus", "label": "call_data", "fine_label": "call_data"}
+{"text": "how much breathable air is left right now", "label": "call_o2", "fine_label": "call_o2"}
+{"text": "Zonzonmu fried rice.", "label": "llm", "fine_label": "OOD"}
+{"text": "open way points quick", "label": "call_map", "fine_label": "call_map"}
+{"text": "i need my suit temperature reading", "label": "call_data", "fine_label": "call_data"}
+{"text": "why is ice mining a thing", "label": "llm", "fine_label": "call_llm"}
+{"text": "do a quick breathable air check", "label": "call_o2", "fine_label": "call_o2"}
+{"text": "could you clarify orbital mechanics", "label": "llm", "fine_label": "call_llm"}
+{"text": "steer me souutheast toward our landing site", "label": "call_navigation", "fine_label": "call_navigation"}
+{"text": "hold on cheeck the readouts", "label": "call_data", "fine_label": "call_data"}
+{"text": "er hows the tank", "label": "call_o2", "fine_label": "call_o2"}
+{"text": "listen what percent oh to is left", "label": "call_o2", "fine_label": "call_o2"}
+{"text": "Will a rockslide be an issue back to our base?", "label": "call_safety", "fine_label": "call_safety"}
+{"text": "Where should I buy a bicycle?", "label": "llm", "fine_label": "OOD"}
+{"text": "well best movie this year", "label": "llm", "fine_label": "OOD"}
+{"text": "Place a marker on the relay tower.", "label": "call_map", "fine_label": "call_map"}
+{"text": "okay so im home now", "label": "llm", "fine_label": "NO_TOOL"}
+{"text": "yeah thats fine", "label": "llm", "fine_label": "NO_TOOL"}
+{"text": "do quick oxign reserve check right now", "label": "call_o2", "fine_label": "call_o2"}
+{"text": "good good stuff please", "label": "llm", "fine_label": "NO_TOOL"}
+{"text": "how do get a cheaper phone plan", "label": "llm", "fine_label": "OOD"}
+{"text": "thanks back at base camp", "label": "llm", "fine_label": "NO_TOOL"}
+{"text": "hold on zoomed way out", "label": "call_map", "fine_label": "call_map"}
+{"text": "how habitat domes different from the greenhouse effect for me", "label": "llm", "fine_label": "call_llm"}
+{"text": "okay so sensor check", "label": "call_data", "fine_label": "call_data"}
+{"text": "nova what are the tradeoffs of neutron stars", "label": "llm", "fine_label": "call_llm"}
+{"text": "how does the air lock keep my alive", "label": "llm", "fine_label": "call_llm"}
+{"text": "right so much appreciated so much", "label": "llm", "fine_label": "NO_TOOL"}
+{"text": "nova quick one current suit status", "label": "call_data", "fine_label": "call_data"}
+{"text": "yeah thats fine fine", "label": "llm", "fine_label": "NO_TOOL"}
+{"text": "whats my oh to draw", "label": "call_o2", "fine_label": "call_o2"}
+{"text": "clear all waypoints", "label": "call_map", "fine_label": "call_map"}
+{"text": "safe or not to head home", "label": "call_safety", "fine_label": "call_safety"}
+{"text": "Sensor check.", "label": "call_data", "fine_label": "call_data"}
+{"text": "just walk my toward toward home bass", "label": "call_navigation", "fine_label": "call_navigation"}
+{"text": "tell me where to turn", "label": "call_navigation", "fine_label": "call_navigation"}
+{"text": "How hot is it in London?", "label": "llm", "fine_label": "OOD"}
+{"text": "thats neat", "label": "llm", "fine_label": "NO_TOOL"}
+{"text": "any danger ahead", "label": "call_safety", "fine_label": "call_safety"}
+{"text": "nova quick one navigation back toward the crater rim quick", "label": "call_navigation", "fine_label": "call_navigation"}
+{"text": "um whats left my breathable air air", "label": "call_o2", "fine_label": "call_o2"}
+{"text": "check whether i can return over to greenhouse safely", "label": "call_safety", "fine_label": "call_safety"}
+{"text": "baring to bass please", "label": "call_navigation", "fine_label": "call_navigation"}
+{"text": "uh prahepmumuja toronto prahepmumuja", "label": "llm", "fine_label": "OOD"}
+{"text": "hold on current suit status", "label": "call_data", "fine_label": "call_data"}
+{"text": "show me live telemetry numbers", "label": "call_data", "fine_label": "call_data"}
+{"text": "What's for lunch?", "label": "llm", "fine_label": "OOD"}
+{"text": "um can you show me home bass the map", "label": "call_map", "fine_label": "call_map"}
+{"text": "trak the home bass with way point nova", "label": "call_map", "fine_label": "call_map"}
+{"text": "how do satellitse stay up", "label": "llm", "fine_label": "call_llm"}
+{"text": "much better better", "label": "llm", "fine_label": "NO_TOOL"}
+{"text": "whats left of my o2", "label": "call_o2", "fine_label": "call_o2"}
+{"text": "Suit pressure reading.", "label": "call_data", "fine_label": "call_data"}
+{"text": "listen show my live telemetry numbers", "label": "call_data", "fine_label": "call_data"}
+{"text": "whats the quickest path toward the dune field", "label": "call_navigation", "fine_label": "call_navigation"}
+{"text": "hey nova ive arriived at the homebase", "label": "llm", "fine_label": "NO_TOOL"}
+{"text": "safe or not to head to habitat please", "label": "call_safety", "fine_label": "call_safety"}
+{"text": "suit pressure reading", "label": "call_data", "fine_label": "call_data"}
+{"text": "where should i buy backpack", "label": "llm", "fine_label": "OOD"}
+{"text": "hey nova zoom in near my habitat thanks", "label": "call_map", "fine_label": "call_map"}
+{"text": "well open way points", "label": "call_map", "fine_label": "call_map"}
+{"text": "verify its safe at the base", "label": "call_safety", "fine_label": "call_safety"}
+{"text": "ive arrived at home bass nova", "label": "llm", "fine_label": "NO_TOOL"}
+{"text": "well why asteroid belts a thing", "label": "llm", "fine_label": "call_llm"}
+{"text": "whats the quickest path too our bass quick", "label": "call_navigation", "fine_label": "call_navigation"}
+{"text": "hey nova hey assistant how are you", "label": "llm", "fine_label": "NO_TOOL"}
+{"text": "listen get my the body temeprature", "label": "call_data", "fine_label": "call_data"}
+{"text": "nova quick one can you tick me toward the outpost if you can", "label": "call_navigation", "fine_label": "call_navigation"}
+{"text": "is my oh to good", "label": "call_o2", "fine_label": "call_o2"}
+{"text": "clear all waypoitns right now", "label": "call_map", "fine_label": "call_map"}
+{"text": "nova we should go back too home base", "label": "call_navigation", "fine_label": "call_navigation"}
+{"text": "scroll the map west", "label": "call_map", "fine_label": "call_map"}
+{"text": "could you clarify asteroid belts", "label": "llm", "fine_label": "call_llm"}
+{"text": "How much breathable air is left?", "label": "call_o2", "fine_label": "call_o2"}
+{"text": "listen oh okay thanks", "label": "llm", "fine_label": "NO_TOOL"}
+{"text": "well whats latest on my coolant level", "label": "call_data", "fine_label": "call_data"}
+{"text": "Read me my breathing gas.", "label": "call_o2", "fine_label": "call_o2"}
+{"text": "Toggle the grid overlay.", "label": "call_map", "fine_label": "call_map"}
+{"text": "Steer me north toward the landing pad.", "label": "call_navigation", "fine_label": "call_navigation"}
+{"text": "Read me my breathable air.", "label": "call_o2", "fine_label": "call_o2"}
+{"text": "What powers a heat pump?", "label": "llm", "fine_label": "call_llm"}
+{"text": "okay so who scored in cricket final", "label": "llm", "fine_label": "OOD"}
+{"text": "okay so will the breathhing gas last too bass", "label": "call_o2", "fine_label": "call_o2"}
+{"text": "whats for lunch", "label": "llm", "fine_label": "OOD"}
+{"text": "is tom hanks still famous", "label": "llm", "fine_label": "OOD"}
+{"text": "Bye for now.", "label": "llm", "fine_label": "NO_TOOL"}
+{"text": "will a suit leak be an issue home bass", "label": "call_safety", "fine_label": "call_safety"}
+{"text": "hey nova what percent oxygen rseerve is left", "label": "call_o2", "fine_label": "call_o2"}
+{"text": "nova quick one map of my rover if you can", "label": "call_map", "fine_label": "call_map"}
+{"text": "how much longer will my breathable air last", "label": "call_o2", "fine_label": "call_o2"}
+{"text": "um read back the heart rate", "label": "call_data", "fine_label": "call_data"}
+{"text": "whats left of my breathing gas", "label": "call_o2", "fine_label": "call_o2"}
+{"text": "hey nova do a quick breatthing gas check", "label": "call_o2", "fine_label": "call_o2"}
+{"text": "right so how does lander keep me alve", "label": "llm", "fine_label": "call_llm"}
+{"text": "best movie this year", "label": "llm", "fine_label": "OOD"}
+{"text": "Will the breathing gas last to our base?", "label": "call_o2", "fine_label": "call_o2"}
+{"text": "hey partner how are are you", "label": "llm", "fine_label": "NO_TOOL"}
+{"text": "What are my current readings?", "label": "call_data", "fine_label": "call_data"}
+{"text": "how have you you been right now", "label": "llm", "fine_label": "NO_TOOL"}
+{"text": "well map of home", "label": "call_map", "fine_label": "call_map"}
+{"text": "nova track home with a way point if you can", "label": "call_map", "fine_label": "call_map"}
+{"text": "can you describe venus", "label": "llm", "fine_label": "call_llm"}
+{"text": "how high is the suit temperature", "label": "call_data", "fine_label": "call_data"}
+{"text": "Why is it hard to land on pluto?", "label": "llm", "fine_label": "call_llm"}
+{"text": "okay so ive arrived at the base", "label": "llm", "fine_label": "NO_TOOL"}
+{"text": "hey nova whats breathable air draw", "label": "call_o2", "fine_label": "call_o2"}
+{"text": "Check whether I can return back to the ridge safely.", "label": "call_safety", "fine_label": "call_safety"}
+{"text": "er going back toward the bass bass a bad idea", "label": "call_safety", "fine_label": "call_safety"}
+{"text": "where should should i buy a backpack", "label": "llm", "fine_label": "OOD"}
+{"text": "er we should go toward the dune field", "label": "call_navigation", "fine_label": "call_navigation"}
+{"text": "whats the latest on my co2 level right now", "label": "call_data", "fine_label": "call_data"}
+{"text": "Tell me a good basketball team.", "label": "llm", "fine_label": "OOD"}
+{"text": "okay so whats the forecast for chicago", "label": "llm", "fine_label": "OOD"}
+{"text": "is it wise to keep going with a rockslide", "label": "call_safety", "fine_label": "call_safety"}
+{"text": "nova quick one toggle the grid overlay for me", "label": "call_map", "fine_label": "call_map"}
+{"text": "Can I safely make the trip home?", "label": "call_safety", "fine_label": "call_safety"}
+{"text": "um give me a a rundown of my sensors", "label": "call_data", "fine_label": "call_data"}
+{"text": "Am I heading the right way for home base?", "label": "call_navigation", "fine_label": "call_navigation"}
+{"text": "Get me the pulse.", "label": "call_data", "fine_label": "call_data"}
+{"text": "map please", "label": "call_map", "fine_label": "call_map"}
+{"text": "nova quick one oh okay", "label": "llm", "fine_label": "NO_TOOL"}
+{"text": "Do I need an umbrella in Chicago?", "label": "llm", "fine_label": "OOD"}
+{"text": "nova talk me through habitat domes nova", "label": "llm", "fine_label": "call_llm"}
+{"text": "Oh okay.", "label": "llm", "fine_label": "NO_TOOL"}
+{"text": "am i heading the right way for home", "label": "call_navigation", "fine_label": "call_navigation"}
+{"text": "much better", "label": "llm", "fine_label": "NO_TOOL"}
+{"text": "whats the story with ice mining", "label": "llm", "fine_label": "call_llm"}
+{"text": "current current suit status thanks", "label": "call_data", "fine_label": "call_data"}
+{"text": "How high is the suit pressure?", "label": "call_data", "fine_label": "call_data"}
+{"text": "could you focus the map on landing pad", "label": "call_map", "fine_label": "call_map"}
+{"text": "hold on who scored in the cricket final final", "label": "llm", "fine_label": "OOD"}
+{"text": "cool im home home", "label": "llm", "fine_label": "NO_TOOL"}
+{"text": "Explain supernovae like I'm new.", "label": "llm", "fine_label": "call_llm"}
+{"text": "what are the tradeoffs of solar flars", "label": "llm", "fine_label": "call_llm"}
+{"text": "focus the map on the home base thanks", "label": "call_map", "fine_label": "call_map"}
+{"text": "how high is the suit pressure", "label": "call_data", "fine_label": "call_data"}
+{"text": "How do I get a cheaper phone plan?", "label": "llm", "fine_label": "OOD"}
+{"text": "okay im home please", "label": "llm", "fine_label": "NO_TOOL"}
+{"text": "save this spot as a waypoint", "label": "call_map", "fine_label": "call_map"}
+{"text": "hows my body doing", "label": "call_data", "fine_label": "call_data"}
+{"text": "um how can i reach our home bass", "label": "call_navigation", "fine_label": "call_navigation"}
+{"text": "can you guide me over to the comms tower nova", "label": "call_navigation", "fine_label": "call_navigation"}
+{"text": "nova quick one thats thats helpful", "label": "llm", "fine_label": "NO_TOOL"}
+{"text": "listen save this spot as way point", "label": "call_map", "fine_label": "call_map"}
+{"text": "uh steer me west toward the comms tower", "label": "call_navigation", "fine_label": "call_navigation"}
+{"text": "Appreciate it.", "label": "llm", "fine_label": "NO_TOOL"}
+{"text": "um is it wise too keep going with suit leak", "label": "call_safety", "fine_label": "call_safety"}
+{"text": "read back the signal strength", "label": "call_data", "fine_label": "call_data"}
+{"text": "carry my home when you can", "label": "call_navigation", "fine_label": "call_navigation"}
+{"text": "nova show me the homebase on the map", "label": "call_map", "fine_label": "call_map"}
+{"text": "Scroll the map west.", "label": "call_map", "fine_label": "call_map"}
+{"text": "all good now", "label": "llm", "fine_label": "NO_TOOL"}
+{"text": "just just assess the danger around our homebase", "label": "call_safety", "fine_label": "call_safety"}
+{"text": "Give me a rundown of my sensors.", "label": "call_data", "fine_label": "call_data"}
+{"text": "My breathing gas usage rate.", "label": "call_o2", "fine_label": "call_o2"}
+{"text": "tell me where to turn quick", "label": "call_navigation", "fine_label": "call_navigation"}
+{"text": "thank you so much so much for me", "label": "llm", "fine_label": "NO_TOOL"}
+{"text": "read back the body temperature", "label": "call_data", "fine_label": "call_data"}
+{"text": "nova appreciate it right now", "label": "llm", "fine_label": "NO_TOOL"}
+{"text": "uh whats the surface of jupiter like", "label": "llm", "fine_label": "call_llm"}
+{"text": "How do I bake pasta?", "label": "llm", "fine_label": "OOD"}
+{"text": "okay so how do i get a cheaper phone plan", "label": "llm", "fine_label": "OOD"}
+{"text": "right so what are the tradeoffs of regolith", "label": "llm", "fine_label": "call_llm"}
+{"text": "talk my through the speed light", "label": "llm", "fine_label": "call_llm"}
+{"text": "uh where home from here", "label": "call_navigation", "fine_label": "call_navigation"}
+{"text": "would you mind check the readouts", "label": "call_data", "fine_label": "call_data"}
+{"text": "How much longer will my oxygen reserve last?", "label": "call_o2", "fine_label": "call_o2"}
+{"text": "how can i reach the homebase", "label": "call_navigation", "fine_label": "call_navigation"}
+{"text": "listen how much breathable air do i have to trek to the base for me", "label": "call_o2", "fine_label": "call_o2"}
+{"text": "can you describe pluto please", "label": "llm", "fine_label": "call_llm"}
+{"text": "verify its safe at homebase", "label": "call_safety", "fine_label": "call_safety"}
+{"text": "er whats the body temperature number", "label": "call_data", "fine_label": "call_data"}
+{"text": "wihep an omelette", "label": "llm", "fine_label": "OOD"}
+{"text": "zoomed in near our base camp if you can", "label": "call_map", "fine_label": "call_map"}
+{"text": "right so what powers an electrolyzer", "label": "llm", "fine_label": "call_llm"}
+{"text": "how does the rover keep me alive", "label": "llm", "fine_label": "call_llm"}
+{"text": "hold on zoomed in near the home base", "label": "call_map", "fine_label": "call_map"}
+{"text": "what powers a radio", "label": "llm", "fine_label": "call_llm"}
+{"text": "directions fore the ridge", "label": "call_navigation", "fine_label": "call_navigation"}
+{"text": "Oxygen reserve minutes.", "label": "call_o2", "fine_label": "call_o2"}
+{"text": "okay so show my our home on the map", "label": "call_map", "fine_label": "call_map"}
+{"text": "safe or not to head back too my habitat habitat", "label": "call_safety", "fine_label": "call_safety"}
+{"text": "do i need an umbrella in toronto", "label": "llm", "fine_label": "OOD"}
+{"text": "save this spot as a way point right now", "label": "call_map", "fine_label": "call_map"}
+{"text": "right so map pllease", "label": "call_map", "fine_label": "call_map"}
+{"text": "well is my oxygen reserve good", "label": "call_o2", "fine_label": "call_o2"}
+{"text": "hiya nova how are you", "label": "llm", "fine_label": "NO_TOOL"}
+{"text": "we should walk back to our home base", "label": "call_navigation", "fine_label": "call_navigation"}
+{"text": "well how much longer will my oxigen last", "label": "call_o2", "fine_label": "call_o2"}
+{"text": "uh navigation navigation home", "label": "call_navigation", "fine_label": "call_navigation"}
+{"text": "am going too be okay to the lnder", "label": "call_safety", "fine_label": "call_safety"}
+{"text": "what percent oxygen oxygen reserve left", "label": "call_o2", "fine_label": "call_o2"}
+{"text": "er why is it hard to land on mars", "label": "llm", "fine_label": "call_llm"}
+{"text": "do i need an umbrella in sydney", "label": "llm", "fine_label": "OOD"}
+{"text": "clear all waypoints if you can", "label": "call_map", "fine_label": "call_map"}
+{"text": "well how much breathable air do i have too make my way back to the habitats", "label": "call_o2", "fine_label": "call_o2"}
+{"text": "okay so lead me home when you can", "label": "call_navigation", "fine_label": "call_navigation"}
+{"text": "okay so just get me toward home bass", "label": "call_navigation", "fine_label": "call_navigation"}
+{"text": "nova quick one talk through the water recycler", "label": "llm", "fine_label": "call_llm"}
+{"text": "who scored in the rugby final", "label": "llm", "fine_label": "OOD"}
+{"text": "how do satellites stay up", "label": "llm", "fine_label": "call_llm"}
+{"text": "breathing gas reserve minutes", "label": "call_o2", "fine_label": "call_o2"}
+{"text": "Read me my oxygen reserve.", "label": "call_o2", "fine_label": "call_o2"}
+{"text": "is it smart to trek over to base camp", "label": "call_safety", "fine_label": "call_safety"}
+{"text": "hey nova whats the surface of titan like", "label": "llm", "fine_label": "call_llm"}
+{"text": "evaluate the risk of a 20 minute stay at homebase", "label": "call_safety", "fine_label": "call_safety"}
+{"text": "okay so get me back to outpost", "label": "call_navigation", "fine_label": "call_navigation"}
+{"text": "Explain neutron stars like I'm new.", "label": "llm", "fine_label": "call_llm"}
+{"text": "Any danger ahead?", "label": "call_safety", "fine_label": "call_safety"}
+{"text": "nova what are asteroids made of quick", "label": "llm", "fine_label": "call_llm"}
+{"text": "Can I see the map?", "label": "call_map", "fine_label": "call_map"}
+{"text": "uh where is home from here", "label": "call_navigation", "fine_label": "call_navigation"}
+{"text": "just bring me back toward the greenhouse", "label": "call_navigation", "fine_label": "call_navigation"}
+{"text": "assess the danger around the bass", "label": "call_safety", "fine_label": "call_safety"}
+{"text": "okay so how is ocean currents different from radiation radiation shielding", "label": "llm", "fine_label": "call_llm"}
+{"text": "hey nova im home now", "label": "llm", "fine_label": "NO_TOOL"}
+{"text": "whats whats my breathable air draw", "label": "call_o2", "fine_label": "call_o2"}
+{"text": "I need my pulse reading.", "label": "call_data", "fine_label": "call_data"}
+{"text": "is it smart to walk toward the airlock", "label": "call_safety", "fine_label": "call_safety"}
+{"text": "whats the weather like at home", "label": "llm", "fine_label": "OOD"}
+{"text": "scroll map northwest", "label": "call_map", "fine_label": "call_map"}
+{"text": "the breathable air supply holding", "label": "call_o2", "fine_label": "call_o2"}
+{"text": "hows the tank", "label": "call_o2", "fine_label": "call_o2"}
+{"text": "are conditions good enough to trek back to our landing site right now", "label": "call_safety", "fine_label": "call_safety"}
+{"text": "well can i safely make the trip over to our base", "label": "call_safety", "fine_label": "call_safety"}
+{"text": "right so whats the sotry with thermal insulation", "label": "llm", "fine_label": "call_llm"}
+{"text": "can you describe pluto nova", "label": "llm", "fine_label": "call_llm"}
+{"text": "what are the risks back too our home bass", "label": "call_safety", "fine_label": "call_safety"}
+{"text": "what are asteroids made of of", "label": "llm", "fine_label": "call_llm"}
+{"text": "whats whats the latest on my pulse", "label": "call_data", "fine_label": "call_data"}
+{"text": "nova tell my a good soccer team", "label": "llm", "fine_label": "OOD"}
+{"text": "whats the story with with solar flares", "label": "llm", "fine_label": "call_llm"}
+{"text": "fair enough im home", "label": "llm", "fine_label": "NO_TOOL"}
+{"text": "get my to home", "label": "call_navigation", "fine_label": "call_navigation"}
+{"text": "how much breathable air left", "label": "call_o2", "fine_label": "call_o2"}
+{"text": "thank you back the home bass", "label": "llm", "fine_label": "NO_TOOL"}
+{"text": "nova good stuff", "label": "llm", "fine_label": "NO_TOOL"}
+{"text": "Get me the coolant level.", "label": "call_data", "fine_label": "call_data"}
+{"text": "hold on how do i bake banana bread", "label": "llm", "fine_label": "OOD"}
+{"text": "toggle the grid overlay", "label": "call_map", "fine_label": "call_map"}
+{"text": "have to get too the bass camp", "label": "call_navigation", "fine_label": "call_navigation"}
+{"text": "map of our rover", "label": "call_map", "fine_label": "call_map"}
+{"text": "Body temperature reading.", "label": "call_data", "fine_label": "call_data"}
+{"text": "how hot is it in madrid", "label": "llm", "fine_label": "OOD"}
+{"text": "Best movie this year.", "label": "llm", "fine_label": "OOD"}
+{"text": "um is it wise too keep going with a suit leak", "label": "call_safety", "fine_label": "call_safety"}
+{"text": "thats helpful thanks", "label": "llm", "fine_label": "NO_TOOL"}
+{"text": "My O2 usage rate.", "label": "call_o2", "fine_label": "call_o2"}
+{"text": "uh evaluate the risk of 5 minute stay at the supply depot", "label": "call_safety", "fine_label": "call_safety"}
+{"text": "appreciate it", "label": "llm", "fine_label": "NO_TOOL"}
+{"text": "Check whether I can return back to homebase safely.", "label": "call_safety", "fine_label": "call_safety"}
+{"text": "sensor check", "label": "call_data", "fine_label": "call_data"}
+{"text": "could you clarify tides", "label": "llm", "fine_label": "call_llm"}
+{"text": "right so how much o2 do have to make my way to our landing site", "label": "call_o2", "fine_label": "call_o2"}
+{"text": "okay so give me a rundown of my sensors", "label": "call_data", "fine_label": "call_data"}
+{"text": "What's the suit temperature number?", "label": "call_data", "fine_label": "call_data"}
+{"text": "thats thats neat", "label": "llm", "fine_label": "NO_TOOL"}
+{"text": "nova quick one will a dust storm be be an issue back toward our base camp", "label": "call_safety", "fine_label": "call_safety"}
+{"text": "nova is o2 o2 good", "label": "call_o2", "fine_label": "call_o2"}
+{"text": "Show me the way home when you can.", "label": "call_navigation", "fine_label": "call_navigation"}
+{"text": "Open waypoints.", "label": "call_map", "fine_label": "call_map"}
+{"text": "what are the risks too base camp", "label": "call_safety", "fine_label": "call_safety"}
+{"text": "read the coolant level", "label": "call_data", "fine_label": "call_data"}
+{"text": "nova directions fore home", "label": "call_navigation", "fine_label": "call_navigation"}
+{"text": "well whats fore lunch", "label": "llm", "fine_label": "OOD"}
+{"text": "how do i bake risotto", "label": "llm", "fine_label": "OOD"}
+{"text": "who scored in the football final", "label": "llm", "fine_label": "OOD"}
+{"text": "how have you been for me", "label": "llm", "fine_label": "NO_TOOL"}
+{"text": "Can I safely make the trip to my home?", "label": "call_safety", "fine_label": "call_safety"}
+{"text": "listen all good now", "label": "llm", "fine_label": "NO_TOOL"}
+{"text": "if you could assess the danger around the base camp", "label": "call_safety", "fine_label": "call_safety"}
+{"text": "place marker on the coms tower", "label": "call_map", "fine_label": "call_map"}
+{"text": "tell me good soccer team", "label": "llm", "fine_label": "OOD"}
+{"text": "Directions for the landing pad.", "label": "call_navigation", "fine_label": "call_navigation"}
+{"text": "bearing to home base please", "label": "call_navigation", "fine_label": "call_navigation"}
+{"text": "Zoom way out.", "label": "call_map", "fine_label": "call_map"}
+{"text": "listen whats the forecast for london london", "label": "llm", "fine_label": "OOD"}
+{"text": "er am i heating right way for the base", "label": "call_navigation", "fine_label": "call_navigation"}
+{"text": "I have to get back to the homebase.", "label": "call_navigation", "fine_label": "call_navigation"}
+{"text": "bearing too our homebase please", "label": "call_navigation", "fine_label": "call_navigation"}
+{"text": "can see the map", "label": "call_map", "fine_label": "call_map"}
+{"text": "verify its safe at home", "label": "call_safety", "fine_label": "call_safety"}
+{"text": "um hows body doing please", "label": "call_data", "fine_label": "call_data"}
+{"text": "hey nova are conditions good enough to walk back to the habitat", "label": "call_safety", "fine_label": "call_safety"}
+{"text": "how radiation shielding different from cosmic rays", "label": "llm", "fine_label": "call_llm"}
+{"text": "er kejajamu pizza", "label": "llm", "fine_label": "OOD"}
+{"text": "nova whats the quickest path to the homebase", "label": "call_navigation", "fine_label": "call_navigation"}
+{"text": "okay so thats helpful", "label": "llm", "fine_label": "NO_TOOL"}
+{"text": "hold on i need need my suit pressure reading thanks", "label": "call_data", "fine_label": "call_data"}
+{"text": "If you could focus the map on the crater rim.", "label": "call_map", "fine_label": "call_map"}
+{"text": "Am I going to be okay to the comms tower?", "label": "call_safety", "fine_label": "call_safety"}
+{"text": "is breathable air supply holding", "label": "call_o2", "fine_label": "call_o2"}
+{"text": "zoomed way out", "label": "call_map", "fine_label": "call_map"}
+{"text": "okay so its time too head back to base camp", "label": "call_navigation", "fine_label": "call_navigation"}
+{"text": "kezonlowizon sydney kezonlowizon", "label": "llm", "fine_label": "OOD"}
+{"text": "track the homebase with waypoint", "label": "call_map", "fine_label": "call_map"}
+{"text": "how do satellites stay up for me", "label": "llm", "fine_label": "call_llm"}
+{"text": "Is the oxygen supply holding?", "label": "call_o2", "fine_label": "call_o2"}
+{"text": "muci chicago muci", "label": "llm", "fine_label": "OOD"}
+{"text": "Is it smart to make my way to base?", "label": "call_safety", "fine_label": "call_safety"}
+{"text": "Explain radiation shielding like I'm new.", "label": "llm", "fine_label": "call_llm"}
+{"text": "It's time to head back toward our base camp.", "label": "call_navigation", "fine_label": "call_navigation"}
+{"text": "oxigen rserve reserve minutes", "label": "call_o2", "fine_label": "call_o2"}
+{"text": "How have you been?", "label": "llm", "fine_label": "NO_TOOL"}
+{"text": "er why is it hard to land on titan", "label": "llm", "fine_label": "call_llm"}
+{"text": "will the breathable air last back too the sample depot", "label": "call_o2", "fine_label": "call_o2"}
+{"text": "is going homebase bad idea", "label": "call_safety", "fine_label": "call_safety"}
+{"text": "bye for now", "label": "llm", "fine_label": "NO_TOOL"}
+{"text": "is keanu reeves still famous", "label": "llm", "fine_label": "OOD"}
+{"text": "what are the risks back to our home base", "label": "call_safety", "fine_label": "call_safety"}
+{"text": "can you place a marker on the base", "label": "call_map", "fine_label": "call_map"}
+{"text": "whats the surface of the moon like", "label": "llm", "fine_label": "call_llm"}
+{"text": "okay so nova can you check the readouts", "label": "call_data", "fine_label": "call_data"}
+{"text": "Is Tom Hanks still famous?", "label": "llm", "fine_label": "OOD"}
+{"text": "hey nova is going to homebase a bad idea", "label": "call_safety", "fine_label": "call_safety"}
+{"text": "uh whats pulse number", "label": "call_data", "fine_label": "call_data"}
+{"text": "whats the forecast for london", "label": "llm", "fine_label": "OOD"}
+{"text": "thank you back our base camp", "label": "llm", "fine_label": "NO_TOOL"}
+{"text": "nova quick one are conditions good enough too trek trek back too the rover", "label": "call_safety", "fine_label": "call_safety"}

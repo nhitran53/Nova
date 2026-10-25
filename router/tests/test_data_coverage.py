@@ -36,7 +36,7 @@ def rows(name, version="v1"):
 def test_paraphrase_set_is_balanced_valid_and_hand_written_size():
     para = rows("paraphrase_test")
     counts = Counter(r["label"] for r in para)
-    assert set(counts) == set(LABELS) and len(set(counts.values())) == 1  # balanced
+    assert set(counts) == set(LABELS) and counts["llm"] == 3 * counts["call_safety"]  # three legacy LLM intents merged
     assert 56 <= len(para) <= 72
     texts = {r["text"] for r in para}
     assert {"take me home", "take me to home"} <= texts
@@ -74,14 +74,14 @@ def test_place_words_occur_in_many_classes_so_they_do_not_decide_the_label(versi
     for word in ("home", "base"):
         labels = {r["label"] for r in rows("train", version) if re.search(rf"\b{word}\b", r["text"].lower())}
         assert len(labels) >= 5, (word, labels)
-    assert "OOD" in {r["label"] for r in rows("train", version) if re.search(r"\bhome\b", r["text"].lower())}
-    assert "NO_TOOL" in {r["label"] for r in rows("train", version) if re.search(r"\bhome\b", r["text"].lower())}
+    assert "OOD" in {r["fine_label"] for r in rows("train", version) if re.search(r"\bhome\b", r["text"].lower())}
+    assert "NO_TOOL" in {r["fine_label"] for r in rows("train", version) if re.search(r"\bhome\b", r["text"].lower())}
 
 
 @pytest.mark.parametrize("module", [gen, gen_v1])
 def test_every_label_has_many_distinct_train_templates(module):
-    for label in LABELS:
-        assert len(module.TEMPLATES[label]["train"]) >= 20, label
+    for fine_label in module.TEMPLATES:
+        assert len(module.TEMPLATES[fine_label]["train"]) >= 20, fine_label
 
 
 # ---- v1 stays reproducible ----
@@ -156,6 +156,16 @@ def test_v2_generated_rows_match_split_sizes_and_unique_texts():
     for split, n in gen.SPLIT_SIZES.items():
         got = rows(split, "v2")
         counts = Counter(r["label"] for r in got)
-        assert set(counts) == set(LABELS) and set(counts.values()) == {n}
+        assert set(counts) == set(LABELS)
+        assert counts == {label: n * (3 if label == "llm" else 1) for label in LABELS}
         texts += [r["text"] for r in got]
     assert len(texts) == len(set(texts))
+
+
+@pytest.mark.parametrize("version", ["v1", "v2"])
+@pytest.mark.parametrize("split", ["train", "dev", "test", "paraphrase_test"])
+def test_six_class_labels_are_rebuilt_from_preserved_fine_label(version, split):
+    for row in rows(split, version):
+        fine = row["fine_label"]
+        assert row["label"] == ("llm" if fine in {"call_llm", "NO_TOOL", "OOD"} else fine)
+        assert row["label"] in LABELS

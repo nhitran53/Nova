@@ -598,6 +598,9 @@ def held_out_texts(paths=HELD_OUT_FILES):
 
 def generate(labels, seed=0, sizes=SPLIT_SIZES, banned=None):
     """Returns {split: [{"text","label"}]}. Text is unique across all splits and labels."""
+    merged_llm = "llm" in labels
+    if merged_llm:
+        labels = list(TEMPLATES)
     banned = held_out_texts() if banned is None else banned
     seen = {}
     out = {}
@@ -616,7 +619,8 @@ def generate(labels, seed=0, sizes=SPLIT_SIZES, banned=None):
                 text = add_noise(render(template.lstrip("~"), rng, split), rng, split, imperative).strip()
                 if text and text not in seen and normalise(text) not in banned:
                     seen[text] = label
-                    rows.append({"text": text, "label": label})
+                    rows.append({"text": text, "label": label if label.startswith("call_") and label != "call_llm" else "llm",
+                                 "fine_label": label} if merged_llm else {"text": text, "label": label})
                     got += 1
         random.Random(f"{seed}/{split}/shuffle").shuffle(rows)
         out[split] = rows
@@ -630,7 +634,7 @@ def main(argv=None):
     ap.add_argument("--seed", type=int, default=0)
     args = ap.parse_args(argv)
     labels = json.loads(Path(args.labels).read_text())["labels"]
-    missing = [label for label in labels if label not in TEMPLATES]
+    missing = [label for label in labels if label not in TEMPLATES and label not in {"llm"}]
     if missing:
         raise SystemExit(f"no templates for labels: {missing}")
     data = generate(labels, args.seed)
