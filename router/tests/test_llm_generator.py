@@ -29,6 +29,7 @@ def o2_request():
 
 
 def make(server, **overrides):
+    overrides = {"runtime": "llama-server", "model": "qwen3.5-4b", "constrain": "json_schema", **overrides}  # the policy default is Gemini
     return HTTPChatGenerator(load_live_llm_config(base_url=server.base_url, **overrides))
 
 
@@ -42,9 +43,8 @@ def closed_port_url():
 # ---- config ----
 def test_live_llm_section_is_placeholder_and_loads_with_the_policy():
     assert POLICY["live_llm"]["status"].startswith("PLACEHOLDER")
-    config = load_live_llm_config()
-    assert config["runtime"] == "llama-server" and config["base_url"] == "http://localhost:8080/v1"
-    assert config["constrain"] == "json_schema" and config["disable_thinking"] is True and config["temperature"] == 0
+    config = load_live_llm_config(runtime="llama-server", base_url="http://localhost:8080/v1", constrain="json_schema")
+    assert config["disable_thinking"] is True and config["temperature"] == 0
 
 
 def test_env_then_arguments_override_the_policy(monkeypatch):

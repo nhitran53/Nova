@@ -174,7 +174,7 @@ class GeneratorThatLogs:
 
 
 def healthy_server(monkeypatch):
-    monkeypatch.setattr(llm_generator, "check_server", lambda url, timeout: (True, "server reachable (fake)"))
+    monkeypatch.setattr(llm_generator, "check_server", lambda url, timeout, **kw: (True, "server reachable (fake)"))
 
 
 def scripted_client(*texts):
@@ -206,12 +206,13 @@ def test_speech_queue_error_is_kept_surfaced_once_and_does_not_stop_later_lines(
 def test_default_handler_gets_the_http_generator_when_the_server_is_healthy(monkeypatch, capsys):
     healthy_server(monkeypatch)
     handler = stt._default_handler(FakeRouter("NO_TOOL", 0.97), speak=False)
-    assert isinstance(handler.generator, llm_generator.HTTPChatGenerator) and not isinstance(handler.generator, FillerGenerator)
+    primary = handler.generator.generators[0] if isinstance(handler.generator, llm_generator.FailoverGenerator) else handler.generator
+    assert isinstance(primary, llm_generator.HTTPChatGenerator) and not isinstance(handler.generator, FillerGenerator)
     assert "using" in capsys.readouterr().err and handler.interim_fn is None and handler.tts_fn is None
 
 
 def test_default_handler_falls_back_to_filler_with_one_visible_line(monkeypatch, capsys):
-    monkeypatch.setattr(llm_generator, "check_server", lambda url, timeout: (False, "no LLM server reachable (fake)"))
+    monkeypatch.setattr(llm_generator, "check_server", lambda url, timeout, **kw: (False, "no LLM server reachable (fake)"))
     handler = stt._default_handler(FakeRouter("NO_TOOL", 0.97), speak=False)
     err = capsys.readouterr().err.strip().splitlines()
     assert isinstance(handler.generator, FillerGenerator) and len(err) == 1 and "falling back" in err[0]

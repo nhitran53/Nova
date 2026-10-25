@@ -16,6 +16,7 @@ from router.verifier import verify_numbers
 
 POLICY = load_policy()
 GEN = POLICY["generation"]
+GEN["deadline_ms"] = 1500  # these tests pin the budget logic; the demo policy value (3000 for hosted Gemini) is tested elsewhere
 MOON = {"text": "The Moon is Earth's only natural satellite, about 384400 kilometers away.", "score": 0.9}
 O2_RESULT = default_registry().call("o2", {})
 

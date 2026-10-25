@@ -208,7 +208,7 @@ def test_snapshot_only_carries_rover_faults_when_the_fixture_is_set():
 # ---- stt wiring ----
 @pytest.fixture
 def stt_env(monkeypatch):
-    monkeypatch.setattr(llm_generator, "check_server", lambda url, timeout: (True, "fake"))
+    monkeypatch.setattr(llm_generator, "check_server", lambda url, timeout, **kw: (True, "fake"))
     monkeypatch.delenv("NOVA_DEMO_SCENE", raising=False)
     monkeypatch.delenv("NOVA_DOCS_DIR", raising=False)
 
