@@ -41,6 +41,8 @@ public class VoiceSessionClient : MonoBehaviour
     // Sends the destination when a new navigation command arrives.
     public StringEvent OnNavigation = new StringEvent();
 
+    public event System.Action<HazardZoneData> OnHazardChanged;
+
     readonly VoiceStatusTracker tracker = new VoiceStatusTracker();
     bool polling;
     bool commandInFlight;
@@ -58,6 +60,8 @@ public class VoiceSessionClient : MonoBehaviour
     public string LastError => tracker.LastError;
     public string LastRoute => tracker.LastRoute;
     public string NavigationAction => tracker.NavigationAction;
+    public string Alert => tracker.Alert;
+    public HazardZoneData Hazard => tracker.Hazard;
 
     public string BaseUrl
     {
@@ -239,6 +243,7 @@ public class VoiceSessionClient : MonoBehaviour
     void Apply(VoiceStatus status)
     {
         var changes = tracker.Apply(status);
+        if (changes.HazardChanged) OnHazardChanged?.Invoke(tracker.Hazard);
         if (changes.StateChanged) OnStateChanged.Invoke(tracker.State);
         if (changes.TranscriptChanged) OnTranscript.Invoke(tracker.LastTranscript);
         if (changes.ReplyChanged) OnReply.Invoke(tracker.LastReply);

@@ -1,5 +1,16 @@
 {
   "_comment": "Turn-level policy for router/turn.py. EVERY value below is a PLACEHOLDER pending user sign-off: severity tiers, critical sim fields and thresholds, alert wording, slot-question wording and all templates. The human owns these; they are not validated against any real suit, mission rule or safety document. Each section carries a 'status' string and the loader refuses a section without one starting with PLACEHOLDER. Follow-up (feasibility, refill-call confirmation, send_message, LLM scope): the new sections 'feasibility', 'confirmation', 'send_message' and 'llm_scope' are equally PLACEHOLDER (walking speed, reserve margin, O2 fallback rate, home places, expiry, yes/no vocabulary, urgency mapping, risk terms, retrieval threshold and every sentence); no mission document or real suit/EVA rule backs any of them.",
+  "hazard_zone": {
+    "status": "PLACEHOLDER - demo only: Jezero-local center, radius, safe margin, ETA and broadcast wording pending sign-off",
+    "center_x_m": 900.0,
+    "center_z_m": 350.0,
+    "radius_m": 300,
+    "safe_margin_m": 25,
+    "eta_hours_min": 24,
+    "eta_hours_max": 36,
+    "eta_hours": 30,
+    "broadcast_line": "Emergency Alert: Local telescopes have detected an incoming meteor near Jezero Crater. Impact expected within 24 to 36 hours. Evacuate the area."
+  },
   "severity_tiers": {
     "status": "PLACEHOLDER - pending user sign-off",
     "critical": {
@@ -13,6 +24,7 @@
   },
   "sim_fields": {
     "status": "PLACEHOLDER - pending user sign-off (field list, thresholds, units, priority order = listed order)",
+    "meteor_inside": {"critical_above": 0.5},
     "o2_pct": {
       "critical_below": 16.0,
       "warning_below": 30.0
@@ -38,6 +50,7 @@
   },
   "alert_lines": {
     "status": "PLACEHOLDER - pending user sign-off (spoken verbatim, no LLM; numbers are the sim value)",
+    "meteor_inside": "You are currently in the blast radius. Move away now.",
     "o2_pct": "Critical alert. Oxygen at {value:.1f} percent. Return to the airlock now.",
     "suit_pressure_kpa": "Critical alert. Suit pressure {value:.1f} kilopascals. Seal check and return to the airlock now.",
     "temp_c": "Critical alert. Suit temperature {value:.1f} degrees Celsius. Return to the airlock now.",
