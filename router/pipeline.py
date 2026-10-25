@@ -90,6 +90,11 @@ class Pipeline:
         verdict = self._arbitrate(text, label, topk)
         if verdict == "agree":
             return self._tool(text, label, confidence, tool_cfg, gate="arbiter_agree")
+        if self.tool_classifier_fn is not None and second_layer:  # two layers, two outcomes: a tool or the LLM, never an intent question
+            second = self._second_layer(text, label, confidence, second_layer)
+            if second is not None:
+                return second
+            return self._llm(text, label, confidence, "NO_TOOL", self.config["llm_labels"]["NO_TOOL"])
         return self._clarify_intent(label, confidence, topk, reason=verdict)
 
     def _arbitrate(self, text, label, topk):

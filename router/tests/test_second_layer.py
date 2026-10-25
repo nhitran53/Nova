@@ -98,3 +98,26 @@ def test_failover_classify_uses_the_next_model():
             return '{"tool": null}'
     chain = L.FailoverGenerator([Down(), Up()])
     assert chain.classify([], 24, 1500) == '{"tool": null}'
+
+
+def test_mid_band_with_a_second_layer_asks_no_intent_question():
+    rig = rig_with("call_o2", 0.7, "call_data")
+    out = rig.say("whats the reading")
+    assert out["pipeline"]["route"] == "tool" and out["pipeline"]["gate"] == "llm_second_layer" and out["pipeline"]["tool"] == "data"
+
+
+def test_mid_band_with_second_layer_none_goes_to_the_llm_not_a_clarify():
+    rig = rig_with("call_o2", 0.7, None)
+    out = rig.say("hmm tell me about phobos")
+    assert out["pipeline"]["route"] == "llm" and out["pipeline"]["reason"] == "NO_TOOL" and out["tool_calls"] == 0
+
+
+def test_mid_band_without_a_second_layer_still_clarifies():
+    out = Rig("call_o2", 0.7).say("whats the reading")
+    assert out["pipeline"]["route"] == "clarify"
+
+
+def test_mid_band_under_a_critical_alert_stays_a_deterministic_clarify_with_no_second_layer():
+    rig = rig_with("call_o2", 0.7, "call_data", snapshot=CRITICAL)
+    rig.say("whats the reading")
+    assert rig.asked == [] and rig.registry.log == []
