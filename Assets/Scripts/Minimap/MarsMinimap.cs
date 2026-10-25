@@ -155,6 +155,13 @@ public class MarsMinimap : MonoBehaviour
         highlightUntil = Time.unscaledTime + seconds;
     }
 
+    public void FocusLocation(Vector3 position)
+    {
+        Highlight();
+        float neededDiameter = Vector2.Distance(PlayerXZ, new Vector2(position.x, position.z)) * 2.4f;
+        while (zoomIndex < zoomLevelsMeters.Length - 1 && ViewMeters < neededDiameter) ZoomOut();
+    }
+
     // Add pins from external data.
     // A scene MapMarker with the same code always wins.
     public void SetExternalPins(IEnumerable<MapPoint> pins)
@@ -558,6 +565,7 @@ public class MarsMinimap : MonoBehaviour
             foreach (var destination in nav.Destinations)
                 if (seenCodes.Add(destination.code)) points.Add(destination);
         string active = nav != null && nav.MapRoute != null ? nav.MapRoute.destinationId : null;
+        string waypoint = nav != null && nav.Waypoint != null ? nav.Waypoint.code : null;
         float pulse = 1f + 0.15f * Mathf.Sin(Time.unscaledTime * 6f);
 
         foreach (var v in views.Values) v.used = false;
@@ -579,11 +587,13 @@ public class MarsMinimap : MonoBehaviour
             Color c = MinimapStyle.ColorFor(pt.location_type, pt.hazard_level);
             v.root.anchoredPosition = local;
             v.root.localRotation = upright;
-            // The selected destination and the routed one get a bigger, pulsing marker.
-            bool highlighted = pt.code == SelectedCode || pt.code == active;
+            // Pulse selected and active targets.
+            bool highlighted = pt.code == SelectedCode || pt.code == active || pt.code == waypoint;
             v.root.localScale = Vector3.one * (onRim ? 0.75f : 1f) * (highlighted ? 1.4f * pulse : 1f);
+            if (pt.code == waypoint) c = new Color(.2f, .9f, 1);
             v.icon.color = highlighted ? Color.Lerp(c, Color.white, 0.35f) : c;
             string label = onRim ? pt.code : (string.IsNullOrEmpty(pt.name) ? pt.code : pt.name);
+            if (pt.code == waypoint) label += $"  {Vector2.Distance(PlayerXZ, new Vector2(pt.x_m, pt.z_m)):0} m";
             if (v.label.text != label) v.label.text = label;
             v.label.color = c;
 

@@ -180,7 +180,8 @@ def _datasource_registry(datasource):
             return {"tool": tool, "ok": False, "data": {"error": "unknown place"}}
         eta_min = math.ceil(found["distance_m"] / load_walking_speed_m_per_min() - 1e-9)  # same speed as assess_feasibility
         return {"tool": tool, "ok": True, "data": {"place": place, "place_name": place.replace("_", " "),
-                                                   "distance_m": found["distance_m"], "eta_min": eta_min}}
+                                                   "distance_m": found["distance_m"], "eta_min": eta_min,
+                                                   **(datasource.hazard_tool_data() if hasattr(datasource, "hazard_tool_data") else {})}}
 
     def data():
         s = datasource.snapshot()

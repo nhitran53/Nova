@@ -70,6 +70,14 @@ public class MinimapNavigationPanel : MonoBehaviour
 #endif
     }
 
+    public void SelectDestination(string code)
+    {
+        if (map == null) map = GetComponent<MarsMinimap>();
+        selected = map.SelectedCode = code;
+        lastMapRoute = RouteNavigator.Current != null ? RouteNavigator.Current.MapRoute : null;
+        nextRefresh = 0;
+    }
+
     bool MouseMode => map.Visible && !map.Holographic && !map.DockedInHelmetHud;
 
     void Update()
@@ -227,7 +235,10 @@ public class MinimapNavigationPanel : MonoBehaviour
         nextRefresh = Time.unscaledTime + 0.2f;
 
         MapPoint point = null;
-        foreach (var d in nav.Destinations) if (d.code == selected) point = d;
+        foreach (var marker in MapMarker.All)
+            if (marker != null && marker.code == selected) { point = marker.ToPoint(); break; }
+        if (point == null)
+            foreach (var d in nav.Destinations) if (d.code == selected) point = d;
         if (point == null) return;
         title.text = $"{point.name.ToUpperInvariant()}   <size=20>{point.code}</size>";
         buttonLabel.text = action == Action.Find ? "FIND ROUTE" : action == Action.Start ? "START NAVIGATION" : "STOP NAVIGATION";

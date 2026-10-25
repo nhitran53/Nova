@@ -45,6 +45,9 @@ public class HelmetHUD : MonoBehaviour
     string assistantMessage = "";
     float orbPulseSpeed = 1.4f, orbPulseAmount = 0.035f;
     Graphic orbGraphic;
+    TMP_Text waypointText;
+    VoiceSessionClient voice;
+    string statusAlert = "";
 
     public float Heading { get; private set; }
 
@@ -77,6 +80,18 @@ public class HelmetHUD : MonoBehaviour
 
     void LateUpdate()
     {
+        if (waypointText == null && RouteNavigator.Current != null && RouteNavigator.Current.Waypoint != null)
+        {
+            float width = Mathf.Clamp(compassWidth, 240, 640);
+            UpdateWaypoint(width, width / Mathf.Clamp(compassSpan, 45, 160));
+         }
+        if (voice == null) voice = FindFirstObjectByType<VoiceSessionClient>();
+        string nextAlert = voice != null ? voice.Alert : "";
+        if (nextAlert != statusAlert)
+        {
+            statusAlert = nextAlert;
+            Refresh(telemetry.Current);
+        }
         if (diagnosticUntil > 0 && Time.unscaledTime >= diagnosticUntil)
         {
             // Restore the reply after the gesture message.
@@ -128,6 +143,43 @@ public class HelmetHUD : MonoBehaviour
             compassLabels[i].anchoredPosition = new Vector2(Mathf.DeltaAngle(Heading, i * 45) * pixelsPerDegree, 4);
         for (int i = 0; i < compassTicks.Length; i++)
             compassTicks[i].anchoredPosition = new Vector2(Mathf.DeltaAngle(Heading, i * 15) * pixelsPerDegree, -17);
+        UpdateWaypoint(width, pixelsPerDegree);
+    }
+
+    void UpdateWaypoint(float width, float pixelsPerDegree)
+    {
+        var nav = RouteNavigator.Current;
+        var target = nav != null ? nav.Waypoint : null;
+        if (target == null)
+        {
+            if (waypointText != null) waypointText.gameObject.SetActive(false);
+            return;
+        }
+        if (waypointText == null)
+        {
+            var rect = new GameObject("Compass Waypoint", typeof(RectTransform)).GetComponent<RectTransform>();
+            rect.gameObject.layer = gameObject.layer;
+            rect.SetParent(compassRoot, false);
+            rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(.5f, .5f);
+            rect.sizeDelta = new Vector2(150, 28);
+            waypointText = rect.gameObject.AddComponent<TextMeshProUGUI>();
+            waypointText.font = headingText.font;
+            waypointText.fontSharedMaterial = headingText.fontSharedMaterial;
+            waypointText.fontSize = 18;
+            waypointText.alignment = TextAlignmentOptions.Center;
+            waypointText.raycastTarget = false;
+            waypointText.color = Cyan;
+        }
+        waypointText.gameObject.SetActive(true);
+        var to = Vector3.ProjectOnPlane(target.transform.position - viewCamera.transform.position, Vector3.up);
+        float angle = to.sqrMagnitude > .0001f ? Vector3.SignedAngle(horizontalForward, to, Vector3.up) : 0;
+        float limit = width * .5f - 75;
+        float offset = angle * pixelsPerDegree;
+        waypointText.rectTransform.anchoredPosition = new Vector2(Mathf.Clamp(offset, -limit, limit), -46);
+        string targetName = string.IsNullOrWhiteSpace(target.displayName) ? target.code : target.displayName;
+        string label = offset < -limit ? $"< {targetName}" :
+            offset > limit ? $"{targetName} >" : $"| {targetName}";
+        if (waypointText.text != label) waypointText.text = label;
     }
 
     public void SetAssistant(string status, string message)
@@ -164,6 +216,7 @@ public class HelmetHUD : MonoBehaviour
             warningRoot.gameObject.SetActive(true);
             alert.text = "TELEMETRY UNAVAILABLE";
             alert.color = statusLine.color = Amber;
+            ApplyStatusAlert();
             return;
         }
         statusLine.color = Cyan;
@@ -180,11 +233,25 @@ public class HelmetHUD : MonoBehaviour
             if (states[i] > states[highest]) highest = i;
         var state = states[highest];
         warningRoot.gameObject.SetActive(state == SuitAlert.Critical);
-        if (state != SuitAlert.Critical) return;
+        if (state != SuitAlert.Critical)
+        {
+            ApplyStatusAlert();
+            return;
+        }
         string detail = highest == 3 ? $"  {value.batteryPercent:0}%" :
             highest == 4 ? $"  {value.radiationMicrosieverts:0.00} uSv/h" : "";
         alert.text = $"{state.ToString().ToUpperInvariant()} / {MetricNames[highest]}{detail}";
         alert.color = statusLine.color = ColorFor(state);
+        ApplyStatusAlert();
+    }
+
+    // Router alerts take precedence; clearing restores the current telemetry warning.
+    void ApplyStatusAlert()
+    {
+        if (string.IsNullOrWhiteSpace(statusAlert)) return;
+        warningRoot.gameObject.SetActive(true);
+        alert.text = statusAlert;
+        alert.color = statusLine.color = Red;
     }
 
     static void SetValue(TMP_Text text, string value, SuitAlert state)
