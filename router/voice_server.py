@@ -226,7 +226,7 @@ def _make_datasource(kind, database_url=None, connect=None, say=None):
     from .datasource import DataUnavailableError, PostgresDatasource
 
     say = say or (lambda line: print(line, file=sys.stderr))
-    load_dotenv(stt.ENV_PATH)  # DATABASE_URL may live in router/.env; never overrides the environment
+    load_dotenv(stt.ENV_PATH)  # DATABASE_URL may live in the repo-root .env; never overrides the environment
     datasource = PostgresDatasource(database_url=database_url, connect=connect)
     try:
         snap = datasource.snapshot()
@@ -253,7 +253,7 @@ def main(argv=None):
     ap.add_argument("--deadline-ms", type=int)
     ap.add_argument("--datasource", choices=("sim", "postgres"), default="sim",
                     help="where readings and places come from: the built-in SimState (default) or the Postgres DB that "
-                         "simulator.py writes (DATABASE_URL, from the environment or router/.env; default 'dbname=nova')")
+                         "simulator.py writes (DATABASE_URL, from the environment or the repo-root .env; default 'dbname=nova')")
     ap.add_argument("--database-url", help="libpq connection string for --datasource postgres (overrides DATABASE_URL)")
     args = ap.parse_args(argv)
     model = args.model or str(core.models_dir() / "v1")

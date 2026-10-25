@@ -7,8 +7,8 @@ from dotenv import dotenv_values
 
 HERE = Path(__file__).resolve().parent
 KEY_VAR = "ELEVENLABS_API_KEY"
-# The key lives in the router's .env (read-only here); NOVA_ENV_FILE or the environment can override it.
-DEFAULT_ENV_FILE = HERE.parent / "router" / ".env"
+# The key lives in the repo-root .env (read-only here); NOVA_ENV_FILE or the environment can override it.
+DEFAULT_ENV_FILE = HERE.parent / ".env"
 
 SAMPLE_RATE = 16000          # openWakeWord and Scribe both take 16 kHz mono int16
 FRAME_SAMPLES = 1280         # 80 ms at 16 kHz: the chunk size openWakeWord is tuned for

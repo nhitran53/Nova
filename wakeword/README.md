@@ -3,7 +3,7 @@
 Listens on the default mic for "Hey Nova" / "Nova" (openWakeWord). On detection it streams the mic to
 ElevenLabs Scribe, prints the transcript, and goes back to listening (standalone mode). With `--handoff`
 it instead starts the Nova voice conversation on `../router/voice_server.py` (see **Demo setup**).
-Standalone mode reads `ELEVENLABS_API_KEY` from `../router/.env` (or the environment, or
+Standalone mode reads `ELEVENLABS_API_KEY` from `../.env` (or the environment, or
 `NOVA_ENV_FILE=/path/to/.env`); `--handoff` / `--dry-run` never need the key.
 
 ```
@@ -59,7 +59,7 @@ non-busy state is retried with backoff (0.5 s doubling to 4 s, 8 attempts) with 
 After our own `--conversation-timeout` stop the mic reopens after the cooldown without being able to tell whether the old
 worker has finished with the device.
 
-1. **Start voice_server** (needs its own venv and `ELEVENLABS_API_KEY` in `router/.env`; from the repo root):
+1. **Start voice_server** (needs its own venv and `ELEVENLABS_API_KEY` in the repo-root `.env`; from the repo root):
    `router/.venv/bin/python -m router.voice_server` (listens on `127.0.0.1:8765`; `--no-speak` prints replies instead of speaking).
    Wait until `GET /voice/status` shows `"router_ready": true`.
 2. **Plug in the model**: put `hey_nova.onnx` in `wakeword/models/` (the `.onnx` files are gitignored, so they are never committed;
