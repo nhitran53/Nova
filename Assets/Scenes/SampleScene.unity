@@ -1222,7 +1222,7 @@ MonoBehaviour:
   radiusMeters: 6
   hazardLevel: 0
   o2Refill: 0
-  description: Temporary shuttle landing spot for the navigation demo.
+  description: Viking lander used as the demo shuttle.
 --- !u!4 &741968179
 Transform:
   m_ObjectHideFlags: 0
@@ -1235,7 +1235,8 @@ Transform:
   m_LocalPosition: {x: -114.9, y: -3.0538886, z: -80.5}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children: []
+  m_Children:
+  - {fileID: 858180531}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &832575517
@@ -1287,6 +1288,68 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1001 &858180530
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 741968179}
+    m_Modifications:
+    - target: {fileID: -8679921383154817045, guid: b7a088c6592b9014cb57c04a2e1f351d, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: b7a088c6592b9014cb57c04a2e1f351d, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: b7a088c6592b9014cb57c04a2e1f351d, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: b7a088c6592b9014cb57c04a2e1f351d, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: b7a088c6592b9014cb57c04a2e1f351d, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: b7a088c6592b9014cb57c04a2e1f351d, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: b7a088c6592b9014cb57c04a2e1f351d, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: b7a088c6592b9014cb57c04a2e1f351d, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: b7a088c6592b9014cb57c04a2e1f351d, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: b7a088c6592b9014cb57c04a2e1f351d, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: b7a088c6592b9014cb57c04a2e1f351d, type: 3}
+      propertyPath: m_Name
+      value: Shuttle
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: b7a088c6592b9014cb57c04a2e1f351d, type: 3}
+--- !u!4 &858180531 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: b7a088c6592b9014cb57c04a2e1f351d, type: 3}
+  m_PrefabInstance: {fileID: 858180530}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &886711021
 GameObject:
   m_ObjectHideFlags: 0
@@ -2341,6 +2404,9 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   OnError:
+    m_PersistentCalls:
+      m_Calls: []
+  OnNavigation:
     m_PersistentCalls:
       m_Calls: []
 --- !u!114 &1739200004

@@ -6,6 +6,7 @@
     "airlock": ["airlock", "air lock"],
     "rover": ["rover", "buggy", "moon buggy"],
     "lander": ["lander", "landing module"],
+    "shuttle": ["shuttle", "viking lander", "viking"],
     "landing_pad": ["landing pad", "pad"],
     "landing_site": ["landing site"],
     "crater": ["crater"],

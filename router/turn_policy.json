@@ -270,7 +270,8 @@
       "rover": "ROVER",
       "crater": "CRATR",
       "crater_rim": "CRATR",
-      "ridge": "RIDGE"
+      "ridge": "RIDGE",
+      "shuttle": "SHUTTLE"
     },
     "message": {
       "body_format": "[{urgency}] to {recipient_name}: {message}",

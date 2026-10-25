@@ -16,6 +16,7 @@ public static class NovaNavigationTools
     const string Folder = "Assets/Scripts/Navigation/Routes";
     const string RoutePath = Folder + "/route_shuttle_001.asset";
     const string TrailMaterialPath = "Assets/Scripts/Navigation/Route Trail.mat";
+    const string ShuttleModelPath = "Assets/Shuttle/Generated/Shuttle.fbx";
     const string TerrainName = "HiRISE Test Area";
 
     [MenuItem(Menu + "Rebuild Shuttle Route")]
@@ -64,10 +65,11 @@ public static class NovaNavigationTools
             marker.displayName = route.destinationName;
             marker.locationType = MapLocationType.landmark;
             marker.radiusMeters = 6;
-            marker.description = "Temporary shuttle landing spot for the navigation demo.";
+            marker.description = "Viking lander used as the demo shuttle.";
         }
         Undo.RecordObject(marker.transform, "Move shuttle marker");
         marker.transform.position = route.Destination;
+        AddShuttleModel(marker);
 
         var minimap = UnityEngine.Object.FindAnyObjectByType<MarsMinimap>(FindObjectsInactive.Include);
         if (minimap != null && minimap.GetComponent<MinimapNavigationPanel>() == null)
@@ -83,6 +85,23 @@ public static class NovaNavigationTools
         EditorSceneManager.MarkSceneDirty(navigator.gameObject.scene);
         Debug.Log("[Navigation] Added. Save the scene and press Play. Nothing starts on its own: pick the shuttle on the map, " +
             "or on desktop G = find route, H = start, J = stop. Quest: hold a right fist to walk.");
+    }
+
+    static void AddShuttleModel(MapMarker marker)
+    {
+        var model = AssetDatabase.LoadAssetAtPath<GameObject>(ShuttleModelPath);
+        if (model == null)
+        {
+            Debug.LogWarning($"[Navigation] No shuttle model at {ShuttleModelPath}; the shuttle marker stays empty.");
+            return;
+        }
+        if (marker.transform.Find(model.name) != null) return;
+        var shuttle = (GameObject)PrefabUtility.InstantiatePrefab(model, marker.transform);
+        Undo.RegisterCreatedObjectUndo(shuttle, "Add shuttle model");
+        shuttle.transform.localPosition = Vector3.zero;
+        shuttle.transform.localRotation = Quaternion.identity;
+        Undo.RecordObject(marker, "Describe shuttle marker");
+        marker.description = "Viking lander used as the demo shuttle.";
     }
 
     static NavigationRoute LoadOrCreateRoute()

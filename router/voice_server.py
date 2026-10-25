@@ -7,6 +7,7 @@ The server defaults to localhost and rejects browser Origin headers.
 Microphone and speaker audio stay on the PC.
 Voice status includes alert, persistent display and display_seq alongside router_error.
 Gemini handles replies and secondary routing. Use --no-llm for offline replies.
+Navigation commands include a destination and sequence number for Unity.
 """
 import argparse
 import json
@@ -24,10 +25,29 @@ DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8765
 STATES = ("idle", "loading", "listening", "processing", "speaking", "ended", "error")
 MAX_ERROR_CHARS = 300
+UNITY_DESTINATIONS = {"shuttle": "shuttle_001"}  # Router place to Unity route
+UNITY_ACTIONS = {"navigation": "start", "map": "find"}
+NO_GO_OUTCOMES = ("cannot_reach", "cannot_return")
 
 
 def llm_options(no_llm=False):
     return {"no_llm": no_llm}
+
+
+def unity_navigation(turn):
+    """Return a Unity command for an allowed route request."""
+    call, result = turn.get("tool_call") or {}, turn.get("tool_result") or {}
+    action = UNITY_ACTIONS.get(call.get("name"))
+    data = result.get("data") or {}
+    destination = UNITY_DESTINATIONS.get(data.get("place"))
+    if action is None or destination is None or not result.get("ok") or turn.get("blocked_text") is not None:
+        return None
+    if action == "start":
+        if data.get("response_mode") != "guidance":
+            return None
+        if data.get("feasibility", {}).get("outcome") in NO_GO_OUTCOMES:
+            return None
+    return action, destination
 
 
 def _redacted(text):
@@ -51,6 +71,8 @@ class VoiceSession:
         self._session_id = 0
         self._seq = 0
         self._display, self._display_seq = None, 0
+        self._navigation_action = self._navigation_destination = None
+        self._navigation_seq = 0
         self._stop = None
         self._worker = None
         self._router_ready = threading.Event()
@@ -78,7 +100,9 @@ class VoiceSession:
     def _status_locked(self):
         return {"state": self._state, "last_transcript": self._last_transcript, "last_reply": self._last_reply,
                 "alert": self._alert, "route": self._route, "error": self._error, "session_id": self._session_id, "seq": self._seq,
-                "router_ready": self._router_ready.is_set(), "router_error": self._router_error, "display": self._display, "display_seq": self._display_seq}
+                "router_ready": self._router_ready.is_set(), "router_error": self._router_error, "display": self._display, "display_seq": self._display_seq,
+                "navigation_action": self._navigation_action, "navigation_destination": self._navigation_destination,
+                "navigation_seq": self._navigation_seq}
 
     def _update(self, session_id, **fields):
         """Apply `fields` unless `session_id` is no longer current or its stop was requested (late events of a stopped conversation)."""
@@ -89,6 +113,8 @@ class VoiceSession:
                 setattr(self, "_" + key, value)
             if fields.get("display") is not None:
                 self._display_seq += 1
+            if fields.get("navigation_destination") is not None:
+                self._navigation_seq += 1
             self._seq += 1
 
     def start(self):
@@ -138,6 +164,9 @@ class VoiceSession:
         def on_turn(out):
             turn = out["turn"]
             fields = {"display": turn["display"]} if turn.get("display") else {}  # no display on this turn keeps the last one
+            navigation = unity_navigation(turn)
+            if navigation is not None:
+                fields.update(navigation_action=navigation[0], navigation_destination=navigation[1])
             self._update(session_id, state="speaking", last_transcript=out["transcript"],
                          last_reply=turn.get("spoken"), alert=turn.get("alert_line"), route=turn.get("route"), **fields)
 
