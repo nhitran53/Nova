@@ -572,6 +572,13 @@
     "status": "PLACEHOLDER - pending user sign-off (wording; every number must come from the navigation tool_result)",
     "navigation_distance": "{place_name} is about {distance_m:.0f} meters away, roughly {eta_min:.0f} minutes on foot."
   },
+  "execute_immediately": {
+    "status": "PLACEHOLDER: unmeasured mid-band threshold; owner must choose",
+    "enabled": true,
+    "min_confidence": 0.75,
+    "tools": ["safety", "navigation", "map", "data", "o2"],
+    "reasons": ["no_arbiter", "arbiter_error"]
+  },
   "clarification": {
     "status": "PLACEHOLDER pending human sign-off; explicitly approved offered-choice dispatch only",
     "version": "bounded-choice-v1",
@@ -616,6 +623,7 @@
       ]
     },
     "disregard": "No action taken. Please make a new request.",
+    "executed_cancel": "Okay, cancelled.",
     "reask": "Please select an offered option, or cancel. No action taken.",
     "max_options": 2,
     "menu": "Please choose: {options}.",

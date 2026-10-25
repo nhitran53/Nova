@@ -135,6 +135,25 @@ def _unsupported_navigation_scope(context, policy):
 INTERIM_KINDS = frozenset({"chitchat", "general_explanation", "grounded_answer"})
 
 
+READ_ONLY_TOOLS = frozenset({"safety", "navigation", "map", "data", "o2"})
+
+
+def validate_execute_immediately(section, config=None):
+    """Only read-only reports may bypass the mid-band intent menu."""
+    if not isinstance(section, dict) or type(section.get("enabled")) is not bool:
+        raise ValueError("execute_immediately.enabled must be a boolean")
+    confidence = section.get("min_confidence")
+    if type(confidence) not in (int, float) or not 0 < confidence <= 1:
+        raise ValueError("execute_immediately.min_confidence must be in (0, 1]")
+    if config is not None and not config["tau_lo"] <= confidence < config["tau_hi"]:
+        raise ValueError("execute_immediately.min_confidence must be >= tau_lo and < tau_hi")
+    for key, allowed in (("tools", READ_ONLY_TOOLS), ("reasons", {"no_arbiter", "arbiter_error"})):
+        values = section.get(key)
+        if (not isinstance(values, list) or not values
+                or any(not isinstance(v, str) or v not in allowed for v in values)):
+            raise ValueError(f"execute_immediately.{key} contains unsupported values")
+
+
 def load_policy(path=POLICY_PATH):
     """Read turn_policy.json; refuse any section that is not explicitly labelled PLACEHOLDER (the human owns the values)."""
     policy = json.loads(Path(path).read_text())
@@ -147,11 +166,16 @@ def load_policy(path=POLICY_PATH):
     for tier, flags in policy["severity_tiers"].items():
         if isinstance(flags, dict) and flags.get("preempts_router") and flags.get("uses_llm"):
             raise ValueError(f"{path}: severity tier {tier!r} preempts the router, so it cannot use the LLM")
+    try:
+        config = load_config()
+    except OSError:
+        config = None
+    validate_execute_immediately(policy.get("execute_immediately"), config)
     clarification = policy["clarification"]
     clarification.setdefault("max_options", 2)
     if type(clarification["max_options"]) is not int or clarification["max_options"] < 1:
         raise ValueError(f"{path}: clarification.max_options must be a positive integer")
-    for key in ("menu", "menu_destination_note"):
+    for key in ("menu", "menu_destination_note", "executed_cancel"):
         if not isinstance(clarification.get(key), str) or not clarification[key].strip():
             raise ValueError(f"{path}: clarification.{key} must be a non-empty string")
     concise = policy["feasibility"].get("concise")
@@ -284,6 +308,7 @@ class TurnHandler:
         self.clock = clock
         self.pending_clarification = None
         self.turn_index = 0
+        self.last_executed = None
         self.pending_confirmation = None  # per-session state: {"kind","turn","place","place_name","distance_m","outcome","feasibility"}
         self.alert_source = alert_source
         self.registry = default_registry() if registry is None else registry
@@ -298,6 +323,8 @@ class TurnHandler:
         self.verifier = verifier
         self.pipeline = Pipeline(router, config=load_config() if pipeline_config is None else pipeline_config,
                                  llm_fn=lambda text, prompt_policy: None, arbiter_fn=arbiter_fn)
+
+        validate_execute_immediately(self.policy.get("execute_immediately"), self.pipeline.config)
 
     def handle(self, text):
         """Run one turn (`_run_turn`), then speak `result["spoken"]` once through `tts_fn` on every route.
@@ -332,6 +359,11 @@ class TurnHandler:
 
         if normalized(text) in self.policy['clarification']['cancel']:
             self.pending_clarification = None
+            executed, self.last_executed = self.last_executed, None
+            if (executed is not None
+                    and self.turn_index - executed["turn"] <= self.policy["clarification"]["expiry_turns"]):
+                result["cancelled"] = executed["tool"]
+                return self._speak(result, "cancelled", self.policy["clarification"]["executed_cancel"], {})
             return self._speak(result, 'clarify', self.policy['clarification']['disregard'], {})
 
         if self.pending_clarification is not None:
@@ -351,8 +383,20 @@ class TurnHandler:
             return self._speak(result, "fast_reply", fast[1], {})
 
         out = result["pipeline"] = self.pipeline.handle(text)
+        execute = self.policy["execute_immediately"]
+        tool_cfg = self.pipeline.config["tool_labels"].get(out["label"])
+        immediate = (execute["enabled"] and out["route"] == "clarify"
+                     and out.get("reason") in execute["reasons"]
+                     and out["confidence"] >= execute["min_confidence"]
+                     and tool_cfg is not None and tool_cfg["tool"] in execute["tools"])
+        if immediate:
+            out = result["pipeline"] = self.pipeline._tool(
+                text, out["label"], out["confidence"], tool_cfg, "turn_exec")
         if out["route"] == "tool":
-            return self._tool_turn(result, out, snapshot)
+            result = self._tool_turn(result, out, snapshot)
+            if immediate and result["tool_calls"] == 1:
+                result["executed_immediately"] = True
+            return result
         if out["route"] == "clarify":
             return self._clarify_turn(result, out)
         cfg = self.policy['clarification']
@@ -575,6 +619,10 @@ class TurnHandler:
         except Exception as exc:
             result["tool_error"] = f"{type(exc).__name__}: {exc}"[:300]
             tool_result = None
+        if name in READ_ONLY_TOOLS and tool_result is not None and tool_result.get("ok"):
+            self.last_executed = {"tool": name, "turn": self.turn_index}
+        else:
+            self.last_executed = None
         result["tool_result"] = tool_result
         result["tool_calls"] = self.registry.calls_this_turn
         assert result["tool_calls"] <= 1, "more than one tool call in a turn"

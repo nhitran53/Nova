@@ -225,8 +225,8 @@ class MenuAnswerRouter:
     untrained = False
 
     def predict(self, text):
-        return {'label': 'call_safety', 'confidence': .8, 'topk': [
-            {'label': 'call_safety', 'p': .8}, {'label': 'call_navigation', 'p': .15},
+        return {'label': 'call_safety', 'confidence': .7, 'topk': [
+            {'label': 'call_safety', 'p': .7}, {'label': 'call_navigation', 'p': .15},
             {'label': 'NO_TOOL', 'p': .05}]}
 
 
@@ -359,8 +359,8 @@ def test_acceptance_legacy_injection_hints_never_create_menu_or_encoder_evidence
 
 class OtherMenuRouter(MenuAnswerRouter):
     def predict(self, text):
-        return {'label': 'call_o2', 'confidence': .8, 'topk': [
-            {'label': 'call_o2', 'p': .8}, {'label': 'call_map', 'p': .15},
+        return {'label': 'call_o2', 'confidence': .7, 'topk': [
+            {'label': 'call_o2', 'p': .7}, {'label': 'call_map', 'p': .15},
             {'label': 'NO_TOOL', 'p': .05}]}
 
 

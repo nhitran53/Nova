@@ -882,3 +882,134 @@ def test_yes_sends_one_refill_message_to_the_numbered_destination():
     assert out['tool_call']['args']['recipient'] == 'base_2'
     assert [name for name, _ in rig.registry.log] == ['navigation', 'send_message']
     assert out['verifier']['ok'] and out['blocked_text'] is None
+
+# ---- execute-immediately: read-only reports, never effects ----
+@pytest.mark.parametrize('confidence,executes', [(0.7499, False), (0.75, True), (0.85, True)])
+def test_execute_immediately_confidence_boundary(confidence, executes):
+    rig = Rig('call_o2', confidence)
+    out = rig.say('oxygen')
+    assert out['tool_calls'] == int(executes)
+    assert out.get('executed_immediately', False) == executes
+    assert out['route'] == ('tool' if executes else 'clarify')
+
+
+@pytest.mark.parametrize('tool,text', [('safety', 'check my health'), ('navigation', 'take me home'),
+                                      ('map', 'map home'), ('data', 'current readings'), ('o2', 'oxygen')])
+@pytest.mark.parametrize('arbiter', [None, RuntimeError('offline')])
+def test_execute_immediately_each_read_only_tool_once(tool, text, arbiter):
+    rig = Rig('call_' + tool, .8, arbiter=FakeArbiter(arbiter) if arbiter else None)
+    out = rig.say(text)
+    assert out['executed_immediately'] and out['pipeline']['gate'] == 'turn_exec'
+    assert out['tool_calls'] == 1 and len(rig.registry.log) == 1
+    assert rig.registry.log[0][0] == tool and not out['llm_called']
+    assert rig.handler.last_executed == {'tool': tool, 'turn': 1}
+
+
+@pytest.mark.parametrize('answer', ['call_data', 'none'])
+def test_execute_immediately_never_overrides_arbiter_disagreement(answer):
+    rig = Rig('call_o2', .85, arbiter=FakeArbiter(answer))
+    out = rig.say('oxygen')
+    assert out['route'] == 'clarify' and out['tool_calls'] == 0
+    assert not out.get('executed_immediately')
+
+
+def test_execute_immediately_never_send_message_even_if_label_is_configured():
+    rig = Rig('call_o2', .8)
+    rig.handler.pipeline.config = copy.deepcopy(rig.handler.pipeline.config)
+    rig.handler.pipeline.config['tool_labels']['call_o2']['tool'] = 'send_message'
+    out = rig.say('oxygen')
+    assert out['route'] == 'clarify' and out['tool_calls'] == 0
+
+
+@pytest.mark.parametrize('text,route', [('take me somewhere', 'slot_question'),
+                                       ('take me to home or comms tower', 'slot_question')])
+def test_execute_immediately_still_requires_one_resolved_place(text, route):
+    rig = Rig('call_navigation', .8)
+    out = rig.say(text)
+    assert out['route'] == route and out['tool_calls'] == 0
+    assert not out.get('executed_immediately')
+
+
+@pytest.mark.parametrize('label,text,route', [('call_safety', 'can I make it home', 'destination_safety'),
+                                           ('call_navigation', 'enough battery to reach home', 'clarify')])
+def test_execute_immediately_preserves_scope_guards(label, text, route):
+    out = Rig(label, .8).say(text)
+    assert out['route'] == route and out['tool_calls'] == 0
+    assert not out.get('executed_immediately')
+
+
+def test_execute_immediately_disabled_restores_menu():
+    policy = load_policy()
+    policy['execute_immediately']['enabled'] = False
+    out = Rig('call_o2', .8, policy=policy).say('oxygen')
+    assert out['spoken'].startswith('Please choose:') and out['tool_calls'] == 0
+
+
+@pytest.mark.parametrize('confidence', [.8, .99])
+@pytest.mark.parametrize('cancel', ['cancel', 'never mind', 'nevermind', 'stop', 'disregard'])
+def test_cancel_after_read_only_execution(confidence, cancel):
+    rig = Rig('call_o2', confidence)
+    rig.say('oxygen')
+    out = rig.say(cancel)
+    assert out['route'] == 'cancelled' and out['cancelled'] == 'o2'
+    assert out['spoken'] == 'Okay, cancelled.' and out['tool_calls'] == 0
+    assert rig.handler.last_executed is None and len(rig.registry.log) == 1
+    assert rig.say(cancel)['spoken'].startswith('No action taken.')
+
+
+def test_cancel_without_execution_or_after_expiry_keeps_old_line():
+    rig = Rig()
+    assert rig.say('cancel')['spoken'].startswith('No action taken.')
+    rig.say('oxygen')
+    for _ in range(rig.handler.policy['clarification']['expiry_turns']):
+        rig.say('hello')
+    assert rig.say('cancel')['spoken'].startswith('No action taken.')
+
+
+@pytest.mark.parametrize('key,value', [('enabled', 1), ('min_confidence', True),
+    ('min_confidence', 0), ('min_confidence', .49), ('min_confidence', .9),
+    ('min_confidence', float('nan')), ('tools', ['send_message']), ('tools', ['queue_print']),
+    ('tools', ['unknown']), ('tools', 'o2'), ('reasons', ['arbiter_disagree']), ('reasons', [])])
+def test_execute_immediately_loader_rejects_bad_config(tmp_path, key, value):
+    policy = load_policy()
+    policy['execute_immediately'][key] = value
+    path = tmp_path / 'policy.json'
+    path.write_text(json.dumps(policy))
+    with pytest.raises(ValueError, match='execute_immediately'):
+        load_policy(path)
+
+
+def test_execute_immediately_loader_uses_range_only_when_pipeline_inaccessible(tmp_path, monkeypatch):
+    import router.turn as turn
+    policy = load_policy()
+    policy['execute_immediately']['min_confidence'] = .95
+    path = tmp_path / 'policy.json'
+    path.write_text(json.dumps(policy))
+    def unavailable():
+        raise FileNotFoundError('unavailable')
+    monkeypatch.setattr(turn, 'load_config', unavailable)
+    assert load_policy(path)['execute_immediately']['min_confidence'] == .95
+
+
+def test_execute_immediately_validates_actual_loaded_pipeline_config():
+    from router.pipeline import load_config
+    config = load_config()
+    config['tau_hi'] = .7
+    with pytest.raises(ValueError, match='min_confidence'):
+        TurnHandler(FakeRouter(), SimState().snapshot, pipeline_config=config)
+
+
+def test_cancel_after_send_message_never_claims_to_undo_effects():
+    rig, _ = nav(45)
+    assert rig.say('yes')['tool_call']['name'] == 'send_message'
+    out = rig.say('cancel')
+    assert out['spoken'].startswith('No action taken.') and 'cancelled' not in out
+    assert out['tool_calls'] == 0 and len(rig.registry.log) == 2
+
+
+def test_cancel_at_read_only_execution_expiry_boundary():
+    rig = Rig('call_o2', .8)
+    rig.say('oxygen')
+    for _ in range(rig.handler.policy['clarification']['expiry_turns'] - 1):
+        rig.say('hello')
+    assert rig.say('cancel')['cancelled'] == 'o2'

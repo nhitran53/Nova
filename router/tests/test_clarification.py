@@ -11,8 +11,8 @@ class MenuRouter:
 
     def predict(self, text):
         self.seen.append(text)
-        return {'label': 'call_safety', 'confidence': .8, 'topk': [
-            {'label': 'call_safety', 'p': .8}, {'label': 'call_navigation', 'p': .15},
+        return {'label': 'call_safety', 'confidence': .7, 'topk': [
+            {'label': 'call_safety', 'p': .7}, {'label': 'call_navigation', 'p': .15},
             {'label': 'NO_TOOL', 'p': .05}]}
 
 
@@ -200,8 +200,8 @@ def test_menu_destination_note_only_for_offered_safety_and_destination_context(t
 
     sim = SimState()
     router = MenuRouter()
-    router.predict = lambda _: {'label': options[0], 'confidence': .8, 'topk': [
-        {'label': label, 'p': p} for label, p in zip(options, [.8, .15, .05])]}
+    router.predict = lambda _: {'label': options[0], 'confidence': .7, 'topk': [
+        {'label': label, 'p': p} for label, p in zip(options, [.7, .15, .05])]}
     h = TurnHandler(router, sim.snapshot, default_registry(sim))
     result = h.handle(text)
     assert (load_policy()['clarification']['menu_destination_note'] in result['spoken']) == has_note
@@ -215,8 +215,8 @@ def test_menu_destination_note_only_for_offered_safety_and_destination_context(t
 def test_menu_trimming_keeps_only_top_two_and_selection_uses_trimmed_set(answer, tool):
     sim = SimState()
     router = MenuRouter()
-    router.predict = lambda _: {'label': 'call_safety', 'confidence': .8, 'topk': [
-        {'label': 'call_safety', 'p': .8}, {'label': 'call_navigation', 'p': .15},
+    router.predict = lambda _: {'label': 'call_safety', 'confidence': .7, 'topk': [
+        {'label': 'call_safety', 'p': .7}, {'label': 'call_navigation', 'p': .15},
         {'label': 'call_map', 'p': .05}]}
     h = TurnHandler(router, sim.snapshot, default_registry(sim))
     first = h.handle('can i make it home')
