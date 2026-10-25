@@ -4,9 +4,12 @@
 
     POST /voice/start    start a conversation (ignored while one is running; "started" says which)
     POST /voice/stop     ask the running conversation to stop (a reply already being spoken finishes first)
-    GET  /voice/status   {state, last_transcript, last_reply, route, error, session_id, seq, router_ready}
+    GET  /voice/status   {state, last_transcript, last_reply, route, error, session_id, seq, router_ready,
+                         display, display_seq}
 
-`state` is idle | loading | listening | speaking | ended | error. `seq` increases on every change so a client can tell
+`display` is null or {doc_id, section_id, title, asset, source} (the manual page to show, set by a demo turn); it is kept until a
+newer one replaces it (also across sessions), and `display_seq` increases by one each time it is set, so a client shows the page
+when `display_seq` changes. `state` is idle | loading | listening | speaking | ended | error. `seq` increases on every change so a client can tell
 that something new happened. Python owns the microphone and the speaker on THIS machine; nothing audio is sent to Unity.
 The router loads on a background thread at server start (prewarm), so /voice/start is fast once `router_ready` is true.
 The ElevenLabs key is read by stt/tts from the environment (or router/.env) and never appears in a response.
@@ -50,6 +53,7 @@ class VoiceSession:
         self._last_transcript = self._last_reply = self._route = self._error = None
         self._session_id = 0
         self._seq = 0
+        self._display, self._display_seq = None, 0
         self._stop = None
         self._worker = None
         self._router_ready = threading.Event()
@@ -70,7 +74,7 @@ class VoiceSession:
     def _status_locked(self):
         return {"state": self._state, "last_transcript": self._last_transcript, "last_reply": self._last_reply,
                 "route": self._route, "error": self._error, "session_id": self._session_id, "seq": self._seq,
-                "router_ready": self._router_ready.is_set()}
+                "router_ready": self._router_ready.is_set(), "display": self._display, "display_seq": self._display_seq}
 
     def _update(self, session_id, **fields):
         """Apply `fields` unless `session_id` is no longer current or its stop was requested (late events of a stopped conversation)."""
@@ -79,6 +83,8 @@ class VoiceSession:
                 return
             for key, value in fields.items():
                 setattr(self, "_" + key, value)
+            if fields.get("display") is not None:
+                self._display_seq += 1
             self._seq += 1
 
     def start(self):
@@ -122,8 +128,9 @@ class VoiceSession:
 
         def on_turn(out):
             turn = out["turn"]
+            fields = {"display": turn["display"]} if turn.get("display") else {}  # no display on this turn keeps the last one
             self._update(session_id, state="speaking", last_transcript=out["transcript"],
-                         last_reply=turn.get("spoken"), route=turn.get("route"))
+                         last_reply=turn.get("spoken"), route=turn.get("route"), **fields)
 
         try:
             self._converse_fn(on_event=on_event, on_turn=on_turn, stop_event=stop_event,

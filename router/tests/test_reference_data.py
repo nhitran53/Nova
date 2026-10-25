@@ -37,7 +37,7 @@ def test_importing_reference_data_does_not_import_psycopg():
 
 def test_existing_tool_registry_and_result_keys_are_unchanged():
     registry = default_registry()
-    assert registry.names() == ["safety", "navigation", "map", "data", "o2", "send_message"]
+    assert registry.names() == ["safety", "navigation", "map", "data", "o2", "send_message", "queue_print"]
     assert SNAPSHOT_KEYS == ("o2_pct", "minutes_remaining", "bpm", "radiation_usv_h", "temp_c", "suit_pressure_kpa")
     registry.begin_turn()
     assert tuple(registry.call("data", {})["data"]) == ("bpm", "radiation_usv_h", "temp_c")

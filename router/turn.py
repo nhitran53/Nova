@@ -21,6 +21,8 @@ Follow-up additions (all values PLACEHOLDER in turn_policy.json):
    required minutes (distance / walking speed, plus a reserve) against the sim's O2 minutes remaining, adds the numbers
    to `tool_result["data"]["feasibility"]` and speaks one outcome line (comfortable / tight / cannot_return /
    cannot_reach) after the route line. It only reports; it never refuses the route (the safety loop owns go/no-go).
+ * Demo scene (policy `demo_scene`, off by default): whole-utterance "what is this" -> fixed line from snapshot["rover_faults"], arms a `print_offer`
+   confirmation; yes -> one simulated `queue_print` call + result["display"]; no -> nothing queued. No router/LLM/retrieval for speech.
  * Refill-call offer: tight / cannot_return / cannot_reach also speak an offer and store `self.pending_confirmation`
    (per session, expires after `confirmation.expiry_turns` turns). On the next turn - after the alert poll, before
    the router - a deterministic yes/no matcher answers it: yes -> ONE send_message call (urgency from the feasibility
@@ -58,7 +60,7 @@ passage forces "off" for a grounded turn), "attribution_prefixed"}. The whole di
 GenerationRequest object of the latest request is `TurnHandler.last_generation_request` (None when a turn built none).
 
 Result keys: text, route ("alert"|"tool"|"slot_question"|"clarify"|"llm"|"ood"|"low_confidence"|"risk_diverted"|
-"no_document"|"greeting"|"repair_offer"|"destination_safety"|"confirmed_yes"|"confirmed_no"|"refill_not_needed"|"session_end"|"fast_reply"), pipeline (the Pipeline.handle dict or None), alerts, tool_call
+"no_document"|"greeting"|"repair_offer"|"destination_safety"|"confirmed_yes"|"confirmed_no"|"refill_not_needed"|"session_end"|"fast_reply"|"scene"|"print_confirmed"|"print_declined"), pipeline (the Pipeline.handle dict or None), alerts, tool_call
 ({"name","args"} or None), tool_result, tool_calls (0 or 1), llm_called, spoken, verifier, blocked_text,
 pending_confirmation (the offer stored by THIS turn, or None), tool_error / llm_error (only when the tool or the LLM
 raised: templates.tool_error is spoken, nothing is retried; an alert_source failure still propagates), passages (grounded call_llm only), end_session (true only on a whole-utterance goodbye/thanks),
@@ -77,9 +79,11 @@ from pathlib import Path
 from .generation import (NUMBER_VIOLATIONS, FillerGenerator, LegacyLLMAdapter, attribute_passage_numbers, build_request,
                          render_prompt, risk_terms_in, run_generation, validate_generation_policy)
 from .clarification import normalized, select_choice
+from .demo_scene import PRINTER_SOURCE, match_demo_scene, printable_fault, validate_demo_scene
 from .fast_replies import match_fast_reply, validate_fast_replies
 from .pipeline import Pipeline, load_config
 from .places import resolve_destination
+from .retrieval import find_section
 from .tools import default_registry
 from .verifier import verify_numbers
 
@@ -144,6 +148,8 @@ def load_policy(path=POLICY_PATH):
         if isinstance(flags, dict) and flags.get("preempts_router") and flags.get("uses_llm"):
             raise ValueError(f"{path}: severity tier {tier!r} preempts the router, so it cannot use the LLM")
     validate_generation_policy(policy.get("generation"), path)
+    if "demo_scene" in policy:
+        validate_demo_scene(policy["demo_scene"], path)
     if "fast_replies" in policy:
         validate_fast_replies(policy["fast_replies"], path)
     return policy
@@ -296,6 +302,9 @@ class TurnHandler:
             answer = match_confirmation(text, self.policy)
             if answer is not None:
                 return self._confirmation_turn(result, pending, answer, snapshot)
+
+        if match_demo_scene(text, self.policy):  # off by default; same position and whole-utterance rule as the fast replies
+            return self._scene_turn(result, snapshot)
 
         fast = match_fast_reply(text, self.policy)  # whole utterance only; after alert, clarification and confirmation answers
         if fast is not None:
@@ -452,6 +461,8 @@ class TurnHandler:
     def _confirmation_turn(self, result, pending, answer, snapshot):
         """yes -> feasibility is recomputed from THIS turn's snapshot (the offer's numbers may be stale); the message and
         urgency come from the fresh outcome. If no refill is needed any more, nothing is sent and a fixed line is spoken."""
+        if pending.get("kind") == "print_offer":
+            return self._print_turn(result, pending, answer)
         confirmation = self.policy["confirmation"]
         if answer == "no":
             return self._speak(result, "confirmed_no", confirmation["no_spoken"], {})
@@ -469,6 +480,38 @@ class TurnHandler:
             return self._speak(result, "confirmed_yes", self.policy["templates"]["tool_error"], {})
         self._expose_request(result, "confirmation", "confirmed_yes", "", "send_message", tool_result)
         return self._speak(result, "confirmed_yes", confirmation["yes_spoken"].format(**tool_result["data"]), tool_result)
+
+    def _scene_turn(self, result, snapshot):
+        """Demo "what is this": a fixed line from the rover-diagnostics fixture (snapshot["rover_faults"]); no router, tool, LLM
+        or retrieval. A damaged printable part arms the print_offer confirmation; no fault speaks the no-fault line, no offer."""
+        scene = self.policy["demo_scene"]
+        result["demo_scene"] = True
+        fault = printable_fault(snapshot)
+        if fault is None:
+            return self._speak(result, "scene", scene["no_fault_line"], {})
+        offer = {"kind": "print_offer", "turn": self.turn_index, "part": fault["print_part"], "part_label": fault["label"],
+                 "query": fault["part"].replace("_", " ")}
+        line = scene["scene_line"].format(part_label=fault["label"], print_part=fault["print_part"])
+        self._speak(result, "scene", line, PRINTER_SOURCE)
+        if result["blocked_text"] is None:  # a blocked line offers nothing
+            self.pending_confirmation = offer
+            result["pending_confirmation"] = dict(offer)
+        return result
+
+    def _print_turn(self, result, pending, answer):
+        """yes -> exactly one queue_print call (args from the stored offer), display = the wheel page found by retrieval; no -> nothing queued."""
+        scene = self.policy["demo_scene"]
+        result["demo_scene"] = True
+        if answer == "no":
+            return self._speak(result, "print_declined", scene["declined_line"], {})
+        tool_result = self._call_tool(result, "queue_print", {"part": pending["part"]})
+        if tool_result is None or not tool_result["ok"]:
+            return self._speak(result, "print_confirmed", self.policy["templates"]["tool_error"], {})
+        section = find_section(self.retriever, pending["query"]) if self.retriever is not None else None
+        if section is not None:
+            result["display"] = {"doc_id": section["id"].split(":")[0], "section_id": section["id"], "title": section["title"],
+                                 "asset": section["source"], "source": section["source"]}
+        return self._speak(result, "print_confirmed", scene["queued_line"], tool_result)
 
     def _expose_request(self, result, kind, route, prompt_policy, tool, tool_result):
         """Tool and confirmation turns speak their template (the LLM is not called, llm_called stays False), but the

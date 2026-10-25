@@ -281,6 +281,32 @@
     "phrases": ["thank you", "thanks", "thank you nova", "thanks nova", "that's all", "goodbye", "bye"],
     "line": "Happy to help!"
   },
+  "demo_scene": {
+    "status": "PLACEHOLDER - pending owner sign-off (hackathon demo scene, OFF by default; enable with enabled=true, NOVA_DEMO_SCENE=1 or llm_options demo_scene. A whole-utterance phrase is answered with scene_line built from the rover-diagnostics fixture, then 'yes' queues ONE simulated 3D-print job. No router, no LLM, no retrieval for speech. Honest wording: diagnostics plus gaze, never vision, never safe/unsafe to drive; wording is not owner-approved)",
+    "enabled": false,
+    "phrases": [
+      "what is this",
+      "what is that",
+      "what am i looking at",
+      "whats this",
+      "what's this"
+    ],
+    "wake_prefixes": [
+      "hey nova",
+      "hi nova",
+      "hello nova",
+      "okay nova",
+      "ok nova",
+      "nova",
+      "hey",
+      "hi",
+      "hello"
+    ],
+    "scene_line": "That's your rover. Its diagnostics flag damage on the {part_label}. Want me to send a replacement {print_part} to the 3D printer?",
+    "no_fault_line": "That's your rover. No faults reported.",
+    "queued_line": "Replacement wheel queued.",
+    "declined_line": "Okay, I won't send it."
+  },
   "fast_replies": {
     "status": "PLACEHOLDER - pending user sign-off (whole-utterance phrases answered with a fixed line before the router: no tool, no LLM, no interim; wake_prefixes are stripped only when the utterance is not already a phrase; set enabled=false to restore the router path; wording is not owner-approved)",
     "enabled": true,

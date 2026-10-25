@@ -253,9 +253,14 @@ def _default_handler(router, speak, llm_options=None, speech=None):
     if speak and speech is None:
         speech = default_speech_queue()
     from .retrieval import make_retriever
-    docs_dir = options.get("docs_dir") or os.environ.get("NOVA_DOCS_DIR")
+    from .demo_scene import DEFAULT_DOCS_DIR, demo_scene_enabled
+    from .tools import DEMO_ROVER_FAULTS
+    demo = demo_scene_enabled(policy, options, os.environ)  # unset flag/env/option == unchanged behaviour
+    docs_dir = options.get("docs_dir") or os.environ.get("NOVA_DOCS_DIR") or (str(DEFAULT_DOCS_DIR) if demo else None)
     retriever = make_retriever(docs_dir) if docs_dir else None
-    sim = SimState()
+    if demo:
+        policy["demo_scene"]["enabled"] = True
+    sim = SimState(rover_faults=DEMO_ROVER_FAULTS if demo else None)
     handler = TurnHandler(router, sim.snapshot, default_registry(sim), generator=generator, policy=policy, retriever=retriever,
                           interim_fn=speech.enqueue if speak else None, tts_fn=speech.enqueue if speak else None)
     handler.generator_label = label

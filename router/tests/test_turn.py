@@ -224,7 +224,7 @@ def test_more_than_eight_tools_raises():
 
 def test_default_registry_has_six_fixed_schema_tools_and_rejects_bad_calls():
     registry = default_registry()
-    assert registry.names() == ["safety", "navigation", "map", "data", "o2", "send_message"]
+    assert registry.names() == ["safety", "navigation", "map", "data", "o2", "send_message", "queue_print"]
     assert len(registry.names()) <= MAX_TOOLS
     registry.begin_turn()
     with pytest.raises(SchemaError):

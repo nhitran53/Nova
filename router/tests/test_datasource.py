@@ -258,7 +258,7 @@ def test_a_failed_message_write_is_ok_false_not_an_exception():
 
 def test_datasource_registry_has_the_same_six_tools_schemas_and_result_keys_as_the_default():
     fake, real = default_registry(), default_registry(datasource=FixtureDatasource())
-    assert real.names() == fake.names() == ["safety", "navigation", "map", "data", "o2", "send_message"]
+    assert real.names() == fake.names() == ["safety", "navigation", "map", "data", "o2", "send_message", "queue_print"]
     calls = {"safety": {}, "navigation": {"place": "rover"}, "map": {"place": "rover"}, "data": {}, "o2": {},
              "send_message": {"recipient": "rover", "urgency": "normal", "message": "hi"}}
     for name, args in calls.items():

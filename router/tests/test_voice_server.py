@@ -67,8 +67,40 @@ def test_status_is_idle_before_any_session_and_has_the_documented_keys(serve):
     base, _, _ = serve(blocking_until_stopped)
     code, status = call(base, "/voice/status")
     assert code == 200
-    assert set(status) >= {"state", "last_transcript", "last_reply", "route", "error", "session_id", "seq"}
+    assert set(status) >= {"state", "last_transcript", "last_reply", "route", "error", "session_id", "seq", "display", "display_seq"}
     assert status["state"] == "idle" and status["session_id"] == 0 and status["error"] is None
+    assert status["display"] is None and status["display_seq"] == 0
+
+
+DISPLAY = {"doc_id": "assembledrivemodules", "section_id": "assembledrivemodules:drive-module-assembly:0",
+           "title": "Drive Module Assembly", "asset": "docs/AssembleDriveModules.md", "source": "docs/AssembleDriveModules.md"}
+
+
+def test_display_is_exposed_kept_after_a_turn_without_one_and_display_seq_counts_new_displays(serve):
+    step, done = threading.Event(), threading.Event()
+
+    def script(on_event, on_turn, stop_event):
+        on_turn({"transcript": "what is this", "turn": {"spoken": "scene", "route": "scene"}})
+        step.wait(5)
+        on_turn({"transcript": "yes please", "turn": {"spoken": "queued", "route": "print_confirmed", "display": DISPLAY}})
+        done.wait(5)
+        on_turn({"transcript": "thanks", "turn": {"spoken": "Happy to help!", "route": "session_end"}})
+        done.wait(5)
+        return []
+
+    base, session, _ = serve(script)
+    call(base, "/voice/start", "POST")
+    assert wait_for(lambda: call(base, "/voice/status")[1]["last_reply"] == "scene")
+    status = call(base, "/voice/status")[1]
+    assert status["display"] is None and status["display_seq"] == 0
+    step.set()
+    assert wait_for(lambda: call(base, "/voice/status")[1]["last_reply"] == "queued")
+    status = call(base, "/voice/status")[1]
+    assert status["display"] == DISPLAY and status["display_seq"] == 1
+    done.set()
+    assert wait_for(lambda: call(base, "/voice/status")[1]["last_reply"] == "Happy to help!")
+    status = call(base, "/voice/status")[1]
+    assert status["display"] == DISPLAY and status["display_seq"] == 1 and status["route"] == "session_end"
 
 
 def test_start_runs_converse_and_reports_listening_then_turn_then_ended(serve):

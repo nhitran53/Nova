@@ -9,9 +9,12 @@ Tool results are `{"tool": name, "ok": bool, "data": {...}}`; every number the a
 All sim numbers below are fabricated demo values, not real suit telemetry, unless `default_registry(datasource=...)` is
 used: then the same six tools read a `router.datasource.Datasource` (staging DB schema; opt-in, SimState stays the default).
 """
+import itertools
 import math
 
 MAX_TOOLS = 8
+DEMO_ROVER_FAULTS = [{"part": "left_front_wheel", "label": "left front tire", "status": "damaged", "print_part": "wheel"}]  # PLACEHOLDER demo fixture
+PRINTABLE_PARTS = ("wheel",)
 PLACE_DISTANCES_M = {  # fabricated: (distance in meters, walking minutes)
     "homebase": (120, 2), "habitat": (150, 3), "airlock": (80, 1), "rover": (200, 4), "lander": (900, 15),
     "landing_pad": (850, 14), "landing_site": (1200, 20), "crater": (600, 10), "crater_rim": (650, 11),
@@ -83,17 +86,21 @@ class ToolRegistry:
 class SimState:
     """Fabricated suit/vitals readings. `snapshot()` doubles as the alert source; tests and the demo mutate fields."""
 
-    def __init__(self, **overrides):
+    def __init__(self, rover_faults=None, **overrides):
+        self.rover_faults = [dict(f) for f in rover_faults or ()]  # rover diagnostics fixture; empty = no "rover_faults" key in the snapshot
         self.values = {"o2_pct": 87.5, "minutes_remaining": 212, "bpm": 72, "radiation_usv_h": 0.34, "temp_c": 21.5,
                        "suit_pressure_kpa": 29.6}
         self.values.update(overrides)
 
     def snapshot(self):
-        return dict(self.values)
+        snapshot = dict(self.values)
+        if self.rover_faults:
+            snapshot["rover_faults"] = [dict(f) for f in self.rover_faults]
+        return snapshot
 
 
 def default_registry(sim=None, datasource=None):
-    """Six tools (safety, navigation, map, data, o2, send_message); leaves room for two more.
+    """Seven tools (safety, navigation, map, data, o2, send_message, queue_print = simulated demo print queue); leaves room for one more.
 
     Default: FAKE tools over `sim` (SimState, fabricated places). With `datasource`: same names, schemas and result keys,
     but readings, places and messages come from the datasource (it raises DataUnavailableError rather than guess)."""
@@ -130,6 +137,7 @@ def default_registry(sim=None, datasource=None):
                          "status": "queued"}}
 
     _register_six(registry, safety, place_result, data, o2, send_message)
+    _register_queue_print(registry)
     return registry
 
 
@@ -149,6 +157,19 @@ def _register_six(registry, safety, place_result, data, o2, send_message):
     registry.register("o2", {"required": [], "properties": {}}, o2)
     registry.register("send_message", {"required": ["recipient", "urgency", "message"],
                                        "properties": {"recipient": str, "urgency": str, "message": str}}, send_message)
+
+
+def _register_queue_print(registry):
+    """Seventh tool: a SIMULATED 3D-print job queue for the demo scene (no printer, no hardware, nothing leaves the process)."""
+    jobs = itertools.count(1)
+
+    def queue_print(part):
+        if part not in PRINTABLE_PARTS:
+            return {"tool": "queue_print", "ok": False, "data": {"error": "unknown part", "simulated": True, "demo": True}}
+        return {"tool": "queue_print", "ok": True,
+                "data": {"job_id": f"demo-print-{next(jobs)}", "part": part, "status": "queued", "simulated": True, "demo": True}}
+
+    registry.register("queue_print", {"required": ["part"], "properties": {"part": str}}, queue_print)
 
 
 def _datasource_registry(datasource):
@@ -184,4 +205,5 @@ def _datasource_registry(datasource):
                          "status": "queued"}}
 
     _register_six(registry, safety, place_result, data, o2, send_message)
+    _register_queue_print(registry)
     return registry
