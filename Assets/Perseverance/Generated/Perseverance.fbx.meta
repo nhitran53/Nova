@@ -1,0 +1,345 @@
+fileFormatVersion: 2
+guid: fdc73fdca4402e84f93f94e4f3088f96
+ModelImporter:
+  serializedVersion: 24200
+  internalIDToNameTable: []
+  externalObjects:
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Material
+    second: {fileID: -4168034502156906044, guid: fbf94b651efcef14c9acaf8ebf0b9052, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: aluminum
+    second: {fileID: 3681915851764461979, guid: fbf94b651efcef14c9acaf8ebf0b9052, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: aluminum.001
+    second: {fileID: -7433594724828474389, guid: fbf94b651efcef14c9acaf8ebf0b9052, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: aluminum.003
+    second: {fileID: -8215106692281176083, guid: fbf94b651efcef14c9acaf8ebf0b9052, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: aluminum_black
+    second: {fileID: -1431415256658296557, guid: fbf94b651efcef14c9acaf8ebf0b9052, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: aluminum_black.001
+    second: {fileID: -8878419861310349001, guid: fbf94b651efcef14c9acaf8ebf0b9052, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: arm_graphics
+    second: {fileID: 5138162791671917947, guid: fbf94b651efcef14c9acaf8ebf0b9052, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: array gold trim
+    second: {fileID: -4001251836344218061, guid: fbf94b651efcef14c9acaf8ebf0b9052, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: black_krinkle
+    second: {fileID: -6558968885445289667, guid: fbf94b651efcef14c9acaf8ebf0b9052, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: blades
+    second: {fileID: -351230208858722241, guid: fbf94b651efcef14c9acaf8ebf0b9052, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: brass
+    second: {fileID: -832526218702933911, guid: fbf94b651efcef14c9acaf8ebf0b9052, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: bronze
+    second: {fileID: 5118843005006731281, guid: fbf94b651efcef14c9acaf8ebf0b9052, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: copper
+    second: {fileID: 4884430629864757965, guid: fbf94b651efcef14c9acaf8ebf0b9052, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: foil_orange
+    second: {fileID: -300649417774342158, guid: fbf94b651efcef14c9acaf8ebf0b9052, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: glass lens
+    second: {fileID: -4118743188034661153, guid: fbf94b651efcef14c9acaf8ebf0b9052, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: glass_2
+    second: {fileID: 3097644186924348068, guid: fbf94b651efcef14c9acaf8ebf0b9052, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: glass_trans
+    second: {fileID: 1035351691134281034, guid: fbf94b651efcef14c9acaf8ebf0b9052, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: gold
+    second: {fileID: 267128029159767296, guid: fbf94b651efcef14c9acaf8ebf0b9052, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: gray_krinkle
+    second: {fileID: -4722488241605296039, guid: fbf94b651efcef14c9acaf8ebf0b9052, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: grey_brushed
+    second: {fileID: 6358435766123512768, guid: fbf94b651efcef14c9acaf8ebf0b9052, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: gunmetal
+    second: {fileID: 6917464931875263794, guid: fbf94b651efcef14c9acaf8ebf0b9052, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: gunmetal_dark
+    second: {fileID: 5440694829138060549, guid: fbf94b651efcef14c9acaf8ebf0b9052, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: hub
+    second: {fileID: -8614295581690777710, guid: fbf94b651efcef14c9acaf8ebf0b9052, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: iron
+    second: {fileID: -2309171139641316239, guid: fbf94b651efcef14c9acaf8ebf0b9052, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: mars_2020_01
+    second: {fileID: 2589750461077368077, guid: fbf94b651efcef14c9acaf8ebf0b9052, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: mars_2020_01_n
+    second: {fileID: -5429772153535241946, guid: fbf94b651efcef14c9acaf8ebf0b9052, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: mars_2020_02
+    second: {fileID: 360779467395171350, guid: fbf94b651efcef14c9acaf8ebf0b9052, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: mars_2020_02_n
+    second: {fileID: -8006740088108224184, guid: fbf94b651efcef14c9acaf8ebf0b9052, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: mars_2020_03
+    second: {fileID: -4480569285479852638, guid: fbf94b651efcef14c9acaf8ebf0b9052, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: mars_2020_03.002
+    second: {fileID: 6123949207157447753, guid: fbf94b651efcef14c9acaf8ebf0b9052, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: mars_2020_04
+    second: {fileID: -7328510034300302100, guid: fbf94b651efcef14c9acaf8ebf0b9052, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: mars_2020_04.001
+    second: {fileID: -1462259107420104488, guid: fbf94b651efcef14c9acaf8ebf0b9052, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: mars_2020_04_aluminum_r
+    second: {fileID: 4764330856428357711, guid: fbf94b651efcef14c9acaf8ebf0b9052, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: mars_2020_05
+    second: {fileID: 3951523120002466460, guid: fbf94b651efcef14c9acaf8ebf0b9052, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: mars_2020_05_aluminum
+    second: {fileID: -4750268233673383608, guid: fbf94b651efcef14c9acaf8ebf0b9052, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: mars_2020_05_brass
+    second: {fileID: 6459748994724475590, guid: fbf94b651efcef14c9acaf8ebf0b9052, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: mars_2020_05_cooling_lines
+    second: {fileID: 4775959201607404118, guid: fbf94b651efcef14c9acaf8ebf0b9052, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: mars_2020_05_gunmetal
+    second: {fileID: 3291248938195666521, guid: fbf94b651efcef14c9acaf8ebf0b9052, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: mars_2020_06
+    second: {fileID: -6125586829080685076, guid: fbf94b651efcef14c9acaf8ebf0b9052, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: mars_2020_06_brass
+    second: {fileID: 428219413320647564, guid: fbf94b651efcef14c9acaf8ebf0b9052, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: mars_2020_06_n
+    second: {fileID: 4027435600428137022, guid: fbf94b651efcef14c9acaf8ebf0b9052, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: mars_2020_07
+    second: {fileID: -4589716415835401663, guid: fbf94b651efcef14c9acaf8ebf0b9052, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: mars_2020_gunmetal_dark
+    second: {fileID: -7576572986765268556, guid: fbf94b651efcef14c9acaf8ebf0b9052, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: paint_white_base
+    second: {fileID: -3966341347222017007, guid: fbf94b651efcef14c9acaf8ebf0b9052, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: sample_handling_door
+    second: {fileID: 5260059946900279515, guid: fbf94b651efcef14c9acaf8ebf0b9052, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: spring
+    second: {fileID: 8036336465720711242, guid: fbf94b651efcef14c9acaf8ebf0b9052, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: transparent
+    second: {fileID: 2197420942780330991, guid: fbf94b651efcef14c9acaf8ebf0b9052, type: 2}
+  materials:
+    materialImportMode: 1
+    materialName: 0
+    materialSearch: 1
+    materialLocation: 1
+  animations:
+    legacyGenerateAnimations: 4
+    bakeSimulation: 0
+    resampleCurves: 1
+    optimizeGameObjects: 0
+    removeConstantScaleCurves: 0
+    motionNodeName: 
+    animationImportErrors: 
+    animationImportWarnings: 
+    animationRetargetingWarnings: 
+    animationDoRetargetingWarnings: 0
+    importAnimatedCustomProperties: 0
+    importConstraints: 0
+    animationCompression: 1
+    animationRotationError: 0.5
+    animationPositionError: 0.5
+    animationScaleError: 0.5
+    animationWrapMode: 0
+    extraExposedTransformPaths: []
+    extraUserProperties: []
+    clipAnimations: []
+    isReadable: 0
+  meshes:
+    lODScreenPercentages: []
+    globalScale: 1
+    meshCompression: 0
+    addColliders: 0
+    useSRGBMaterialColor: 1
+    sortHierarchyByName: 1
+    importPhysicalCameras: 1
+    importVisibility: 1
+    importBlendShapes: 1
+    importCameras: 0
+    importLights: 0
+    nodeNameCollisionStrategy: 1
+    fileIdsGeneration: 2
+    swapUVChannels: 0
+    generateSecondaryUV: 0
+    useFileUnits: 1
+    keepQuads: 0
+    weldVertices: 1
+    bakeAxisConversion: 1
+    preserveHierarchy: 0
+    skinWeightsMode: 0
+    maxBonesPerVertex: 4
+    minBoneWeight: 0.001
+    optimizeBones: 1
+    generateMeshLods: 0
+    meshLodGenerationFlags: 0
+    maximumMeshLod: -1
+    meshOptimizationFlags: -1
+    indexFormat: 0
+    secondaryUVAngleDistortion: 8
+    secondaryUVAreaDistortion: 15.000001
+    secondaryUVHardAngle: 88
+    secondaryUVMarginMethod: 1
+    secondaryUVMinLightmapResolution: 40
+    secondaryUVMinObjectScale: 1
+    secondaryUVPackMargin: 4
+    useFileScale: 1
+    strictVertexDataChecks: 0
+  tangentSpace:
+    normalSmoothAngle: 60
+    normalImportMode: 0
+    tangentImportMode: 3
+    normalCalculationMode: 4
+    legacyComputeAllNormalsFromSmoothingGroupsWhenMeshHasBlendShapes: 0
+    blendShapeNormalImportMode: 1
+    normalSmoothingSource: 0
+  referencedClips: []
+  importAnimation: 0
+  humanDescription:
+    serializedVersion: 3
+    human: []
+    skeleton: []
+    armTwist: 0.5
+    foreArmTwist: 0.5
+    upperLegTwist: 0.5
+    legTwist: 0.5
+    armStretch: 0.05
+    legStretch: 0.05
+    feetSpacing: 0
+    globalScale: 1
+    rootMotionBoneName: 
+    hasTranslationDoF: 0
+    hasExtraRoot: 0
+    skeletonHasParents: 1
+  lastHumanDescriptionAvatarSource: {instanceID: 0}
+  autoGenerateAvatarMappingIfUnspecified: 1
+  animationType: 2
+  humanoidOversampling: 1
+  avatarSetup: 0
+  addHumanoidExtraRootOnlyWhenUsingAvatar: 1
+  importBlendShapeDeformPercent: 1
+  remapMaterialsIfMaterialImportModeIsNone: 0
+  additionalBone: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

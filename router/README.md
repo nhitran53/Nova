@@ -18,7 +18,7 @@ Use `NOVA_MODELS_DIR` or `--model` to select a checkpoint
 A base model without a trained classifier head reports `untrained`
 Keep the trained label order matched to `labels.json`
 
-Put keys and database settings in the repo-root `.env` (next to `router/`)
+Put keys and database settings in the root `.env`
 Never commit that file
 Microphone and Windows playback need `sounddevice`
 
