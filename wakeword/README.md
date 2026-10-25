@@ -50,7 +50,7 @@ snappier demo. The mic, STT and TTS run in Python regardless.
 
 **Mic ownership.** voice_server owns the microphone during a conversation, so before *every* mic open (startup, after a mic
 error, after a conversation) this process calls `GET /voice/status` and, while the state is `loading` / `listening` /
-`processing` / `processing` / `speaking`, keeps the mic closed and polls every second (sleeping, no hot loop). An unreachable server does not block the
+`processing` / `speaking`, keeps the mic closed and polls every second (sleeping, no hot loop). An unreachable server does not block the
 mic. Residual race: if something else (e.g. the telephone gesture) starts a conversation *after* the status check while this
 process already holds the mic, it is only noticed at the next periodic status check (about 1 s), so the two can briefly
 compete for the device. Likewise `idle` after `/voice/stop` only means the server cleared its state, not that its worker
