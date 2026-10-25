@@ -1,0 +1,9 @@
+{"expected_disposition": "CLARIFY", "owner_decision": "projected_nonoxygen_reading", "provenance": "agent_authored_synthetic_not_training", "scored": false, "text": "If I walk to base 2, what will my radiation dose be?"}
+{"expected_disposition": "CLARIFY", "owner_decision": "projected_nonoxygen_reading", "provenance": "agent_authored_synthetic_not_training", "scored": false, "text": "If we go home, what will my BPM be?"}
+{"expected_disposition": "CLARIFY", "owner_decision": "two_intent_projection", "provenance": "agent_authored_synthetic_not_training", "scored": false, "text": "If I go to crater 19, what will temperature and oxygen be?"}
+{"expected_disposition": "CLARIFY", "owner_decision": "two_intent", "provenance": "agent_authored_synthetic_not_training", "scored": false, "text": "Show a map of home and read my oxygen."}
+{"expected_disposition": "CLARIFY", "owner_decision": "unsupported_resource", "provenance": "agent_authored_synthetic_not_training", "scored": false, "text": "Do I have enough battery to make it to base two?"}
+{"expected_disposition": "CLARIFY", "owner_decision": "unsupported_resource", "provenance": "agent_authored_synthetic_not_training", "scored": false, "text": "Can we reach home with this water supply?"}
+{"expected_disposition": "CLARIFY", "owner_decision": "unsupported_resource", "provenance": "agent_authored_synthetic_not_training", "scored": false, "text": "Will the fuel last until base b?"}
+{"expected_disposition": "CLARIFY", "owner_decision": "unsupported_resource", "provenance": "agent_authored_synthetic_not_training", "scored": false, "text": "Have I enough food to get to crater 41?"}
+{"expected_disposition": "CLARIFY", "owner_decision": "unsupported_resource", "provenance": "agent_authored_synthetic_not_training", "scored": false, "text": "See if we can reach base2 given our power budget."}

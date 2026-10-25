@@ -1,0 +1,2462 @@
+[
+  {
+    "family_id": "modal_sufficiency--call_navigation",
+    "construction": "modal_sufficiency",
+    "label": "call_navigation",
+    "split": "train",
+    "concept": "destination_distance_guidance_oxygen_feasibility",
+    "templates": [
+      "Is my {resource} sufficient for reaching {place}?",
+      "Will the {resource} reserve cover a walk to {place}?",
+      "Have we enough {resource} for the journey to {place}?",
+      "Would this much {resource} get me as far as {place}?"
+    ],
+    "contrast_group": "modal_sufficiency",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "modal_sufficiency--call_safety",
+    "construction": "modal_sufficiency",
+    "label": "call_safety",
+    "split": "calibration",
+    "concept": "generic_oxygen_pressure_health",
+    "templates": [
+      "Is my {resource} level adequate for basic health here at {place}?",
+      "Have we sufficient suit pressure for normal health at {place}?",
+      "Is the oxygen-pressure condition acceptable while stationary at {place}?",
+      "Does my present {resource} pass the generic safety check at {place}?"
+    ],
+    "contrast_group": "modal_sufficiency",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "modal_sufficiency--call_map",
+    "construction": "modal_sufficiency",
+    "label": "call_map",
+    "split": "calibration",
+    "concept": "map_display",
+    "templates": [
+      "Rather than {resource} status, could you display a map of {place}?",
+      "Could the map of {place} be brought up for viewing?",
+      "Have we a map view of {place} you can show?",
+      "Would you display the chart for {place}, not a route?"
+    ],
+    "contrast_group": "modal_sufficiency",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "modal_sufficiency--call_data",
+    "construction": "modal_sufficiency",
+    "label": "call_data",
+    "split": "test",
+    "concept": "current_vitals_sensor_readout",
+    "templates": [
+      "Instead of {resource}, could you read my current radiation dose here at {place}?",
+      "Have we a current BPM reading here at {place}?",
+      "Could you report the accumulated radiation dose here at {place}?",
+      "Would you give my suit pressure reading while I stand at {place}?"
+    ],
+    "contrast_group": "modal_sufficiency",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "modal_sufficiency--call_o2",
+    "construction": "modal_sufficiency",
+    "label": "call_o2",
+    "split": "test",
+    "concept": "current_oxygen_amount_time",
+    "templates": [
+      "Have we a reading for the {resource} remaining here at {place}?",
+      "Is the amount of {resource} in my tank available to read at {place}?",
+      "Could you tell me the remaining {resource} time, stationary at {place}?",
+      "Would you report the current {resource} percentage here at {place}?"
+    ],
+    "contrast_group": "modal_sufficiency",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "modal_sufficiency--call_llm",
+    "construction": "modal_sufficiency",
+    "label": "call_llm",
+    "split": "calibration",
+    "concept": "general_explanation",
+    "templates": [
+      "Is there enough context to explain oxygen diffusion, using {place} as an example?",
+      "Could you explain what radiation dose means for a reader at {place}?",
+      "Would you describe why a pressure suit needs oxygen, without checking me at {place}?",
+      "Have we a simple explanation of thermal radiation for the crew at {place}?"
+    ],
+    "contrast_group": "modal_sufficiency",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "modal_sufficiency--NO_TOOL",
+    "construction": "modal_sufficiency",
+    "label": "NO_TOOL",
+    "split": "calibration",
+    "concept": "nonrequest_or_negation",
+    "templates": [
+      "I have enough {resource} here at {place}; thanks, got it.",
+      "We have sufficient {resource} for now at {place}.",
+      "The {resource} reserve at {place} seems adequate to me.",
+      "Enough map details for me at {place}; I am all set."
+    ],
+    "contrast_group": "modal_sufficiency",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "modal_sufficiency--OOD",
+    "construction": "modal_sufficiency",
+    "label": "OOD",
+    "split": "dev",
+    "concept": "unrelated_task",
+    "templates": [
+      "Is my voice good enough to sing the song {resource} with the band {place}?",
+      "Would my savings cover buying a board game named {place}?",
+      "Is my budget sufficient for concert tickets to the group {place}?",
+      "Have we enough flour for a cake shaped like {place}?"
+    ],
+    "contrast_group": "modal_sufficiency",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "ability_modal--call_navigation",
+    "construction": "ability_modal",
+    "label": "call_navigation",
+    "split": "threshold",
+    "concept": "destination_distance_guidance_oxygen_feasibility",
+    "templates": [
+      "Could we make it over to {place} on this {resource}?",
+      "Can I reach {place} without exhausting the {resource}?",
+      "Am I able to get back to {place} with my {resource} reserve?",
+      "Might we make it to {place} before the {resource} runs out?"
+    ],
+    "contrast_group": "ability_modal",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "ability_modal--call_safety",
+    "construction": "ability_modal",
+    "label": "call_safety",
+    "split": "train",
+    "concept": "generic_oxygen_pressure_health",
+    "templates": [
+      "Can you assess my basic oxygen and pressure health at {place}?",
+      "Could we get a generic suit safety assessment here at {place}?",
+      "Might you check whether my {resource} is safe right now at {place}, no journey?",
+      "Are you able to assess pressure and oxygen health while I stay at {place}?"
+    ],
+    "contrast_group": "ability_modal",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "ability_modal--call_map",
+    "construction": "ability_modal",
+    "label": "call_map",
+    "split": "test",
+    "concept": "map_display",
+    "templates": [
+      "Can you show {place} on a map without reading my {resource}?",
+      "Could we view {place} on the map display?",
+      "Might you open a map focused on {place}?",
+      "Are you able to show the location chart for {place}?"
+    ],
+    "contrast_group": "ability_modal",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "ability_modal--call_data",
+    "construction": "ability_modal",
+    "label": "call_data",
+    "split": "threshold",
+    "concept": "current_vitals_sensor_readout",
+    "templates": [
+      "Can you report current BPM at {place} rather than {resource}?",
+      "Could we get the current radiation rate while standing at {place}?",
+      "Might you report my BPM at {place}?",
+      "Are you able to check my levels at {place}?"
+    ],
+    "contrast_group": "ability_modal",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "ability_modal--call_o2",
+    "construction": "ability_modal",
+    "label": "call_o2",
+    "split": "dev",
+    "concept": "current_oxygen_amount_time",
+    "templates": [
+      "Can you read my remaining {resource} percentage here at {place}?",
+      "Could we get the {resource} time left while staying at {place}?",
+      "Might you report how much {resource} is left at {place}?",
+      "Are you able to read the {resource} gauge here at {place}?"
+    ],
+    "contrast_group": "ability_modal",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "ability_modal--call_llm",
+    "construction": "ability_modal",
+    "label": "call_llm",
+    "split": "train",
+    "concept": "general_explanation",
+    "templates": [
+      "Can you explain why oxygen is needed, using {place} in the example?",
+      "Could we discuss how radiation is measured, not measure me at {place}?",
+      "Might you explain the science of suit pressure to us at {place}?",
+      "Are you able to explain why temperature falls at night near {place}?"
+    ],
+    "contrast_group": "ability_modal",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "ability_modal--NO_TOOL",
+    "construction": "ability_modal",
+    "label": "NO_TOOL",
+    "split": "threshold",
+    "concept": "nonrequest_or_negation",
+    "templates": [
+      "We can make it to {place} on this {resource}, but I am staying put.",
+      "I could read the map of {place} myself, thanks anyway.",
+      "We might check our {resource} later at {place}, not now.",
+      "I am able to see {place} already; never mind."
+    ],
+    "contrast_group": "ability_modal",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "ability_modal--OOD",
+    "construction": "ability_modal",
+    "label": "OOD",
+    "split": "threshold",
+    "concept": "unrelated_task",
+    "templates": [
+      "Can I make it as a singer in the {resource}-themed band called {place}?",
+      "Could we book a restaurant named {place}?",
+      "Might you buy me a video game called {place}?",
+      "Are you able to trade shares in the company {place}?"
+    ],
+    "contrast_group": "ability_modal",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "conditional_projection--call_navigation",
+    "construction": "conditional_projection",
+    "label": "call_navigation",
+    "split": "train",
+    "concept": "destination_distance_guidance_oxygen_feasibility",
+    "templates": [
+      "If I walk to {place}, what will my {resource} reserve be?",
+      "If we head for {place}, how much {resource} will remain on arrival?",
+      "What happens to the {resource} budget if I travel to {place}?",
+      "If I go out to {place}, how long would the remaining {resource} last?"
+    ],
+    "contrast_group": "conditional_projection",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "conditional_projection--call_safety",
+    "construction": "conditional_projection",
+    "label": "call_safety",
+    "split": "train",
+    "concept": "generic_oxygen_pressure_health",
+    "templates": [
+      "If you have my current readings at {place}, assess basic oxygen-pressure safety.",
+      "If the suit status is available at {place}, tell me whether it passes the generic health check.",
+      "If you can read my {resource} at {place}, evaluate its current health condition only.",
+      "If our pressure readings at {place} are available, check generic suit safety."
+    ],
+    "contrast_group": "conditional_projection",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "conditional_projection--call_map",
+    "construction": "conditional_projection",
+    "label": "call_map",
+    "split": "train",
+    "concept": "map_display",
+    "templates": [
+      "If the map is available, show {place}; leave the {resource} gauge alone.",
+      "If you can show a chart, center it on {place}.",
+      "If we have cartography, open the map around {place}.",
+      "If the location is indexed, put {place} on the map screen."
+    ],
+    "contrast_group": "conditional_projection",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "conditional_projection--call_data",
+    "construction": "conditional_projection",
+    "label": "call_data",
+    "split": "train",
+    "concept": "current_vitals_sensor_readout",
+    "templates": [
+      "If the sensors work, read current suit temperature at {place}, not {resource}.",
+      "If you have telemetry, give my present BPM at {place}.",
+      "If there is a current value, report suit pressure here at {place}.",
+      "If the data are fresh, check my vitals while I stand at {place}."
+    ],
+    "contrast_group": "conditional_projection",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "conditional_projection--call_o2",
+    "construction": "conditional_projection",
+    "label": "call_o2",
+    "split": "train",
+    "concept": "current_oxygen_amount_time",
+    "templates": [
+      "If the gauge is working, read the current {resource} level at {place}.",
+      "If you have telemetry, tell me my {resource} minutes left here at {place}.",
+      "If there is a current tank value, report the {resource} percentage at {place}.",
+      "If you can read it, give the {resource} amount now while I stay at {place}."
+    ],
+    "contrast_group": "conditional_projection",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "conditional_projection--call_llm",
+    "construction": "conditional_projection",
+    "label": "call_llm",
+    "split": "dev",
+    "concept": "general_explanation",
+    "templates": [
+      "If I heat gas in a sealed vessel at {place}, why does pressure rise?",
+      "If sunlight strikes a suit at {place}, explain the heat transfer.",
+      "If oxygen molecules spread in a room at {place}, why does that happen?",
+      "If radiation crosses matter at {place}, explain ionization in general."
+    ],
+    "contrast_group": "conditional_projection",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "conditional_projection--NO_TOOL",
+    "construction": "conditional_projection",
+    "label": "NO_TOOL",
+    "split": "dev",
+    "concept": "nonrequest_or_negation",
+    "templates": [
+      "If I go to {place}, I will use {resource}; still thinking about it.",
+      "If the map loads at {place}, I will look myself.",
+      "If I check {resource} at {place}, I will jot it down.",
+      "If we move to {place}, we will decide later."
+    ],
+    "contrast_group": "conditional_projection",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "conditional_projection--OOD",
+    "construction": "conditional_projection",
+    "label": "OOD",
+    "split": "calibration",
+    "concept": "unrelated_task",
+    "templates": [
+      "If our band {place} records a song about {resource}, can you book a recording studio?",
+      "If we form a rock band called {place}, can I be its singer?",
+      "If the stock named {place} rises, should I sell it?",
+      "If I order a pizza called {place}, can you pay for it?"
+    ],
+    "contrast_group": "conditional_projection",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "conditional_feasibility--call_navigation",
+    "construction": "conditional_feasibility",
+    "label": "call_navigation",
+    "split": "test",
+    "concept": "destination_distance_guidance_oxygen_feasibility",
+    "templates": [
+      "If the {resource} stays at this level, can we get to {place}?",
+      "Given our present {resource}, is reaching {place} feasible?",
+      "If we leave now with this {resource}, will we make it to {place}?",
+      "With the {resource} currently aboard, could I reach {place} and return?"
+    ],
+    "contrast_group": "conditional_feasibility",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "conditional_feasibility--call_safety",
+    "construction": "conditional_feasibility",
+    "label": "call_safety",
+    "split": "dev",
+    "concept": "generic_oxygen_pressure_health",
+    "templates": [
+      "Given the present {resource}, is my basic suit health okay at {place}, without travelling?",
+      "If my pressure is stable, is the generic health check okay here at {place}?",
+      "With current oxygen and pressure values, am I in acceptable condition at {place}?",
+      "If I remain at {place}, assess my current oxygen-pressure safety, not a travel budget."
+    ],
+    "contrast_group": "conditional_feasibility",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "conditional_feasibility--call_map",
+    "construction": "conditional_feasibility",
+    "label": "call_map",
+    "split": "train",
+    "concept": "map_display",
+    "templates": [
+      "Given a map display, show {place} instead of checking {resource}.",
+      "If the chart is available, could you show the {place} area?",
+      "With the map screen ready, can we view {place}?",
+      "If the display works, put the map of {place} up."
+    ],
+    "contrast_group": "conditional_feasibility",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "conditional_feasibility--call_data",
+    "construction": "conditional_feasibility",
+    "label": "call_data",
+    "split": "train",
+    "concept": "current_vitals_sensor_readout",
+    "templates": [
+      "Given fresh telemetry, read present radiation rate at {place} instead of {resource}.",
+      "If you can access sensors, check my radiation level here at {place}.",
+      "With fresh readings, could you give my BPM while I stand at {place}?",
+      "If my vitals are available, read them now at {place}."
+    ],
+    "contrast_group": "conditional_feasibility",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "conditional_feasibility--call_o2",
+    "construction": "conditional_feasibility",
+    "label": "call_o2",
+    "split": "train",
+    "concept": "current_oxygen_amount_time",
+    "templates": [
+      "Given a working gauge, what is my {resource} amount at {place}?",
+      "If telemetry is available, can I get my current {resource} minutes here at {place}?",
+      "With the tank sensor online, read the {resource} percentage at {place}.",
+      "If you have the status, how much {resource} remains now at {place}?"
+    ],
+    "contrast_group": "conditional_feasibility",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "conditional_feasibility--call_llm",
+    "construction": "conditional_feasibility",
+    "label": "call_llm",
+    "split": "train",
+    "concept": "general_explanation",
+    "templates": [
+      "Given ideal gases, why does warming one raise its pressure at {place}?",
+      "If there were no atmosphere at {place}, why would sound not carry?",
+      "With a sealed suit at {place}, explain why carbon dioxide must be removed.",
+      "If radiation is ionizing, what does that word mean to someone at {place}?"
+    ],
+    "contrast_group": "conditional_feasibility",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "conditional_feasibility--NO_TOOL",
+    "construction": "conditional_feasibility",
+    "label": "NO_TOOL",
+    "split": "calibration",
+    "concept": "nonrequest_or_negation",
+    "templates": [
+      "Given our {resource}, we might reach {place}; I am just thinking out loud.",
+      "If we leave for {place}, I will pack my notebook.",
+      "With the map of {place} ready, I am all set.",
+      "If I need {resource} later at {place}, I will ask."
+    ],
+    "contrast_group": "conditional_feasibility",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "conditional_feasibility--OOD",
+    "construction": "conditional_feasibility",
+    "label": "OOD",
+    "split": "train",
+    "concept": "unrelated_task",
+    "templates": [
+      "Given my vocal range, could I sing the {resource} song with the group {place}?",
+      "If my credit is good, can you get me a mortgage for a shop called {place}?",
+      "With twenty dollars, can I buy the album {place}?",
+      "If my team wins, can you place a sports bet on {place}?"
+    ],
+    "contrast_group": "conditional_feasibility",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "see_check_if--call_navigation",
+    "construction": "see_check_if",
+    "label": "call_navigation",
+    "split": "train",
+    "concept": "destination_distance_guidance_oxygen_feasibility",
+    "templates": [
+      "See if I can make it to {place} given this {resource}.",
+      "Check whether the {resource} covers reaching {place}.",
+      "Find out if we can get to {place} on our remaining {resource}.",
+      "See how far {place} is from our current position."
+    ],
+    "contrast_group": "see_check_if",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "see_check_if--call_safety",
+    "construction": "see_check_if",
+    "label": "call_safety",
+    "split": "train",
+    "concept": "generic_oxygen_pressure_health",
+    "templates": [
+      "See if my oxygen-pressure condition is healthy here at {place}.",
+      "Check whether the present {resource} passes the generic health check at {place}.",
+      "Find out if my suit oxygen and pressure are safe right now at {place}.",
+      "See whether my basic suit condition at {place} is okay, without trip planning."
+    ],
+    "contrast_group": "see_check_if",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "see_check_if--call_map",
+    "construction": "see_check_if",
+    "label": "call_map",
+    "split": "train",
+    "concept": "map_display",
+    "templates": [
+      "See if you can display {place} on the map, not my {resource} status.",
+      "Check whether the map view can be centered on {place}, and show it.",
+      "Find the map of {place} and display it.",
+      "See about putting {place} on the map screen for me."
+    ],
+    "contrast_group": "see_check_if",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "see_check_if--call_data",
+    "construction": "see_check_if",
+    "label": "call_data",
+    "split": "train",
+    "concept": "current_vitals_sensor_readout",
+    "templates": [
+      "Check my current suit pressure at {place}, not the {resource} level.",
+      "Check my levels while I stand here at {place}.",
+      "Find out what my current temperature is at {place}.",
+      "See whether a current cumulative dose reading is available here at {place}."
+    ],
+    "contrast_group": "see_check_if",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "see_check_if--call_o2",
+    "construction": "see_check_if",
+    "label": "call_o2",
+    "split": "calibration",
+    "concept": "current_oxygen_amount_time",
+    "templates": [
+      "See if you can read my current {resource} amount at {place}.",
+      "Check the {resource} levels now while I stay at {place}.",
+      "Find out how many {resource} minutes I have here at {place}.",
+      "See what the {resource} percentage says right now at {place}."
+    ],
+    "contrast_group": "see_check_if",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "see_check_if--call_llm",
+    "construction": "see_check_if",
+    "label": "call_llm",
+    "split": "dev",
+    "concept": "general_explanation",
+    "templates": [
+      "See if you can explain oxygen partial pressure with {place} as an example.",
+      "Check my understanding: why does radiation ionize matter at {place}?",
+      "Find a simple way to explain heat loss to the crew at {place}.",
+      "See whether you can explain air diffusion to someone at {place}."
+    ],
+    "contrast_group": "see_check_if",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "see_check_if--NO_TOOL",
+    "construction": "see_check_if",
+    "label": "NO_TOOL",
+    "split": "test",
+    "concept": "nonrequest_or_negation",
+    "templates": [
+      "I can see how far {place} is already, no need to check.",
+      "Never mind the check at {place}; I have finished reading my {resource}.",
+      "We checked the {resource} at {place} ourselves; thanks.",
+      "I see the map of {place}, leave it alone."
+    ],
+    "contrast_group": "see_check_if",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "see_check_if--OOD",
+    "construction": "see_check_if",
+    "label": "OOD",
+    "split": "calibration",
+    "concept": "unrelated_task",
+    "templates": [
+      "See if you can buy tickets for the {resource}-themed concert by {place}.",
+      "Check whether the bakery called {place} takes cake orders.",
+      "Find out if I can buy tickets for the film {place}.",
+      "See about booking a haircut at a salon called {place}."
+    ],
+    "contrast_group": "see_check_if",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "imperative_status--call_navigation",
+    "construction": "imperative_status",
+    "label": "call_navigation",
+    "split": "train",
+    "concept": "destination_distance_guidance_oxygen_feasibility",
+    "templates": [
+      "Assess the {resource} budget for a walk to {place}.",
+      "Give us directions toward {place}.",
+      "Calculate the distance from here to {place}.",
+      "Evaluate whether my {resource} can carry me to {place}."
+    ],
+    "contrast_group": "imperative_status",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "imperative_status--call_safety",
+    "construction": "imperative_status",
+    "label": "call_safety",
+    "split": "test",
+    "concept": "generic_oxygen_pressure_health",
+    "templates": [
+      "Assess generic oxygen and pressure health here at {place}.",
+      "Give us a basic suit safety check while we stay at {place}.",
+      "Evaluate my current {resource} for basic health at {place}, not travel.",
+      "Run the generic pressure-oxygen condition check at {place}."
+    ],
+    "contrast_group": "imperative_status",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "imperative_status--call_map",
+    "construction": "imperative_status",
+    "label": "call_map",
+    "split": "threshold",
+    "concept": "map_display",
+    "templates": [
+      "Open the map of {place}; no {resource} reading needed.",
+      "Bring up the map around {place}.",
+      "Put the map of {place} in view.",
+      "Highlight {place} on the map display."
+    ],
+    "contrast_group": "imperative_status",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "imperative_status--call_data",
+    "construction": "imperative_status",
+    "label": "call_data",
+    "split": "train",
+    "concept": "current_vitals_sensor_readout",
+    "templates": [
+      "Read present cumulative radiation dose at {place}; skip the {resource} gauge.",
+      "Give us the BPM reading while stationary at {place}.",
+      "Report my suit pressure now at {place}.",
+      "Check my vitals here at {place}."
+    ],
+    "contrast_group": "imperative_status",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "imperative_status--call_o2",
+    "construction": "imperative_status",
+    "label": "call_o2",
+    "split": "train",
+    "concept": "current_oxygen_amount_time",
+    "templates": [
+      "Read the {resource} gauge now at {place}.",
+      "Give us the remaining {resource} time here at {place}.",
+      "Report my current {resource} percentage at {place}.",
+      "Check my {resource} levels while I stay at {place}."
+    ],
+    "contrast_group": "imperative_status",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "imperative_status--call_llm",
+    "construction": "imperative_status",
+    "label": "call_llm",
+    "split": "test",
+    "concept": "general_explanation",
+    "templates": [
+      "Explain the difference between dose and dose rate for the crew at {place}.",
+      "Describe why a suit needs pressure, using {place} as an example.",
+      "Teach us how oxygen supports respiration at {place}.",
+      "Define thermal equilibrium for someone working at {place}."
+    ],
+    "contrast_group": "imperative_status",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "imperative_status--NO_TOOL",
+    "construction": "imperative_status",
+    "label": "NO_TOOL",
+    "split": "test",
+    "concept": "nonrequest_or_negation",
+    "templates": [
+      "Do not assess the {resource} budget for {place}.",
+      "Leave the route to {place} alone.",
+      "Cancel any request to read my {resource} at {place}.",
+      "Stop trying to display the map of {place}."
+    ],
+    "contrast_group": "imperative_status",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "imperative_status--OOD",
+    "construction": "imperative_status",
+    "label": "OOD",
+    "split": "train",
+    "concept": "unrelated_task",
+    "templates": [
+      "Order the album {resource} by the band {place}.",
+      "Buy the album named {place}.",
+      "Book me a table at the cafe called {place}.",
+      "Write a dating profile for my fictional character {place}."
+    ],
+    "contrast_group": "imperative_status",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "wh_quantity--call_navigation",
+    "construction": "wh_quantity",
+    "label": "call_navigation",
+    "split": "train",
+    "concept": "destination_distance_guidance_oxygen_feasibility",
+    "templates": [
+      "How far would we walk to {place}?",
+      "How much {resource} would the journey to {place} take?",
+      "How long is the route to {place} on foot?",
+      "What amount of {resource} would remain after reaching {place}?"
+    ],
+    "contrast_group": "wh_quantity",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "wh_quantity--call_safety",
+    "construction": "wh_quantity",
+    "label": "call_safety",
+    "split": "train",
+    "concept": "generic_oxygen_pressure_health",
+    "templates": [
+      "How does my current {resource} look for basic health at {place}?",
+      "What is my generic oxygen-pressure safety status here at {place}?",
+      "How healthy is the current suit oxygen and pressure condition at {place}?",
+      "What does the basic suit safety assessment say while I stay at {place}?"
+    ],
+    "contrast_group": "wh_quantity",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "wh_quantity--call_map",
+    "construction": "wh_quantity",
+    "label": "call_map",
+    "split": "train",
+    "concept": "map_display",
+    "templates": [
+      "What map view shows {place}? Display that, not the {resource} gauge.",
+      "How about displaying a chart centered on {place}?",
+      "Which map view shows {place}, please open it?",
+      "Where is {place} on the map, show the map rather than directions?"
+    ],
+    "contrast_group": "wh_quantity",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "wh_quantity--call_data",
+    "construction": "wh_quantity",
+    "label": "call_data",
+    "split": "threshold",
+    "concept": "current_vitals_sensor_readout",
+    "templates": [
+      "What is my present BPM here at {place}, not my {resource}?",
+      "What is my current BPM at {place}?",
+      "How high is the suit temperature right now at {place}?",
+      "What is the pressure reading in my suit here at {place}?"
+    ],
+    "contrast_group": "wh_quantity",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "wh_quantity--call_o2",
+    "construction": "wh_quantity",
+    "label": "call_o2",
+    "split": "train",
+    "concept": "current_oxygen_amount_time",
+    "templates": [
+      "How much {resource} is currently in the tank at {place}?",
+      "How long will my {resource} last at the current rate here at {place}, no travel?",
+      "What is my remaining {resource} percentage here at {place}?",
+      "How many minutes of {resource} remain now while I stay at {place}?"
+    ],
+    "contrast_group": "wh_quantity",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "wh_quantity--call_llm",
+    "construction": "wh_quantity",
+    "label": "call_llm",
+    "split": "calibration",
+    "concept": "general_explanation",
+    "templates": [
+      "How does oxygen move across a membrane, for the crew at {place}?",
+      "What is cumulative radiation dose, conceptually, not my reading at {place}?",
+      "How does suit insulation work in general at {place}?",
+      "Why does gas pressure change with temperature, using {place} as an example?"
+    ],
+    "contrast_group": "wh_quantity",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "wh_quantity--NO_TOOL",
+    "construction": "wh_quantity",
+    "label": "NO_TOOL",
+    "split": "train",
+    "concept": "nonrequest_or_negation",
+    "templates": [
+      "How far {place} feels today; I am just thinking out loud.",
+      "What a lot of {resource} we have at {place}!",
+      "How long the route to {place} looks from here!",
+      "What a clear map of {place}, I do not need anything."
+    ],
+    "contrast_group": "wh_quantity",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "wh_quantity--OOD",
+    "construction": "wh_quantity",
+    "label": "OOD",
+    "split": "threshold",
+    "concept": "unrelated_task",
+    "templates": [
+      "How much is the record titled {resource} by the band {place}?",
+      "What are the lyrics to the pop song {place}?",
+      "How long is the movie titled {place}?",
+      "Which hotel called {place} has a pool, book it for me?"
+    ],
+    "contrast_group": "wh_quantity",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "elliptical--call_navigation",
+    "construction": "elliptical",
+    "label": "call_navigation",
+    "split": "train",
+    "concept": "destination_distance_guidance_oxygen_feasibility",
+    "templates": [
+      "{place}, distance from here please.",
+      "{resource} budget to {place}, please.",
+      "Route toward {place}, on foot.",
+      "Making it to {place} on this {resource}?"
+    ],
+    "contrast_group": "elliptical",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "elliptical--call_safety",
+    "construction": "elliptical",
+    "label": "call_safety",
+    "split": "dev",
+    "concept": "generic_oxygen_pressure_health",
+    "templates": [
+      "Generic suit safety, stationary at {place}.",
+      "Current oxygen-pressure health at {place}, please.",
+      "Basic {resource} health check at {place}, no journey.",
+      "Pressure and oxygen condition at {place}, assess please."
+    ],
+    "contrast_group": "elliptical",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "elliptical--call_map",
+    "construction": "elliptical",
+    "label": "call_map",
+    "split": "dev",
+    "concept": "map_display",
+    "templates": [
+      "Map of {place}, not {resource} data.",
+      "{place} chart, display please.",
+      "A map of {place}, on screen.",
+      "Map view around {place}, please."
+    ],
+    "contrast_group": "elliptical",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "elliptical--call_data",
+    "construction": "elliptical",
+    "label": "call_data",
+    "split": "train",
+    "concept": "current_vitals_sensor_readout",
+    "templates": [
+      "Current radiation rate, not {resource}, here at {place}.",
+      "Radiation rate at my current position at {place}, please.",
+      "Current cumulative dose here at {place}.",
+      "Suit temperature at {place}, readout please."
+    ],
+    "contrast_group": "elliptical",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "elliptical--call_o2",
+    "construction": "elliptical",
+    "label": "call_o2",
+    "split": "test",
+    "concept": "current_oxygen_amount_time",
+    "templates": [
+      "{resource} amount now, at {place}.",
+      "Remaining {resource} minutes, stationary at {place}.",
+      "Current {resource} percentage here at {place}.",
+      "{resource} gauge readout, no journey, here at {place}."
+    ],
+    "contrast_group": "elliptical",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "elliptical--call_llm",
+    "construction": "elliptical",
+    "label": "call_llm",
+    "split": "train",
+    "concept": "general_explanation",
+    "templates": [
+      "Oxygen diffusion explanation for {place}, please.",
+      "Radiation units, a definition for the crew at {place}.",
+      "Suit cooling theory for someone at {place}.",
+      "Gas pressure science, with {place} as the example."
+    ],
+    "contrast_group": "elliptical",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "elliptical--NO_TOOL",
+    "construction": "elliptical",
+    "label": "NO_TOOL",
+    "split": "train",
+    "concept": "nonrequest_or_negation",
+    "templates": [
+      "No route to {place}, thanks.",
+      "{resource} at {place} logged.",
+      "Never mind the map of {place}.",
+      "Thanks, got it: {place} and {resource} noted."
+    ],
+    "contrast_group": "elliptical",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "elliptical--OOD",
+    "construction": "elliptical",
+    "label": "OOD",
+    "split": "train",
+    "concept": "unrelated_task",
+    "templates": [
+      "Tickets for the {resource} musical by {place}, buy two.",
+      "Concert ticket for the band {place}.",
+      "A taxi booking to the nightclub {place}.",
+      "Stock advice for the company {place}."
+    ],
+    "contrast_group": "elliptical",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "truncated--call_navigation",
+    "construction": "truncated",
+    "label": "call_navigation",
+    "split": "train",
+    "concept": "destination_distance_guidance_oxygen_feasibility",
+    "templates": [
+      "Uh can I make it to",
+      "Sorry how far is",
+      "Will I have enough",
+      "Could we get there with the {resource} if we go to"
+    ],
+    "contrast_group": "truncated",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "truncated--call_safety",
+    "construction": "truncated",
+    "label": "call_safety",
+    "split": "train",
+    "concept": "generic_oxygen_pressure_health",
+    "templates": [
+      "Please show the generic safety status of my {resource}, I mean",
+      "Could you check basic oxygen-pressure health here at {place}, um",
+      "Suit safety check at {place}, can you just",
+      "Assess current {resource} health at {place}, what I meant was"
+    ],
+    "contrast_group": "truncated",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "truncated--call_map",
+    "construction": "truncated",
+    "label": "call_map",
+    "split": "calibration",
+    "concept": "map_display",
+    "templates": [
+      "Please display {place} on the map, not the {resource} screen, I mean",
+      "Could you open the chart of {place}, um",
+      "The map view for {place}, can you just",
+      "Put {place} on the map screen, what I meant was"
+    ],
+    "contrast_group": "truncated",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "truncated--call_data",
+    "construction": "truncated",
+    "label": "call_data",
+    "split": "train",
+    "concept": "current_vitals_sensor_readout",
+    "templates": [
+      "Please read current temperature at {place}, not the {resource}, I mean",
+      "Could you check my vitals at {place}, um",
+      "Current radiation dose here at {place}, can you just",
+      "Read my suit pressure at {place}, what I meant was"
+    ],
+    "contrast_group": "truncated",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "truncated--call_o2",
+    "construction": "truncated",
+    "label": "call_o2",
+    "split": "threshold",
+    "concept": "current_oxygen_amount_time",
+    "templates": [
+      "Please read the current {resource} level at {place}, I mean",
+      "Could you give my {resource} minutes here at {place}, um",
+      "The current {resource} percentage at {place}, can you just",
+      "Read the {resource} amount at {place}, what I meant was"
+    ],
+    "contrast_group": "truncated",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "truncated--call_llm",
+    "construction": "truncated",
+    "label": "call_llm",
+    "split": "train",
+    "concept": "general_explanation",
+    "templates": [
+      "Please explain oxygen diffusion at {place}, I mean",
+      "Could you define radiation dose for us at {place}, um",
+      "The science of pressure suits at {place}, can you explain",
+      "Explain heat transfer for the crew at {place}, what I meant was"
+    ],
+    "contrast_group": "truncated",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "truncated--NO_TOOL",
+    "construction": "truncated",
+    "label": "NO_TOOL",
+    "split": "train",
+    "concept": "nonrequest_or_negation",
+    "templates": [
+      "About the {resource} at {place}, I was just going to say",
+      "Do not open the map of {place}, I mean",
+      "No journey to {place}, we were just",
+      "Never mind the {resource} check at {place}, I was"
+    ],
+    "contrast_group": "truncated",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "truncated--OOD",
+    "construction": "truncated",
+    "label": "OOD",
+    "split": "dev",
+    "concept": "unrelated_task",
+    "templates": [
+      "Please buy the album {resource} by {place}, I mean",
+      "Could you buy the album {place}, um",
+      "A pizza from the restaurant {place}, can you just",
+      "Order the board game {place}, what I meant was"
+    ],
+    "contrast_group": "truncated",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "hypothetical--call_navigation",
+    "construction": "hypothetical",
+    "label": "call_navigation",
+    "split": "calibration",
+    "concept": "destination_distance_guidance_oxygen_feasibility",
+    "templates": [
+      "Suppose we walked to {place}; would this {resource} suffice?",
+      "Imagine heading to {place}; could we make it with this {resource}?",
+      "Say I tried getting to {place}; what would the {resource} budget look like?",
+      "Were we to go to {place}, would the {resource} last?"
+    ],
+    "contrast_group": "hypothetical",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "hypothetical--call_safety",
+    "construction": "hypothetical",
+    "label": "call_safety",
+    "split": "train",
+    "concept": "generic_oxygen_pressure_health",
+    "templates": [
+      "Suppose you check only my current suit health here at {place}; is it okay?",
+      "Imagine running the generic safety check on present oxygen and pressure at {place}; do that please.",
+      "Say I ask for current {resource} health at {place}, not a route; assess it.",
+      "Would you assess basic suit safety while I remain at {place}?"
+    ],
+    "contrast_group": "hypothetical",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "hypothetical--call_map",
+    "construction": "hypothetical",
+    "label": "call_map",
+    "split": "threshold",
+    "concept": "map_display",
+    "templates": [
+      "Suppose I wanted a map of {place}, not {resource} status; show that map.",
+      "Imagine a chart centered on {place}; show that view.",
+      "Say we want the map of {place} on screen; open it.",
+      "Would you put up a map around {place} for viewing?"
+    ],
+    "contrast_group": "hypothetical",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "hypothetical--call_data",
+    "construction": "hypothetical",
+    "label": "call_data",
+    "split": "calibration",
+    "concept": "current_vitals_sensor_readout",
+    "templates": [
+      "Suppose I want current suit pressure at {place} rather than {resource}; read it.",
+      "Imagine checking my levels right now at {place}; please do that.",
+      "Say I ask for current BPM while stationary at {place}; read it.",
+      "Would you tell me the present suit temperature at {place}?"
+    ],
+    "contrast_group": "hypothetical",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "hypothetical--call_o2",
+    "construction": "hypothetical",
+    "label": "call_o2",
+    "split": "train",
+    "concept": "current_oxygen_amount_time",
+    "templates": [
+      "Suppose you read my {resource} gauge at {place}; what does it say now?",
+      "Imagine checking only the current {resource} minutes at {place}; do that.",
+      "Say I want the present {resource} amount at {place}; report it.",
+      "Would you tell me my current {resource} percentage here at {place}?"
+    ],
+    "contrast_group": "hypothetical",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "hypothetical--call_llm",
+    "construction": "hypothetical",
+    "label": "call_llm",
+    "split": "train",
+    "concept": "general_explanation",
+    "templates": [
+      "Suppose oxygen vanished from a sealed room at {place}; explain what diffusion means then.",
+      "Imagine an ideal gas at {place}; explain its pressure law.",
+      "Say radiation hits a detector at {place}; how does detection work in theory?",
+      "Were a suit insulated at {place}, why would heat still escape?"
+    ],
+    "contrast_group": "hypothetical",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "hypothetical--NO_TOOL",
+    "construction": "hypothetical",
+    "label": "NO_TOOL",
+    "split": "train",
+    "concept": "nonrequest_or_negation",
+    "templates": [
+      "Suppose I went to {place}; I am only daydreaming.",
+      "Imagine we had more {resource} at {place}; what a thought.",
+      "Say we looked at the map of {place}; I am only daydreaming.",
+      "Were I to check my {resource} at {place}, I would do it myself."
+    ],
+    "contrast_group": "hypothetical",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "hypothetical--OOD",
+    "construction": "hypothetical",
+    "label": "OOD",
+    "split": "train",
+    "concept": "unrelated_task",
+    "templates": [
+      "Imagine our band {place} sings about {resource}; could you book us a gig?",
+      "Imagine buying a restaurant called {place}; write an advertisement.",
+      "Say I want tickets for the musical {place}; buy two.",
+      "Were I to sell shares in {place}, what would my tax bill be?"
+    ],
+    "contrast_group": "hypothetical",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "negated_scope--call_navigation",
+    "construction": "negated_scope",
+    "label": "call_navigation",
+    "split": "train",
+    "concept": "destination_distance_guidance_oxygen_feasibility",
+    "templates": [
+      "Not a map: assess whether the {resource} covers reaching {place}.",
+      "Do not read just my tank; tell me if I can make it to {place}.",
+      "No generic health check; I need the distance to {place}.",
+      "Without starting guidance, assess our {resource} budget to {place}."
+    ],
+    "contrast_group": "negated_scope",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "negated_scope--call_safety",
+    "construction": "negated_scope",
+    "label": "call_safety",
+    "split": "threshold",
+    "concept": "generic_oxygen_pressure_health",
+    "templates": [
+      "Not a trip assessment: check generic oxygen-pressure safety at {place}.",
+      "Do not give a route; assess my current {resource} health at {place}.",
+      "No map needed, just basic suit safety here at {place}.",
+      "Without reading out numbers, assess current pressure and oxygen health at {place}."
+    ],
+    "contrast_group": "negated_scope",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "negated_scope--call_map",
+    "construction": "negated_scope",
+    "label": "call_map",
+    "split": "train",
+    "concept": "map_display",
+    "templates": [
+      "Not an {resource} check: open the map of {place}.",
+      "Do not plan travel; show a chart of {place}.",
+      "No distance calculation, just put {place} on the map.",
+      "Without assessing oxygen, display the map of {place}."
+    ],
+    "contrast_group": "negated_scope",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "negated_scope--call_data",
+    "construction": "negated_scope",
+    "label": "call_data",
+    "split": "dev",
+    "concept": "current_vitals_sensor_readout",
+    "templates": [
+      "Not a {resource} reading: report current radiation dose at {place}.",
+      "Do not project a future value; report current radiation dose at {place}.",
+      "No safety judgment, just my suit pressure number here at {place}.",
+      "Without a route, check my vitals while stationary at {place}."
+    ],
+    "contrast_group": "negated_scope",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "negated_scope--call_o2",
+    "construction": "negated_scope",
+    "label": "call_o2",
+    "split": "train",
+    "concept": "current_oxygen_amount_time",
+    "templates": [
+      "Not a trip: read my current {resource} minutes at {place}.",
+      "Do not assess feasibility; give the {resource} percentage here at {place}.",
+      "No health judgment, just the current {resource} amount at {place}.",
+      "Without planning travel, check {resource} levels now at {place}."
+    ],
+    "contrast_group": "negated_scope",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "negated_scope--call_llm",
+    "construction": "negated_scope",
+    "label": "call_llm",
+    "split": "train",
+    "concept": "general_explanation",
+    "templates": [
+      "Not my readings: explain radiation dose in general for {place}.",
+      "Do not assess me; describe why suit pressure matters at {place}.",
+      "No live status, just explain oxygen consumption to the crew at {place}.",
+      "Without giving travel advice, explain heat transfer using {place} as an example."
+    ],
+    "contrast_group": "negated_scope",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "negated_scope--NO_TOOL",
+    "construction": "negated_scope",
+    "label": "NO_TOOL",
+    "split": "threshold",
+    "concept": "nonrequest_or_negation",
+    "templates": [
+      "Do not navigate to {place}; I have no travel plan.",
+      "No {resource} check here at {place}, please.",
+      "Do not show {place} on the map, I am done.",
+      "No need to assess {resource} for {place}; we are not going."
+    ],
+    "contrast_group": "negated_scope",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "negated_scope--OOD",
+    "construction": "negated_scope",
+    "label": "OOD",
+    "split": "train",
+    "concept": "unrelated_task",
+    "templates": [
+      "Not a suit task: buy the record {resource} by {place}.",
+      "Do not discuss suits; buy the video game called {place}.",
+      "No mission task: book a table at the restaurant {place}.",
+      "Without talking about oxygen, write an ad for my cafe {place}."
+    ],
+    "contrast_group": "negated_scope",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "comparative--call_navigation",
+    "construction": "comparative",
+    "label": "call_navigation",
+    "split": "calibration",
+    "concept": "destination_distance_guidance_oxygen_feasibility",
+    "templates": [
+      "Rather than the map, give the walking distance to {place}.",
+      "Instead of the current {resource} number, assess the budget for {place}.",
+      "I prefer a route toward {place} over a chart display.",
+      "Compare the {resource} needed to reach {place} with what we have."
+    ],
+    "contrast_group": "comparative",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "comparative--call_safety",
+    "construction": "comparative",
+    "label": "call_safety",
+    "split": "train",
+    "concept": "generic_oxygen_pressure_health",
+    "templates": [
+      "Rather than a route, assess basic oxygen-pressure health at {place}.",
+      "Instead of numbers alone, check generic {resource} health here at {place}.",
+      "I prefer a current suit safety check to a map at {place}.",
+      "Assess current oxygen and pressure against basic health criteria at {place}, not travel."
+    ],
+    "contrast_group": "comparative",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "comparative--call_map",
+    "construction": "comparative",
+    "label": "call_map",
+    "split": "test",
+    "concept": "map_display",
+    "templates": [
+      "Rather than the {resource} screen, display the map around {place}.",
+      "Instead of {resource} information, open the chart of {place}.",
+      "I prefer a map display of {place} to spoken directions.",
+      "Show the map around {place} rather than assessing a trip."
+    ],
+    "contrast_group": "comparative",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "comparative--call_data",
+    "construction": "comparative",
+    "label": "call_data",
+    "split": "train",
+    "concept": "current_vitals_sensor_readout",
+    "templates": [
+      "Rather than {resource}, report my present temperature at {place}.",
+      "Instead of a safety judgment, read my suit pressure here at {place}.",
+      "I prefer a current radiation dose readout to an explanation at {place}.",
+      "Read my temperature at {place} rather than projecting an arrival value."
+    ],
+    "contrast_group": "comparative",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "comparative--call_o2",
+    "construction": "comparative",
+    "label": "call_o2",
+    "split": "train",
+    "concept": "current_oxygen_amount_time",
+    "templates": [
+      "Rather than a route, give current {resource} time here at {place}.",
+      "Instead of a health verdict, read the {resource} gauge at {place}.",
+      "I prefer the current {resource} percentage to a journey assessment at {place}.",
+      "Read the amount of {resource} remaining at {place}, not a future value."
+    ],
+    "contrast_group": "comparative",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "comparative--call_llm",
+    "construction": "comparative",
+    "label": "call_llm",
+    "split": "train",
+    "concept": "general_explanation",
+    "templates": [
+      "Rather than a reading, explain radiation dose to someone at {place}.",
+      "Instead of route advice, describe oxygen metabolism for the crew at {place}.",
+      "I prefer an explanation of suit pressure to a live check at {place}.",
+      "Explain temperature versus heat using {place} as an example, not my sensor."
+    ],
+    "contrast_group": "comparative",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "comparative--NO_TOOL",
+    "construction": "comparative",
+    "label": "NO_TOOL",
+    "split": "train",
+    "concept": "nonrequest_or_negation",
+    "templates": [
+      "I prefer staying at {place} over walking; do not navigate.",
+      "More {resource} than yesterday at {place}, nice.",
+      "The map of {place} looks clearer now; thanks.",
+      "Less interest in a route to {place} today; cancel the plan."
+    ],
+    "contrast_group": "comparative",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "comparative--OOD",
+    "construction": "comparative",
+    "label": "OOD",
+    "split": "calibration",
+    "concept": "unrelated_task",
+    "templates": [
+      "Rather than science, buy the {resource} album by the group {place}.",
+      "Instead of a suit check, book the cafe {place} for dinner.",
+      "I prefer stock advice on the company {place} to science talk.",
+      "Compare ticket prices for the movie {place} and buy the cheapest."
+    ],
+    "contrast_group": "comparative",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "asr_noise--call_navigation",
+    "construction": "asr_noise",
+    "label": "call_navigation",
+    "split": "threshold",
+    "concept": "destination_distance_guidance_oxygen_feasibility",
+    "templates": [
+      "uh we got {resource} can we make {place} or not",
+      "hey distance here {place} need that",
+      "so um {resource} enough get us over {place}",
+      "yeah route me {place} please now"
+    ],
+    "contrast_group": "asr_noise",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "asr_noise--call_safety",
+    "construction": "asr_noise",
+    "label": "call_safety",
+    "split": "calibration",
+    "concept": "generic_oxygen_pressure_health",
+    "templates": [
+      "uh generic oxygen pressure safe here {place} check",
+      "hey current {resource} health not travel {place}",
+      "so um suit safety status here {place} please",
+      "yeah oxygen pressure okay right now {place} no trip"
+    ],
+    "contrast_group": "asr_noise",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "asr_noise--call_map",
+    "construction": "asr_noise",
+    "label": "call_map",
+    "split": "train",
+    "concept": "map_display",
+    "templates": [
+      "uh map {place} please not {resource} gauge",
+      "hey chart centered {place} show it",
+      "so um bring map {place} up",
+      "yeah {place} on map not route"
+    ],
+    "contrast_group": "asr_noise",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "asr_noise--call_data",
+    "construction": "asr_noise",
+    "label": "call_data",
+    "split": "train",
+    "concept": "current_vitals_sensor_readout",
+    "templates": [
+      "uh read BPM here {place} not {resource}",
+      "hey radiation dose current {place} number please",
+      "so um suit pressure here {place} reading",
+      "yeah check my levels now {place}"
+    ],
+    "contrast_group": "asr_noise",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "asr_noise--call_o2",
+    "construction": "asr_noise",
+    "label": "call_o2",
+    "split": "train",
+    "concept": "current_oxygen_amount_time",
+    "templates": [
+      "uh {resource} left now here {place}",
+      "hey current {resource} minutes {place} please",
+      "so um tank {resource} percent here {place}",
+      "yeah read {resource} level stationary {place}"
+    ],
+    "contrast_group": "asr_noise",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "asr_noise--call_llm",
+    "construction": "asr_noise",
+    "label": "call_llm",
+    "split": "threshold",
+    "concept": "general_explanation",
+    "templates": [
+      "uh explain oxygen diffusion for crew {place}",
+      "hey radiation dose means what in general {place}",
+      "so um pressure suit science explain for {place}",
+      "yeah why heat radiates explain using {place}"
+    ],
+    "contrast_group": "asr_noise",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "asr_noise--NO_TOOL",
+    "construction": "asr_noise",
+    "label": "NO_TOOL",
+    "split": "train",
+    "concept": "nonrequest_or_negation",
+    "templates": [
+      "uh not going {place} no route",
+      "hey {resource} at {place} just noting it",
+      "so um map {place} no dont open",
+      "yeah no check {resource} here {place}"
+    ],
+    "contrast_group": "asr_noise",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "asr_noise--OOD",
+    "construction": "asr_noise",
+    "label": "OOD",
+    "split": "train",
+    "concept": "unrelated_task",
+    "templates": [
+      "uh band {place} song {resource} can i make it singer",
+      "hey buy album {place} please",
+      "so um pizza order shop named {place}",
+      "yeah book haircut salon called {place}"
+    ],
+    "contrast_group": "asr_noise",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "polite_request--call_navigation",
+    "construction": "polite_request",
+    "label": "call_navigation",
+    "split": "dev",
+    "concept": "destination_distance_guidance_oxygen_feasibility",
+    "templates": [
+      "When you have a moment, assess the {resource} needed for {place}.",
+      "Please could we find a way to {place} on foot?",
+      "I would appreciate the distance to {place}.",
+      "Would you kindly see whether my {resource} can get me to {place}?"
+    ],
+    "contrast_group": "polite_request",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "polite_request--call_safety",
+    "construction": "polite_request",
+    "label": "call_safety",
+    "split": "train",
+    "concept": "generic_oxygen_pressure_health",
+    "templates": [
+      "When convenient, assess generic oxygen-pressure health at {place}.",
+      "Please could we have a basic suit safety check here at {place}?",
+      "I would appreciate a current {resource} health assessment at {place}, no journey.",
+      "Would you kindly check present oxygen and pressure safety at {place}?"
+    ],
+    "contrast_group": "polite_request",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "polite_request--call_map",
+    "construction": "polite_request",
+    "label": "call_map",
+    "split": "train",
+    "concept": "map_display",
+    "templates": [
+      "Please show the map around {place}; I do not need a {resource} reading.",
+      "Please could we see a chart centered on {place}?",
+      "I would appreciate a map view around {place}.",
+      "Would you kindly highlight {place} on the map screen?"
+    ],
+    "contrast_group": "polite_request",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "polite_request--call_data",
+    "construction": "polite_request",
+    "label": "call_data",
+    "split": "dev",
+    "concept": "current_vitals_sensor_readout",
+    "templates": [
+      "Please give my current radiation rate here at {place}, rather than {resource}.",
+      "Please could we have the cumulative dose reading at {place}?",
+      "I would appreciate my current BPM here at {place}.",
+      "Would you kindly check my vitals while I stay at {place}?"
+    ],
+    "contrast_group": "polite_request",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "polite_request--call_o2",
+    "construction": "polite_request",
+    "label": "call_o2",
+    "split": "threshold",
+    "concept": "current_oxygen_amount_time",
+    "templates": [
+      "When you have a moment, read my current {resource} percentage at {place}.",
+      "Please could we have the remaining {resource} minutes here at {place}?",
+      "I would appreciate the present {resource} amount at {place}.",
+      "Would you kindly check {resource} levels while I stay at {place}?"
+    ],
+    "contrast_group": "polite_request",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "polite_request--call_llm",
+    "construction": "polite_request",
+    "label": "call_llm",
+    "split": "threshold",
+    "concept": "general_explanation",
+    "templates": [
+      "When convenient, explain why oxygen is consumed, for the crew at {place}.",
+      "Please could we discuss the meaning of radiation dose, not my data at {place}?",
+      "I would appreciate an explanation of pressure suits for {place}.",
+      "Would you kindly explain temperature versus heat using {place} as an example?"
+    ],
+    "contrast_group": "polite_request",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "polite_request--NO_TOOL",
+    "construction": "polite_request",
+    "label": "NO_TOOL",
+    "split": "calibration",
+    "concept": "nonrequest_or_negation",
+    "templates": [
+      "Thank you, no route to {place} is wanted.",
+      "Please leave my {resource} alone here at {place}.",
+      "I appreciate the map of {place}; nothing more needed.",
+      "Kindly cancel the plan for {place}, we are staying put."
+    ],
+    "contrast_group": "polite_request",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "polite_request--OOD",
+    "construction": "polite_request",
+    "label": "OOD",
+    "split": "test",
+    "concept": "unrelated_task",
+    "templates": [
+      "Would you kindly buy the {resource} record by the band {place}?",
+      "Please could we buy tickets to the band {place}?",
+      "I would appreciate a restaurant booking at the cafe {place}.",
+      "Would you kindly write an ad for the board game {place}?"
+    ],
+    "contrast_group": "polite_request",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "embedded_indirect--call_navigation",
+    "construction": "embedded_indirect",
+    "label": "call_navigation",
+    "split": "test",
+    "concept": "destination_distance_guidance_oxygen_feasibility",
+    "templates": [
+      "What I am trying to find out is whether this {resource} gets us to {place}.",
+      "The question on my mind is how far {place} lies from here.",
+      "I wonder whether reaching {place} is within our {resource} budget.",
+      "Tell me what I need to know about the distance to {place}."
+    ],
+    "contrast_group": "embedded_indirect",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "embedded_indirect--call_safety",
+    "construction": "embedded_indirect",
+    "label": "call_safety",
+    "split": "threshold",
+    "concept": "generic_oxygen_pressure_health",
+    "templates": [
+      "What I need to know is whether my basic suit health passes here at {place}.",
+      "The question is whether current oxygen and pressure are healthy at {place}, not travel.",
+      "I wonder whether my present {resource} condition is okay at {place}; assess it.",
+      "Tell me what the generic safety check says while I stay at {place}."
+    ],
+    "contrast_group": "embedded_indirect",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "embedded_indirect--call_map",
+    "construction": "embedded_indirect",
+    "label": "call_map",
+    "split": "train",
+    "concept": "map_display",
+    "templates": [
+      "What I need displayed is the map of {place}, not the {resource} gauge.",
+      "The thing I need displayed is the chart of {place}.",
+      "I wonder if you could put the map around {place} on screen.",
+      "Tell me by showing the map where {place} is located."
+    ],
+    "contrast_group": "embedded_indirect",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "embedded_indirect--call_data",
+    "construction": "embedded_indirect",
+    "label": "call_data",
+    "split": "calibration",
+    "concept": "current_vitals_sensor_readout",
+    "templates": [
+      "The value I want is current BPM at {place}, not {resource}.",
+      "The value I want is current cumulative radiation dose at {place}.",
+      "I wonder what my present suit pressure is here at {place}; read it.",
+      "Tell me what the vitals sensors say right now at {place}."
+    ],
+    "contrast_group": "embedded_indirect",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "embedded_indirect--call_o2",
+    "construction": "embedded_indirect",
+    "label": "call_o2",
+    "split": "calibration",
+    "concept": "current_oxygen_amount_time",
+    "templates": [
+      "What I need read aloud is my current {resource} amount here at {place}.",
+      "The value I want is current {resource} time remaining at {place}.",
+      "I wonder how much {resource} is in the tank here at {place}; read it.",
+      "Tell me what the {resource} gauge says now while I stay at {place}."
+    ],
+    "contrast_group": "embedded_indirect",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "embedded_indirect--call_llm",
+    "construction": "embedded_indirect",
+    "label": "call_llm",
+    "split": "train",
+    "concept": "general_explanation",
+    "templates": [
+      "What I want explained is why a pressure suit holds air, using {place} as an example.",
+      "The concept I want defined is radiation dose, for the crew at {place}.",
+      "I wonder how oxygen diffusion works in theory at {place}; explain it.",
+      "Tell me what makes thermal radiation different from conduction at {place}."
+    ],
+    "contrast_group": "embedded_indirect",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "embedded_indirect--NO_TOOL",
+    "construction": "embedded_indirect",
+    "label": "NO_TOOL",
+    "split": "threshold",
+    "concept": "nonrequest_or_negation",
+    "templates": [
+      "What I meant was that the {resource} at {place} looks fine to me.",
+      "The thing I am saying is that we are not going to {place}.",
+      "I wonder about {place}, but I am staying here.",
+      "All I meant was that the map of {place} looks nice."
+    ],
+    "contrast_group": "embedded_indirect",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "embedded_indirect--OOD",
+    "construction": "embedded_indirect",
+    "label": "OOD",
+    "split": "threshold",
+    "concept": "unrelated_task",
+    "templates": [
+      "What I want purchased is the album {resource} by {place}.",
+      "The question is whether I can make it as a singer in the band {place}.",
+      "I wonder if you could buy the game titled {place}.",
+      "Tell me what stocks to buy in the company {place}."
+    ],
+    "contrast_group": "embedded_indirect",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "contrastive_correction--call_navigation",
+    "construction": "contrastive_correction",
+    "label": "call_navigation",
+    "split": "test",
+    "concept": "destination_distance_guidance_oxygen_feasibility",
+    "templates": [
+      "I meant the {resource} budget for reaching {place}, not the gauge alone.",
+      "Correction: I want the distance to {place}, not a map.",
+      "Actually assess whether we can make it to {place} on this {resource}.",
+      "Let me rephrase: directions toward {place}, not a chart display."
+    ],
+    "contrast_group": "contrastive_correction",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "contrastive_correction--call_safety",
+    "construction": "contrastive_correction",
+    "label": "call_safety",
+    "split": "test",
+    "concept": "generic_oxygen_pressure_health",
+    "templates": [
+      "I meant basic oxygen-pressure safety here at {place}, not destination feasibility.",
+      "Correction: assess my present {resource} health at {place}, not time left.",
+      "Actually run generic suit safety while I stay at {place}.",
+      "Let me rephrase: current pressure and oxygen health at {place}, not a route."
+    ],
+    "contrast_group": "contrastive_correction",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "contrastive_correction--call_map",
+    "construction": "contrastive_correction",
+    "label": "call_map",
+    "split": "test",
+    "concept": "map_display",
+    "templates": [
+      "I meant a map of {place}, not the {resource} status screen.",
+      "Correction: put {place} on the chart screen, no travel assessment.",
+      "Actually open the map around {place}, not oxygen status.",
+      "Let me rephrase: a map view centered on {place}, please."
+    ],
+    "contrast_group": "contrastive_correction",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "contrastive_correction--call_data",
+    "construction": "contrastive_correction",
+    "label": "call_data",
+    "split": "test",
+    "concept": "current_vitals_sensor_readout",
+    "templates": [
+      "Correction: read my current radiation rate at {place}, not my {resource}.",
+      "Correction: read present BPM here at {place}, not oxygen.",
+      "Actually check my vitals right now at {place}.",
+      "Let me rephrase: suit pressure reading while stationary at {place}, not safety."
+    ],
+    "contrast_group": "contrastive_correction",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "contrastive_correction--call_o2",
+    "construction": "contrastive_correction",
+    "label": "call_o2",
+    "split": "test",
+    "concept": "current_oxygen_amount_time",
+    "templates": [
+      "I meant the current {resource} amount at {place}, not a travel budget.",
+      "Correction: read present {resource} minutes here at {place}.",
+      "Actually check {resource} levels now while I stay at {place}.",
+      "Let me rephrase: the {resource} percentage right now at {place}, not feasibility."
+    ],
+    "contrast_group": "contrastive_correction",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "contrastive_correction--call_llm",
+    "construction": "contrastive_correction",
+    "label": "call_llm",
+    "split": "test",
+    "concept": "general_explanation",
+    "templates": [
+      "I meant explain radiation dose to the crew at {place}, not read my dose.",
+      "Correction: describe oxygen metabolism, using {place} as an example.",
+      "Actually explain suit pressure in general for {place}, no sensor check.",
+      "Let me rephrase: why does temperature affect gases at {place}, conceptually?"
+    ],
+    "contrast_group": "contrastive_correction",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "contrastive_correction--NO_TOOL",
+    "construction": "contrastive_correction",
+    "label": "NO_TOOL",
+    "split": "test",
+    "concept": "nonrequest_or_negation",
+    "templates": [
+      "I meant no trip to {place}; cancel navigation.",
+      "Correction: no {resource} check here at {place}.",
+      "Actually I do not want the map of {place} displayed.",
+      "Let me rephrase: I am staying at {place}; forget it."
+    ],
+    "contrast_group": "contrastive_correction",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "contrastive_correction--OOD",
+    "construction": "contrastive_correction",
+    "label": "OOD",
+    "split": "test",
+    "concept": "unrelated_task",
+    "templates": [
+      "I meant the song {resource} by {place}; buy the recording.",
+      "Correction: buy the album called {place}, not a mission task.",
+      "Actually book a table at the restaurant {place}.",
+      "Let me rephrase: order a cake from the shop named {place}."
+    ],
+    "contrast_group": "contrastive_correction",
+    "provenance": "agent-authored synthetic; four manually written templates"
+  },
+  {
+    "family_id": "modal_sufficiency--call_navigation--mission-1",
+    "construction": "modal_sufficiency",
+    "label": "call_navigation",
+    "split": "train",
+    "concept": "mission_adjacent_call_navigation",
+    "templates": [
+      "Is this {resource} enough for the crew to walk to {place}?",
+      "Would reaching {place} leave enough {resource} for the return?",
+      "Will my tank cover going around the ridge to {place}?",
+      "Is the remaining {resource} sufficient to get by the rocks to {place}?"
+    ],
+    "contrast_group": "modal_sufficiency",
+    "provenance": "agent-authored synthetic v4.1; four manually written templates"
+  },
+  {
+    "family_id": "embedded_indirect--call_navigation--mission-2",
+    "construction": "embedded_indirect",
+    "label": "call_navigation",
+    "split": "train",
+    "concept": "mission_adjacent_call_navigation",
+    "templates": [
+      "What I need is a route to {place} using the flatter ground.",
+      "The crew would like to know the distance to {place}.",
+      "Thanks; my request is for directions to {place}, not a screen view.",
+      "I am wondering whether this {resource} lets us reach {place}."
+    ],
+    "contrast_group": "embedded_indirect",
+    "provenance": "agent-authored synthetic v4.1; four manually written templates"
+  },
+  {
+    "family_id": "ability_modal--call_safety--mission-1",
+    "construction": "ability_modal",
+    "label": "call_safety",
+    "split": "train",
+    "concept": "mission_adjacent_call_safety",
+    "templates": [
+      "Can you check whether this {resource} is safe for basic health while I rest at {place}?",
+      "Could you assess my oxygen pressure condition here by {place}?",
+      "Can you do a generic health assessment for the crew at {place}?",
+      "Could you check my present {resource} safety without planning a walk to {place}?"
+    ],
+    "contrast_group": "ability_modal",
+    "provenance": "agent-authored synthetic v4.1; four manually written templates"
+  },
+  {
+    "family_id": "polite_request--call_safety--mission-2",
+    "construction": "polite_request",
+    "label": "call_safety",
+    "split": "train",
+    "concept": "mission_adjacent_call_safety",
+    "templates": [
+      "Please assess whether my {resource} is safe while stationary at {place}.",
+      "Would you kindly evaluate my current oxygen pressure for basic health at {place}?",
+      "Please check the overall safety of this tank level here at {place}.",
+      "Please give a generic oxygen safety assessment, using the current readings at {place}."
+    ],
+    "contrast_group": "polite_request",
+    "provenance": "agent-authored synthetic v4.1; four manually written templates"
+  },
+  {
+    "family_id": "modal_sufficiency--call_map--mission-1",
+    "construction": "modal_sufficiency",
+    "label": "call_map",
+    "split": "train",
+    "concept": "mission_adjacent_call_map",
+    "templates": [
+      "Could you bring the map of {place} onto this screen?",
+      "Have you a map display for the crew at {place}?",
+      "Would you show the area around {place} without calculating a walk?",
+      "Could a map view of {place} stay open while I check my {resource} myself?"
+    ],
+    "contrast_group": "modal_sufficiency",
+    "provenance": "agent-authored synthetic v4.1; four manually written templates"
+  },
+  {
+    "family_id": "embedded_indirect--call_map--mission-2",
+    "construction": "embedded_indirect",
+    "label": "call_map",
+    "split": "train",
+    "concept": "mission_adjacent_call_map",
+    "templates": [
+      "What I want displayed is the terrain map by {place}.",
+      "I was hoping to see {place} in the map book on this screen.",
+      "The crew request a map view of {place}.",
+      "I would like the map around {place} opened, okay?"
+    ],
+    "contrast_group": "embedded_indirect",
+    "provenance": "agent-authored synthetic v4.1; four manually written templates"
+  },
+  {
+    "family_id": "modal_sufficiency--call_data--mission-1",
+    "construction": "modal_sufficiency",
+    "label": "call_data",
+    "split": "train",
+    "concept": "mission_adjacent_call_data",
+    "templates": [
+      "Could you read my current BPM while I stand by {place}?",
+      "Have you the temperature reading for this suit at {place}?",
+      "Would you report the current radiation rate, for example in the area of {place}?",
+      "Could you show my present vitals on screen at {place}?"
+    ],
+    "contrast_group": "modal_sufficiency",
+    "provenance": "agent-authored synthetic v4.1; four manually written templates"
+  },
+  {
+    "family_id": "embedded_indirect--call_data--mission-2",
+    "construction": "embedded_indirect",
+    "label": "call_data",
+    "split": "train",
+    "concept": "mission_adjacent_call_data",
+    "templates": [
+      "What I need is my current suit pressure reading at {place}.",
+      "I am wondering what the radiation dose counter reads here at {place}.",
+      "The crew request a current temperature readout at {place}.",
+      "I would like to know my BPM now, before reaching {place}."
+    ],
+    "contrast_group": "embedded_indirect",
+    "provenance": "agent-authored synthetic v4.1; four manually written templates"
+  },
+  {
+    "family_id": "ability_modal--call_o2--mission-1",
+    "construction": "ability_modal",
+    "label": "call_o2",
+    "split": "train",
+    "concept": "mission_adjacent_call_o2",
+    "templates": [
+      "Can you read this tank percentage while I rest at {place}?",
+      "Could you report my remaining {resource} in minutes here at {place}?",
+      "Can I see the present oxygen amount on screen at {place}?",
+      "Could you tell the crew how much {resource} is left at {place}?"
+    ],
+    "contrast_group": "ability_modal",
+    "provenance": "agent-authored synthetic v4.1; four manually written templates"
+  },
+  {
+    "family_id": "polite_request--call_o2--mission-2",
+    "construction": "polite_request",
+    "label": "call_o2",
+    "split": "train",
+    "concept": "mission_adjacent_call_o2",
+    "templates": [
+      "Please tell me my oxygen percentage at {place}, okay?",
+      "Please read the minutes of {resource} remaining here by {place}.",
+      "Would you kindly report the current amount in this tank at {place}?",
+      "Please check how much {resource} I have while I am going nowhere at {place}."
+    ],
+    "contrast_group": "polite_request",
+    "provenance": "agent-authored synthetic v4.1; four manually written templates"
+  },
+  {
+    "family_id": "see_check_if--call_llm--mission-1",
+    "construction": "see_check_if",
+    "label": "call_llm",
+    "split": "train",
+    "concept": "mission_adjacent_call_llm",
+    "templates": [
+      "Can you check if my understanding of oxygen diffusion is right, using {place} as an example?",
+      "Can you see why a map might display contour lines around {place}, and explain that?",
+      "Check if you can explain what a BPM reading means to the crew at {place}.",
+      "See if you can describe how pressure changes during a walk, without planning one to {place}."
+    ],
+    "contrast_group": "see_check_if",
+    "provenance": "agent-authored synthetic v4.1; four manually written templates"
+  },
+  {
+    "family_id": "imperative_status--call_llm--mission-2",
+    "construction": "imperative_status",
+    "label": "call_llm",
+    "split": "train",
+    "concept": "mission_adjacent_call_llm",
+    "templates": [
+      "Explain the basic physics of heat loss near {place}.",
+      "Describe why oxygen content is called a percentage, for example here at {place}.",
+      "Explain what generic suit health means, without assessing mine at {place}.",
+      "Teach me how chart symbols work using the map of {place} as an example."
+    ],
+    "contrast_group": "imperative_status",
+    "provenance": "agent-authored synthetic v4.1; four manually written templates"
+  },
+  {
+    "family_id": "modal_sufficiency--NO_TOOL--mission-1",
+    "construction": "modal_sufficiency",
+    "label": "NO_TOOL",
+    "split": "train",
+    "concept": "mission_adjacent_NO_TOOL",
+    "templates": [
+      "Enough for me, thanks; we are at {place} now.",
+      "My {resource} is fine; I have enough to sit here at {place}, just thinking out loud.",
+      "I have enough map detail about {place}; thanks, got it.",
+      "This is sufficient; forget it, I am staying put at {place}."
+    ],
+    "contrast_group": "modal_sufficiency",
+    "provenance": "agent-authored synthetic v4.1; four manually written templates"
+  },
+  {
+    "family_id": "ability_modal--NO_TOOL--mission-2",
+    "construction": "ability_modal",
+    "label": "NO_TOOL",
+    "split": "train",
+    "concept": "mission_adjacent_NO_TOOL",
+    "templates": [
+      "I can stay here at {place}; never mind the walk.",
+      "We could leave for {place}, but we are not going.",
+      "I can read this {resource} gauge myself at {place}; thanks.",
+      "I can manage with this map of {place}; forget it."
+    ],
+    "contrast_group": "ability_modal",
+    "provenance": "agent-authored synthetic v4.1; four manually written templates"
+  },
+  {
+    "family_id": "polite_request--NO_TOOL--mission-3",
+    "construction": "polite_request",
+    "label": "NO_TOOL",
+    "split": "train",
+    "concept": "mission_adjacent_NO_TOOL",
+    "templates": [
+      "Please forget the trip to {place}; I am staying put.",
+      "Thanks, got it; leave the map of {place} closed.",
+      "Please cancel the {resource} check at {place}, my tank is fine.",
+      "Please leave it there; we are at {place} now."
+    ],
+    "contrast_group": "polite_request",
+    "provenance": "agent-authored synthetic v4.1; four manually written templates"
+  },
+  {
+    "family_id": "embedded_indirect--NO_TOOL--mission-4",
+    "construction": "embedded_indirect",
+    "label": "NO_TOOL",
+    "split": "train",
+    "concept": "mission_adjacent_NO_TOOL",
+    "templates": [
+      "What I meant was thanks; the map of {place} is clear now.",
+      "I wanted you to know that we are at {place} now.",
+      "All I was saying is that my {resource} is fine here at {place}.",
+      "The thing is, I am not reaching {place} today; forget it."
+    ],
+    "contrast_group": "embedded_indirect",
+    "provenance": "agent-authored synthetic v4.1; four manually written templates"
+  },
+  {
+    "family_id": "modal_sufficiency--OOD--mission-1",
+    "construction": "modal_sufficiency",
+    "label": "OOD",
+    "split": "train",
+    "concept": "mission_adjacent_OOD",
+    "templates": [
+      "Is there enough time for you to book a flight to Tokyo for me?",
+      "Would you be able to order replacement parts for my bicycle?",
+      "Have you enough information to give me tomorrow's weather forecast for Paris?",
+      "Is my singing good enough; can I make it as a singer?"
+    ],
+    "contrast_group": "modal_sufficiency",
+    "provenance": "agent-authored synthetic v4.1; four manually written templates"
+  },
+  {
+    "family_id": "ability_modal--OOD--mission-2",
+    "construction": "ability_modal",
+    "label": "OOD",
+    "split": "train",
+    "concept": "mission_adjacent_OOD",
+    "templates": [
+      "Can you message my sister that I reached base 2?",
+      "Could you call my dentist and reschedule my appointment?",
+      "Can you play some music while I check my tank?",
+      "Could you set a timer for dinner, say twenty minutes?"
+    ],
+    "contrast_group": "ability_modal",
+    "provenance": "agent-authored synthetic v4.1; four manually written templates"
+  },
+  {
+    "family_id": "polite_request--OOD--mission-3",
+    "construction": "polite_request",
+    "label": "OOD",
+    "split": "train",
+    "concept": "mission_adjacent_OOD",
+    "templates": [
+      "Please send an email to my landlord about the broken heater.",
+      "Please tell me the latest football score from Earth.",
+      "Please buy tickets for a concert called Oxygen.",
+      "Please book a table by the window for the crew tonight."
+    ],
+    "contrast_group": "polite_request",
+    "provenance": "agent-authored synthetic v4.1; four manually written templates"
+  },
+  {
+    "family_id": "embedded_indirect--OOD--mission-4",
+    "construction": "embedded_indirect",
+    "label": "OOD",
+    "split": "train",
+    "concept": "mission_adjacent_OOD",
+    "templates": [
+      "I want to know how I make it to the top of the charts.",
+      "What I need is for you to order a replacement oxygen tank online.",
+      "I was hoping you could explain why my favorite team lost yesterday.",
+      "I would like you to display the lyrics of the song Walking on Air."
+    ],
+    "contrast_group": "embedded_indirect",
+    "provenance": "agent-authored synthetic v4.1; four manually written templates"
+  },
+  {
+    "family_id": "contrastive_scope_selection--call_navigation--v4-2",
+    "construction": "contrastive_scope_selection",
+    "label": "call_navigation",
+    "split": "train",
+    "concept": "destination_distance_guidance_oxygen_feasibility",
+    "templates": [
+      "not asking for the {resource} gauge just route me to {place}",
+      "\"go to {place}\" is my request not a line from a play about {resource}",
+      "not wondering about someone else i need my {resource} budget to reach {place}",
+      "not the song about {place} i want directions there with my {resource}"
+    ],
+    "contrast_group": "contrastive_scope_selection",
+    "provenance": "agent-authored synthetic; four manually written v4.2 templates"
+  },
+  {
+    "family_id": "contrastive_scope_selection--call_safety--v4-2",
+    "construction": "contrastive_scope_selection",
+    "label": "call_safety",
+    "split": "train",
+    "concept": "generic_oxygen_pressure_health",
+    "templates": [
+      "not asking for a route to {place} just assess my oxygen pressure health",
+      "\"check oxygen safety\" is my request here at {place} not dialogue",
+      "not wondering about someone else assess my own {resource} safety at {place}",
+      "not the song about {place} i need a basic oxygen pressure health check"
+    ],
+    "contrast_group": "contrastive_scope_selection",
+    "provenance": "agent-authored synthetic; four manually written v4.2 templates"
+  },
+  {
+    "family_id": "contrastive_scope_selection--call_map--v4-2",
+    "construction": "contrastive_scope_selection",
+    "label": "call_map",
+    "split": "train",
+    "concept": "map_display",
+    "templates": [
+      "not asking for a route to {place} just show the map with no {resource} check",
+      "\"show the map\" is my request at {place} not dialogue about oxygen",
+      "not wondering about someone else open my map of {place} leave the {resource} alone",
+      "not the song about {place} i want its map on screen"
+    ],
+    "contrast_group": "contrastive_scope_selection",
+    "provenance": "agent-authored synthetic; four manually written v4.2 templates"
+  },
+  {
+    "family_id": "contrastive_scope_selection--call_data--v4-2",
+    "construction": "contrastive_scope_selection",
+    "label": "call_data",
+    "split": "train",
+    "concept": "current_vitals_sensor_readout",
+    "templates": [
+      "not asking for a route to {place} just read my radiation levels no {resource} check",
+      "\"check my heart rate\" is my request here at {place} not dialogue about oxygen",
+      "not wondering about someone else read my current temperature at {place}",
+      "not asking how much {resource} gets me to {place} just read my suit pressure"
+    ],
+    "contrast_group": "contrastive_scope_selection",
+    "provenance": "agent-authored synthetic; four manually written v4.2 templates"
+  },
+  {
+    "family_id": "contrastive_scope_selection--call_o2--v4-2",
+    "construction": "contrastive_scope_selection",
+    "label": "call_o2",
+    "split": "train",
+    "concept": "current_oxygen_amount_time",
+    "templates": [
+      "not asking for a route to {place} just read my {resource} left",
+      "\"how much oxygen do i have left\" is my request at {place} not dialogue",
+      "not wondering about someone else read my own remaining {resource} here at {place}",
+      "not asking how far i can go from {place} just my tank level"
+    ],
+    "contrast_group": "contrastive_scope_selection",
+    "provenance": "agent-authored synthetic; four manually written v4.2 templates"
+  },
+  {
+    "family_id": "contrastive_scope_selection--call_llm--v4-2",
+    "construction": "contrastive_scope_selection",
+    "label": "call_llm",
+    "split": "train",
+    "concept": "general_explanation",
+    "templates": [
+      "not asking for a route to {place} just explain how oxygen spreads",
+      "\"why does oxygen matter\" is my question here at {place} not dialogue",
+      "not wondering about my own readings explain how a pressure suit works at {place}",
+      "not asking how much {resource} gets me to {place} just explain the concept of a trip budget"
+    ],
+    "contrast_group": "contrastive_scope_selection",
+    "provenance": "agent-authored synthetic; four manually written v4.2 templates"
+  },
+  {
+    "family_id": "contrastive_scope_selection--NO_TOOL--v4-2",
+    "construction": "contrastive_scope_selection",
+    "label": "NO_TOOL",
+    "split": "train",
+    "concept": "nonrequest_or_negation",
+    "templates": [
+      "not asking for a route to {place} just quoting a play about {resource}",
+      "\"how much oxygen do i have left\" is dialogue at {place} not my request",
+      "not asking about my own {resource} just imagining someone else walking to {place}",
+      "not the trip to {place} anymore drop that {resource} plan"
+    ],
+    "contrast_group": "contrastive_scope_selection",
+    "provenance": "agent-authored synthetic; four manually written v4.2 templates"
+  },
+  {
+    "family_id": "contrastive_scope_selection--OOD--v4-2",
+    "construction": "contrastive_scope_selection",
+    "label": "OOD",
+    "split": "train",
+    "concept": "unrelated_task",
+    "templates": [
+      "not asking for a route to {place} just play the song about oxygen",
+      "\"check my heart rate\" is the song title buy that recording for my night at {place}",
+      "not wondering about someone else send my sister the poem about {resource} at {place}",
+      "not asking how much {resource} gets me to {place} just set a dinner timer"
+    ],
+    "contrast_group": "contrastive_scope_selection",
+    "provenance": "agent-authored synthetic; four manually written v4.2 templates"
+  },
+  {
+    "family_id": "imperative_status--call_navigation--v4-2",
+    "construction": "imperative_status",
+    "label": "call_navigation",
+    "split": "train",
+    "concept": "destination_distance_guidance_oxygen_feasibility",
+    "templates": [
+      "route to {place}",
+      "distance to {place}",
+      "can my {resource} get me to {place}",
+      "take me to {place}"
+    ],
+    "contrast_group": "imperative_status",
+    "provenance": "agent-authored synthetic; four manually written v4.2 templates"
+  },
+  {
+    "family_id": "imperative_status--call_safety--v4-2",
+    "construction": "imperative_status",
+    "label": "call_safety",
+    "split": "train",
+    "concept": "generic_oxygen_pressure_health",
+    "templates": [
+      "assess oxygen pressure health",
+      "check basic suit safety",
+      "is my oxygen safe",
+      "check my pressure health"
+    ],
+    "contrast_group": "imperative_status",
+    "provenance": "agent-authored synthetic; four manually written v4.2 templates"
+  },
+  {
+    "family_id": "imperative_status--call_map--v4-2",
+    "construction": "imperative_status",
+    "label": "call_map",
+    "split": "train",
+    "concept": "map_display",
+    "templates": [
+      "show map of {place}",
+      "map screen for {place}",
+      "display {place} map",
+      "open chart of {place}"
+    ],
+    "contrast_group": "imperative_status",
+    "provenance": "agent-authored synthetic; four manually written v4.2 templates"
+  },
+  {
+    "family_id": "imperative_status--call_data--v4-2",
+    "construction": "imperative_status",
+    "label": "call_data",
+    "split": "train",
+    "concept": "current_vitals_sensor_readout",
+    "templates": [
+      "check radiation levels",
+      "check my heart rate",
+      "read suit pressure",
+      "vitals temperature and bpm"
+    ],
+    "contrast_group": "imperative_status",
+    "provenance": "agent-authored synthetic; four manually written v4.2 templates"
+  },
+  {
+    "family_id": "imperative_status--call_o2--v4-2",
+    "construction": "imperative_status",
+    "label": "call_o2",
+    "split": "train",
+    "concept": "current_oxygen_amount_time",
+    "templates": [
+      "how much oxygen have i got left",
+      "how much air have i got left",
+      "remaining o2",
+      "tank level"
+    ],
+    "contrast_group": "imperative_status",
+    "provenance": "agent-authored synthetic; four manually written v4.2 templates"
+  },
+  {
+    "family_id": "imperative_status--call_llm--v4-2",
+    "construction": "imperative_status",
+    "label": "call_llm",
+    "split": "train",
+    "concept": "general_explanation",
+    "templates": [
+      "explain radiation levels",
+      "explain heart rate",
+      "explain suit pressure",
+      "explain oxygen tank design"
+    ],
+    "contrast_group": "imperative_status",
+    "provenance": "agent-authored synthetic; four manually written v4.2 templates"
+  },
+  {
+    "family_id": "imperative_status--NO_TOOL--v4-2",
+    "construction": "imperative_status",
+    "label": "NO_TOOL",
+    "split": "train",
+    "concept": "nonrequest_or_negation",
+    "templates": [
+      "never mind the trip",
+      "drop the route",
+      "abort the plan",
+      "cancel that trip"
+    ],
+    "contrast_group": "imperative_status",
+    "provenance": "agent-authored synthetic; four manually written v4.2 templates"
+  },
+  {
+    "family_id": "imperative_status--OOD--v4-2",
+    "construction": "imperative_status",
+    "label": "OOD",
+    "split": "train",
+    "concept": "unrelated_task",
+    "templates": [
+      "play my heart rate song",
+      "buy oxygen song tickets",
+      "order a map poster",
+      "book dinner for two"
+    ],
+    "contrast_group": "imperative_status",
+    "provenance": "agent-authored synthetic; four manually written v4.2 templates"
+  }
+]

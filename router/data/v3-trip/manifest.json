@@ -1,0 +1,110 @@
+{
+  "frozen_counts": {
+    "heldout_scenarios.jsonl": 15,
+    "regression.jsonl": 8,
+    "replay_scenarios.jsonl": 6
+  },
+  "frozen_sha256": {
+    "heldout_scenarios.jsonl": "f6198bb2dc12d30e9bac42b7af9b08bf72aae02ad2b6958817e7325c2015f47d",
+    "regression.jsonl": "523c2494ce6a2eb0b18214b179a4f9cb3acccc01173b965abda1765cdcfe9a1b",
+    "replay_scenarios.jsonl": "afa14577561a5d1cbcddc518cd263c4e6820d298b9c27de38cd897167e40fd31"
+  },
+  "generator_sha256": "236d7b0f2efe4e92fb8b6d3992e78631a2bb24cf5df52283507f5a0cf12070b1",
+  "label_order": [
+    "call_safety",
+    "call_navigation",
+    "call_map",
+    "call_data",
+    "call_o2",
+    "call_llm",
+    "NO_TOOL",
+    "OOD"
+  ],
+  "legacy_audit_sha256": "c1e092dc467fccb19dc34b08dcc83e25d106d013d0a062115960e8326d27c6c4",
+  "protected_regression_sha256": {
+    "demo_calls.json": "8f4bb9d201207b1337a975fe4e231c47d46dd3bf948c680b96b3c440bdd7be17",
+    "demo_calls_47.json": "dca86fb6492538cb67a995cc1159d676fb2a44e297a151793f5cdf4ba65f14a8",
+    "paraphrase_test.jsonl": "2362b1b3ffb718a083eafb50275f495e8391305c13b4a1f9585cdd181b81f650"
+  },
+  "provenance": "agent-authored synthetic; no human-heldout or measured speech",
+  "schema_version": "v3-trip-1",
+  "seed": 31024,
+  "source_sha256": "dba44b9cb349c8aa35649cb3c87a55295ed53482f6733f244a0bcfd18e38ac8c",
+  "splits": {
+    "calibration": {
+      "families": 26,
+      "labels": {
+        "NO_TOOL": 18,
+        "OOD": 6,
+        "call_data": 18,
+        "call_llm": 12,
+        "call_map": 18,
+        "call_navigation": 20,
+        "call_o2": 6,
+        "call_safety": 6
+      },
+      "rows": 104,
+      "sha256": "d3b177e9c00af077092a0767dd4a7e50367f0c96cf43f59f9699fc7f017616c7"
+    },
+    "dev": {
+      "families": 26,
+      "labels": {
+        "NO_TOOL": 6,
+        "OOD": 6,
+        "call_data": 18,
+        "call_llm": 24,
+        "call_map": 18,
+        "call_navigation": 20,
+        "call_o2": 10,
+        "call_safety": 10
+      },
+      "rows": 112,
+      "sha256": "7b7b7b40656fbe8458c83f161fd4e3ff0acb357ff9fcfdc0f7a82b5d169baf55"
+    },
+    "test": {
+      "families": 25,
+      "labels": {
+        "NO_TOOL": 10,
+        "OOD": 6,
+        "call_data": 18,
+        "call_llm": 18,
+        "call_map": 18,
+        "call_navigation": 20,
+        "call_o2": 10,
+        "call_safety": 6
+      },
+      "rows": 106,
+      "sha256": "cd068f7fbb7f33e337918380791ae6d03a105ebf855e9570505de8cd661737c8"
+    },
+    "threshold": {
+      "families": 26,
+      "labels": {
+        "NO_TOOL": 6,
+        "OOD": 6,
+        "call_data": 18,
+        "call_llm": 20,
+        "call_map": 18,
+        "call_navigation": 20,
+        "call_o2": 6,
+        "call_safety": 10
+      },
+      "rows": 104,
+      "sha256": "9c4bcc40dc2ef06be178740fb787e8c25a341c74ca82415b7003e7981ff60ff6"
+    },
+    "train": {
+      "families": 98,
+      "labels": {
+        "NO_TOOL": 44,
+        "OOD": 24,
+        "call_data": 72,
+        "call_llm": 66,
+        "call_map": 72,
+        "call_navigation": 74,
+        "call_o2": 32,
+        "call_safety": 32
+      },
+      "rows": 416,
+      "sha256": "69e8b613e2db5dd129c032eca81c089545a0fe03fd5c038e5327cdf3c3ef1ac1"
+    }
+  }
+}

@@ -1,0 +1,447 @@
+{
+  "approved_relaxation": "164 families; cap 16; equal train labels",
+  "artifact_sha256": {
+    "calibration.jsonl": "77f93009ad7875561a048af4b7e05e7e8e62e2b2578ce84ecadf7390315111c1",
+    "dev.jsonl": "8e4ddd3ee1105e13f408d71b794aa8048b84ad931233491271987cf1f7843023",
+    "near_duplicate_report.json": "5d3ea954abf8ff236fbe516f289b5245b368e268a5e3b3732fed88109e6c5f33",
+    "test.jsonl": "4d1f4fe7d2d2a88ad92260b65d596bdcecd718372ff6d893e1d86d7e289b8a18",
+    "threshold.jsonl": "97cbe8f277ca37f769669bcbe230a56c0b0b133624bed31152ce7edd3b443c88",
+    "train.jsonl": "17296bfab5b15b73a62783decbcbeae6841914a095ae7b04e5e05bde567305cc"
+  },
+  "dataset_name": "v4-trip",
+  "family_sha256": "6892180d976aee2a36aff8a053744f4fe98c851ac7fb0f4a24dfbc8274014e14",
+  "frozen_sha256": {
+    "clarification_probe.jsonl": "11e54a1dc5f40556a35d36840b13a2329a1afc24e9bc5bad40e04b9e964ed580",
+    "seen_during_development.jsonl": "a8f6c0447eecaaf8e2a9b838655fecaca28020e2389b6f896bf12e286bdb82f7"
+  },
+  "generator_sha256": "2ea2ad981867e513d5e9958bccb3e67907454d64221d22a310933459290ee91c",
+  "heldout_constructions": [
+    "contrastive_correction"
+  ],
+  "heldout_scope": "Explicit repair-marker families (I meant / Correction: / Actually / Let me rephrase:) remain test-only; contrastive scope selection and quoted-mention contrasts now occur in train. Broad correction semantics are NOT held out.",
+  "label_order": [
+    "call_safety",
+    "call_navigation",
+    "call_map",
+    "call_data",
+    "call_o2",
+    "call_llm",
+    "NO_TOOL",
+    "OOD"
+  ],
+  "legacy_sources": {
+    "heldout_scenarios.jsonl": "f6198bb2dc12d30e9bac42b7af9b08bf72aae02ad2b6958817e7325c2015f47d",
+    "regression.jsonl": "523c2494ce6a2eb0b18214b179a4f9cb3acccc01173b965abda1765cdcfe9a1b"
+  },
+  "near_duplicate_summary": {
+    "flagged_pairs": 96,
+    "hard_pairs": 0,
+    "hard_threshold": 0.985,
+    "max_score": 0.818182,
+    "method": "max(delexicalized token Jaccard, delexicalized character-5-gram Jaccard)",
+    "review_threshold": 0.72
+  },
+  "provenance": "agent-authored synthetic v4.2 revision, not human speech/safety benchmark",
+  "schema_version": "v4-trip-1.2",
+  "seed": 41024,
+  "splits": {
+    "calibration": {
+      "constructions": {
+        "asr_noise": 16,
+        "comparative": 32,
+        "conditional_feasibility": 16,
+        "conditional_projection": 16,
+        "embedded_indirect": 32,
+        "hypothetical": 32,
+        "modal_sufficiency": 64,
+        "polite_request": 16,
+        "see_check_if": 32,
+        "truncated": 16,
+        "wh_quantity": 16
+      },
+      "families": 18,
+      "labels": {
+        "NO_TOOL": 48,
+        "OOD": 48,
+        "call_data": 32,
+        "call_llm": 32,
+        "call_map": 32,
+        "call_navigation": 32,
+        "call_o2": 32,
+        "call_safety": 32
+      },
+      "rows": 288,
+      "sha256": "77f93009ad7875561a048af4b7e05e7e8e62e2b2578ce84ecadf7390315111c1"
+    },
+    "dev": {
+      "constructions": {
+        "ability_modal": 16,
+        "conditional_feasibility": 16,
+        "conditional_projection": 32,
+        "elliptical": 32,
+        "modal_sufficiency": 16,
+        "negated_scope": 16,
+        "polite_request": 32,
+        "see_check_if": 16,
+        "truncated": 16
+      },
+      "families": 12,
+      "labels": {
+        "NO_TOOL": 16,
+        "OOD": 32,
+        "call_data": 32,
+        "call_llm": 32,
+        "call_map": 16,
+        "call_navigation": 16,
+        "call_o2": 16,
+        "call_safety": 32
+      },
+      "rows": 192,
+      "sha256": "8e4ddd3ee1105e13f408d71b794aa8048b84ad931233491271987cf1f7843023"
+    },
+    "test": {
+      "constructions": {
+        "ability_modal": 16,
+        "comparative": 16,
+        "conditional_feasibility": 16,
+        "contrastive_correction": 128,
+        "elliptical": 16,
+        "embedded_indirect": 16,
+        "imperative_status": 48,
+        "modal_sufficiency": 32,
+        "polite_request": 16,
+        "see_check_if": 16
+      },
+      "families": 20,
+      "labels": {
+        "NO_TOOL": 48,
+        "OOD": 32,
+        "call_data": 32,
+        "call_llm": 32,
+        "call_map": 48,
+        "call_navigation": 48,
+        "call_o2": 48,
+        "call_safety": 32
+      },
+      "rows": 320,
+      "sha256": "4d1f4fe7d2d2a88ad92260b65d596bdcecd718372ff6d893e1d86d7e289b8a18"
+    },
+    "threshold": {
+      "constructions": {
+        "ability_modal": 64,
+        "asr_noise": 32,
+        "embedded_indirect": 48,
+        "hypothetical": 16,
+        "imperative_status": 16,
+        "negated_scope": 32,
+        "polite_request": 32,
+        "truncated": 16,
+        "wh_quantity": 32
+      },
+      "families": 18,
+      "labels": {
+        "NO_TOOL": 48,
+        "OOD": 48,
+        "call_data": 32,
+        "call_llm": 32,
+        "call_map": 32,
+        "call_navigation": 32,
+        "call_o2": 32,
+        "call_safety": 32
+      },
+      "rows": 288,
+      "sha256": "97cbe8f277ca37f769669bcbe230a56c0b0b133624bed31152ce7edd3b443c88"
+    },
+    "train": {
+      "constructions": {
+        "ability_modal": 96,
+        "asr_noise": 80,
+        "comparative": 80,
+        "conditional_feasibility": 80,
+        "conditional_projection": 80,
+        "contrastive_scope_selection": 128,
+        "elliptical": 80,
+        "embedded_indirect": 112,
+        "hypothetical": 80,
+        "imperative_status": 208,
+        "modal_sufficiency": 96,
+        "negated_scope": 80,
+        "polite_request": 96,
+        "see_check_if": 80,
+        "truncated": 80,
+        "wh_quantity": 80
+      },
+      "families": 96,
+      "labels": {
+        "NO_TOOL": 192,
+        "OOD": 192,
+        "call_data": 192,
+        "call_llm": 192,
+        "call_map": 192,
+        "call_navigation": 192,
+        "call_o2": 192,
+        "call_safety": 192
+      },
+      "rows": 1536,
+      "sha256": "17296bfab5b15b73a62783decbcbeae6841914a095ae7b04e5e05bde567305cc"
+    }
+  },
+  "superseded_release": {
+    "schema_version": "v4-trip-1.1",
+    "sha256": {
+      "README.md": "7e95d23af9f38dc1209f1742e4ae8933bfde3c95971be000b8be6d78ceacb173",
+      "REVISION_REPORT.md": "b5a7a74b45f4f3e3668e93b5d4e008e343b6bc7b693d891d21ca08ed5020b3c6",
+      "calibration.jsonl": "77f93009ad7875561a048af4b7e05e7e8e62e2b2578ce84ecadf7390315111c1",
+      "dev.jsonl": "8e4ddd3ee1105e13f408d71b794aa8048b84ad931233491271987cf1f7843023",
+      "families.json": "6adb585057ce3c34b89c9f2c2951773d58fe07a186b89cd2c499a8da0446bc77",
+      "manifest.json": "300fc761c52604f56089506b38cd16a826293877cf118d1e489589cace692575",
+      "near_duplicate_report.json": "9d2b72963eb2839773d01679526431cf12bb531ad6fb71c80ed0c3c09f9885fc",
+      "release.py": "09e942f6286c4e7b750e176e4a7fe92efda9107aac53a9700adbbc50256c9ec3",
+      "test.jsonl": "4d1f4fe7d2d2a88ad92260b65d596bdcecd718372ff6d893e1d86d7e289b8a18",
+      "threshold.jsonl": "97cbe8f277ca37f769669bcbe230a56c0b0b133624bed31152ce7edd3b443c88",
+      "train.jsonl": "f6aaf9c033c037db856152c39baa2a1781614144bcc822191df8bfdcf6626fb7"
+    },
+    "status": "SUPERSEDED by v4.2",
+    "version": "v4.1"
+  },
+  "token_purity_summary": {
+    "failure_min_rows": 24,
+    "intent_word_allowlist": [
+      "basic",
+      "bpm",
+      "buy",
+      "display",
+      "explain",
+      "generic",
+      "minutes",
+      "percentage",
+      "tickets",
+      "view",
+      "vitals",
+      "why"
+    ],
+    "method": "normalized token presence per training row",
+    "non_allowlisted_pure_tokens_ge24": [],
+    "pure_tokens_ge16": [
+      {
+        "allowlisted": false,
+        "label": "OOD",
+        "rows": 16,
+        "token": "album"
+      },
+      {
+        "allowlisted": false,
+        "label": "OOD",
+        "rows": 16,
+        "token": "band"
+      },
+      {
+        "allowlisted": true,
+        "label": "OOD",
+        "rows": 40,
+        "token": "buy"
+      },
+      {
+        "allowlisted": false,
+        "label": "call_map",
+        "rows": 16,
+        "token": "centered"
+      },
+      {
+        "allowlisted": false,
+        "label": "call_safety",
+        "rows": 20,
+        "token": "condition"
+      },
+      {
+        "allowlisted": false,
+        "label": "call_llm",
+        "rows": 16,
+        "token": "describe"
+      },
+      {
+        "allowlisted": false,
+        "label": "call_llm",
+        "rows": 20,
+        "token": "diffusion"
+      },
+      {
+        "allowlisted": false,
+        "label": "NO_TOOL",
+        "rows": 16,
+        "token": "forget"
+      },
+      {
+        "allowlisted": false,
+        "label": "call_llm",
+        "rows": 20,
+        "token": "heat"
+      },
+      {
+        "allowlisted": false,
+        "label": "NO_TOOL",
+        "rows": 16,
+        "token": "mind"
+      },
+      {
+        "allowlisted": false,
+        "label": "NO_TOOL",
+        "rows": 16,
+        "token": "never"
+      },
+      {
+        "allowlisted": false,
+        "label": "OOD",
+        "rows": 20,
+        "token": "order"
+      },
+      {
+        "allowlisted": false,
+        "label": "call_safety",
+        "rows": 20,
+        "token": "safe"
+      },
+      {
+        "allowlisted": false,
+        "label": "call_data",
+        "rows": 16,
+        "token": "stand"
+      },
+      {
+        "allowlisted": true,
+        "label": "OOD",
+        "rows": 16,
+        "token": "tickets"
+      },
+      {
+        "allowlisted": true,
+        "label": "call_data",
+        "rows": 24,
+        "token": "vitals"
+      }
+    ],
+    "pure_tokens_ge16_count": 16
+  },
+  "train_construction_label_counts": {
+    "ability_modal": {
+      "NO_TOOL": 16,
+      "OOD": 16,
+      "call_llm": 16,
+      "call_o2": 16,
+      "call_safety": 32
+    },
+    "asr_noise": {
+      "NO_TOOL": 16,
+      "OOD": 16,
+      "call_data": 16,
+      "call_map": 16,
+      "call_o2": 16
+    },
+    "comparative": {
+      "NO_TOOL": 16,
+      "call_data": 16,
+      "call_llm": 16,
+      "call_o2": 16,
+      "call_safety": 16
+    },
+    "conditional_feasibility": {
+      "OOD": 16,
+      "call_data": 16,
+      "call_llm": 16,
+      "call_map": 16,
+      "call_o2": 16
+    },
+    "conditional_projection": {
+      "call_data": 16,
+      "call_map": 16,
+      "call_navigation": 16,
+      "call_o2": 16,
+      "call_safety": 16
+    },
+    "contrastive_scope_selection": {
+      "NO_TOOL": 16,
+      "OOD": 16,
+      "call_data": 16,
+      "call_llm": 16,
+      "call_map": 16,
+      "call_navigation": 16,
+      "call_o2": 16,
+      "call_safety": 16
+    },
+    "elliptical": {
+      "NO_TOOL": 16,
+      "OOD": 16,
+      "call_data": 16,
+      "call_llm": 16,
+      "call_navigation": 16
+    },
+    "embedded_indirect": {
+      "NO_TOOL": 16,
+      "OOD": 16,
+      "call_data": 16,
+      "call_llm": 16,
+      "call_map": 32,
+      "call_navigation": 16
+    },
+    "hypothetical": {
+      "NO_TOOL": 16,
+      "OOD": 16,
+      "call_llm": 16,
+      "call_o2": 16,
+      "call_safety": 16
+    },
+    "imperative_status": {
+      "NO_TOOL": 16,
+      "OOD": 32,
+      "call_data": 32,
+      "call_llm": 32,
+      "call_map": 16,
+      "call_navigation": 32,
+      "call_o2": 32,
+      "call_safety": 16
+    },
+    "modal_sufficiency": {
+      "NO_TOOL": 16,
+      "OOD": 16,
+      "call_data": 16,
+      "call_map": 16,
+      "call_navigation": 32
+    },
+    "negated_scope": {
+      "OOD": 16,
+      "call_llm": 16,
+      "call_map": 16,
+      "call_navigation": 16,
+      "call_o2": 16
+    },
+    "polite_request": {
+      "NO_TOOL": 16,
+      "OOD": 16,
+      "call_map": 16,
+      "call_o2": 16,
+      "call_safety": 32
+    },
+    "see_check_if": {
+      "call_data": 16,
+      "call_llm": 16,
+      "call_map": 16,
+      "call_navigation": 16,
+      "call_safety": 16
+    },
+    "truncated": {
+      "NO_TOOL": 16,
+      "call_data": 16,
+      "call_llm": 16,
+      "call_navigation": 16,
+      "call_safety": 16
+    },
+    "wh_quantity": {
+      "NO_TOOL": 16,
+      "call_map": 16,
+      "call_navigation": 16,
+      "call_o2": 16,
+      "call_safety": 16
+    }
+  },
+  "version": "v4.2"
+}
