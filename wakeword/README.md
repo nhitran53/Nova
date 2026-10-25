@@ -60,8 +60,10 @@ After our own `--conversation-timeout` stop the mic reopens after the cooldown w
 worker has finished with the device.
 
 1. **Start voice_server** (needs its own venv and `ELEVENLABS_API_KEY` in the repo-root `.env`; from the repo root):
-   `router/.venv/bin/python -m router.voice_server` (listens on `127.0.0.1:8765`; `--no-speak` prints replies instead of speaking).
-   Wait until `GET /voice/status` shows `"router_ready": true`.
+   `cd /home/isaach/Nova-wakeword && /home/isaach/Nova/router/.venv/bin/python -m router.voice_server` (listens on `127.0.0.1:8765`; `--no-speak` prints replies instead of speaking).
+   The default model is `/home/isaach/models/Nova/router/v1`; `--model` is optional (keep the command on one line).
+   Wait until `GET /voice/status` shows `"router_ready": true`; a failed load reports `router_error` and prints to the server console.
+   Server `--device` selects the torch device, not the mic; `--timeout` is seconds of silence that end a conversation.
 2. **Plug in the model**: put `hey_nova.onnx` in `wakeword/models/` (the `.onnx` files are gitignored, so they are never committed;
    or pass `--model /path/to/hey_nova.onnx`). With no `.onnx` the program exits with "drop hey_nova.onnx into wakeword/models/".
 3. **Start the wake word**: `cd wakeword && uv sync && ./run.sh` (same as `uv run python main.py --handoff`).
@@ -79,7 +81,7 @@ a threshold around there: lower (0.2) catches more "hey nova" but wakes on noise
 will have to repeat yourself. Try `--dry-run --threshold X` and say the phrase / run the room's usual noise to pick a value.
 
 **Mic selection.** `uv run python main.py --list-devices`, then `--device INDEX_OR_NAME` (`./run.sh --device 3`). Note voice_server records
-from the *system default* input device (it has no device option), so make the same mic the default in your OS if you pick one here.
+from the *system default* input device (its `--device` selects the torch device, not the mic), so make the same mic the default in your OS if you pick one here.
 
 **RMS note.** `--rms-threshold` (int16 RMS, default 400) only affects standalone mode's end-of-utterance detection. In handoff mode
 voice_server does the endpointing, so it is irrelevant here; if standalone utterances never end, your mic noise floor is above 400, raise it.
