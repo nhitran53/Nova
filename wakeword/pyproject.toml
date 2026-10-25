@@ -10,6 +10,7 @@ dependencies = [
     "numpy",
     "elevenlabs",
     "python-dotenv",
+    "requests",
 ]
 
 [dependency-groups]

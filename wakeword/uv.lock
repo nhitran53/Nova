@@ -381,6 +381,7 @@ dependencies = [
     { name = "onnxruntime" },
     { name = "openwakeword" },
     { name = "python-dotenv" },
+    { name = "requests" },
     { name = "sounddevice" },
 ]
 
@@ -396,6 +397,7 @@ requires-dist = [
     { name = "onnxruntime" },
     { name = "openwakeword", specifier = ">=0.6" },
     { name = "python-dotenv" },
+    { name = "requests" },
     { name = "sounddevice" },
 ]
 

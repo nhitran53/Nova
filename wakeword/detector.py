@@ -1,4 +1,5 @@
 """WakeDetector: openWakeWord wrapper with a score threshold and a post-detection cooldown."""
+import os
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -18,19 +19,74 @@ def find_model_files(models_dir):
     return sorted(str(p) for p in directory.glob("*.onnx")) if directory.is_dir() else []
 
 
-def ensure_feature_models():
+class FeatureModelError(RuntimeError):
+    """openWakeWord's shared feature models could not be downloaded or are unusable."""
+
+
+FEATURE_DOWNLOAD_TIMEOUT_S = (5.0, 30.0)  # (connect, read) seconds
+
+
+def _loadable_onnx(path):
+    """True if `path` is a non-empty file onnxruntime can load as a model."""
+    path = Path(path)
+    if not path.is_file() or path.stat().st_size == 0:
+        return False
+    try:
+        import onnxruntime
+        onnxruntime.InferenceSession(str(path), providers=["CPUExecutionProvider"])
+    except Exception:
+        return False
+    return True
+
+
+def _download_atomically(url, destination, http_get, validate):
+    """GET `url` into a temp sibling of `destination`, validate it, then os.replace it into place. The temp file is
+    removed on any failure, so a half-written `destination` can never exist."""
+    import requests
+    destination = Path(destination)
+    temp = destination.with_name(destination.name + ".part")
+    try:
+        try:
+            with http_get(url, stream=True, timeout=FEATURE_DOWNLOAD_TIMEOUT_S) as response:
+                response.raise_for_status()
+                expected = response.headers.get("content-length")
+                written = 0
+                with open(temp, "wb") as out:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        out.write(chunk)
+                        written += len(chunk)
+        except requests.RequestException as exc:
+            raise FeatureModelError(f"download of {url} failed: {type(exc).__name__}: {exc}") from None
+        if written == 0:
+            raise FeatureModelError(f"download of {url} returned an empty file")
+        if expected is not None and expected.isdigit() and int(expected) != written:
+            raise FeatureModelError(f"download of {url} was truncated ({written} of {expected} bytes)")
+        if not validate(temp):
+            raise FeatureModelError(f"download of {url} is not a loadable ONNX model")
+        os.replace(temp, destination)
+    finally:
+        temp.unlink(missing_ok=True)
+
+
+def ensure_feature_models(target_dir=None, urls=None, http_get=None, validate=_loadable_onnx):
     """Download openWakeWord's shared melspectrogram + embedding models (~2 MB, once) into the installed package.
 
-    The pip package does not ship them, and a custom hey_nova.onnx needs them. No-op when already present.
+    The pip package does not ship them, and a custom hey_nova.onnx needs them. A model that is already present and
+    loadable is left alone; a zero-byte or corrupt file counts as missing. Downloads have connect/read timeouts, fail on
+    HTTP errors and truncated transfers, and are moved into place atomically, so a failed run leaves nothing half-written
+    and the next run simply retries. Raises FeatureModelError on failure.
     """
-    import openwakeword
-    from openwakeword.utils import download_file
-    target = Path(openwakeword.__file__).parent / "resources" / "models"
+    import requests
+    if target_dir is None or urls is None:
+        import openwakeword
+        target_dir = target_dir or Path(openwakeword.__file__).parent / "resources" / "models"
+        urls = urls or [f["download_url"].replace(".tflite", ".onnx") for f in openwakeword.FEATURE_MODELS.values()]
+    target = Path(target_dir)
     target.mkdir(parents=True, exist_ok=True)
-    for feature in openwakeword.FEATURE_MODELS.values():
-        onnx_url = feature["download_url"].replace(".tflite", ".onnx")
-        if not (target / onnx_url.rsplit("/", 1)[-1]).is_file():
-            download_file(onnx_url, str(target))
+    for url in urls:
+        destination = target / url.rsplit("/", 1)[-1]
+        if not validate(destination):
+            _download_atomically(url, destination, http_get or requests.get, validate)
 
 
 def _default_model_factory(models):
