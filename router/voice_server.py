@@ -21,6 +21,7 @@ DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8765
 STATES = ("idle", "loading", "listening", "processing", "speaking", "ended", "error")
 MAX_ERROR_CHARS = 300
+LLM_OPTIONS = {"no_llm": True}  # the server only listens and calls the router; replies are always the offline template generator
 
 
 def _redacted(text):
@@ -246,11 +247,6 @@ def main(argv=None):
     ap.add_argument("--device", default="cpu")
     ap.add_argument("--no-speak", action="store_true", help="print replies instead of speaking them")
     ap.add_argument("--timeout", type=float, default=10.0, help="end a conversation after this many seconds of silence")
-    ap.add_argument("--no-llm", action="store_true", help="force the offline FillerGenerator")
-    ap.add_argument("--runtime", choices=stt.RUNTIMES)
-    ap.add_argument("--base-url", help="LLM server URL")
-    ap.add_argument("--llm-model")
-    ap.add_argument("--deadline-ms", type=int)
     ap.add_argument("--datasource", choices=("sim", "postgres"), default="sim",
                     help="where readings and places come from: the built-in SimState (default) or the Postgres DB that "
                          "simulator.py writes (DATABASE_URL, from the environment or the repo-root .env; default 'dbname=nova')")
@@ -261,8 +257,7 @@ def main(argv=None):
     session = VoiceSession(
         lambda: stt._load_router(model, args.device),
         converse_options={"model": model, "device": args.device, "speak": not args.no_speak, "timeout_s": args.timeout,
-                          "llm_options": {"no_llm": args.no_llm, "runtime": args.runtime, "base_url": args.base_url,
-                                          "llm_model": args.llm_model, "deadline_ms": args.deadline_ms},
+                          "llm_options": LLM_OPTIONS,
                           "datasource": datasource})
     try:
         server = make_server(session, args.host, args.port, datasource=datasource)

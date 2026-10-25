@@ -388,3 +388,10 @@ def test_default_handler_reads_a_given_datasource_instead_of_simstate(monkeypatc
     handler = stt._default_handler(router=object(), speak=False, llm_options={"no_llm": True}, datasource=ds)
     assert seen["ds"] is ds and seen["sim"] is None
     assert handler.alert_source == ds.snapshot
+
+
+def test_server_never_uses_an_llm(monkeypatch):
+    assert voice_server.LLM_OPTIONS == {"no_llm": True}
+    for flag in ("--no-llm", "--runtime", "--base-url", "--llm-model", "--deadline-ms"):
+        with pytest.raises(SystemExit):  # the LLM flags no longer exist
+            voice_server.main([flag, "x"])

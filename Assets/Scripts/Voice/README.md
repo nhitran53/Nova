@@ -6,7 +6,7 @@ Tool selection stays in Python
 
 ## Start from the repo folder
 
-Keep PostgreSQL and Ollama running
+Keep PostgreSQL running
 Put credentials in the repo-root `.env` (next to `router/`) and keep that file out of Git
 Voice needs `sounddevice` and an ElevenLabs key
 
@@ -19,7 +19,7 @@ Run the simulator in one terminal
 Run the voice server in another terminal
 
 ```cmd
-.\router\.venv\Scripts\python.exe -m router.voice_server --model "C:\Users\cardin\models\Nova\router\ModernBERT-v4.2" --runtime ollama --base-url http://localhost:11434/v1 --llm-model qwen3.5:4b --datasource postgres
+.\router\.venv\Scripts\python.exe -m router.voice_server --model "C:\Users\cardin\models\Nova\router\ModernBERT-v4.2" --datasource postgres
 ```
 
 Change `--model` if your checkpoint is elsewhere

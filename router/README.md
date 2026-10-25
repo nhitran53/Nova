@@ -32,7 +32,7 @@ Run these in separate terminals from the repo folder
 ```
 
 ```cmd
-.\router\.venv\Scripts\python.exe -m router.voice_server --model "C:\Users\cardin\models\Nova\router\ModernBERT-v4.2" --runtime ollama --base-url http://localhost:11434/v1 --llm-model qwen3.5:4b --datasource postgres
+.\router\.venv\Scripts\python.exe -m router.voice_server --model "C:\Users\cardin\models\Nova\router\ModernBERT-v4.2" --datasource postgres
 ```
 
 Change the checkpoint path for your machine
