@@ -252,8 +252,11 @@ def _default_handler(router, speak, llm_options=None, speech=None):
         policy["generation"]["deadline_ms"] = options["deadline_ms"]
     if speak and speech is None:
         speech = default_speech_queue()
+    from .retrieval import make_retriever
+    docs_dir = options.get("docs_dir") or os.environ.get("NOVA_DOCS_DIR")
+    retriever = make_retriever(docs_dir) if docs_dir else None
     sim = SimState()
-    handler = TurnHandler(router, sim.snapshot, default_registry(sim), generator=generator, policy=policy,
+    handler = TurnHandler(router, sim.snapshot, default_registry(sim), generator=generator, policy=policy, retriever=retriever,
                           interim_fn=speech.enqueue if speak else None, tts_fn=speech.enqueue if speak else None)
     handler.generator_label = label
     return handler
@@ -275,7 +278,7 @@ def listen_and_route(model=None, device="cpu", speak=False, frames=None, router_
     -> {"transcript": str, "turn": TurnHandler result or None (nothing heard)}.
     `frames` defaults to the microphone. `background`/`handler` let `converse` reuse one router and one handler
     (so clarification/confirmation state carries across turns); `router_loader`/`handler_factory` are for tests.
-    `llm_options` (no_llm, runtime, base_url, llm_model, deadline_ms) configure the default handler's generator. When this
+    `llm_options` (no_llm, runtime, base_url, llm_model, deadline_ms, docs_dir) configure the default handler's generator. When this
     call builds the default handler itself it waits for the speech queue before returning (converse owns its own queue).
     `stop_event` (threading.Event, optional): setting it ends the listening early; nothing heard -> turn None."""
     from . import core
