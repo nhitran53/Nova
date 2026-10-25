@@ -5,7 +5,15 @@ closed on a detection and reopened only after the conversation has ended (plus a
 someone else (e.g. the Unity telephone gesture) starts a conversation: a periodic GET /voice/status notices it and the
 mic is released for its duration too.
 
-Nothing here talks to Unity; Unity already sees the new session through GET /voice/status (`session_id` / `seq` change).
+Mic ownership: before EVERY mic open (startup, after an error, after a conversation) GET /voice/status is checked and
+the mic stays closed, polling with a sleep, while the server reports loading/listening/speaking. An external start while
+this process already holds the mic is only noticed on the next periodic status check (residual race, see README).
+
+`idle` after POST /voice/stop does not mean voice_server's worker finished: it sets idle at once, and POST /voice/start
+answers started:false until the old worker is gone. A start refused in a non-busy state is therefore retried with
+bounded backoff (mic closed) instead of dropping the wake word.
+
+Nothing here talks to Unity.
 """
 import json
 import logging
@@ -69,7 +77,8 @@ class WakeService:
 
     def __init__(self, open_mic, detector, client=None, on_wake=None, cooldown_s=3.0, conversation_timeout_s=300.0,
                  poll_interval_s=0.5, status_check_interval_s=1.0, start_attempts=3, start_retry_s=1.0,
-                 status_failure_grace_s=10.0, mic_retry_initial_s=1.0, mic_retry_max_s=30.0,
+                 start_refused_attempts=8, start_refused_retry_s=0.5, start_refused_retry_max_s=4.0,
+                 busy_poll_interval_s=1.0, status_failure_grace_s=10.0, mic_retry_initial_s=1.0, mic_retry_max_s=30.0,
                  clock=time.monotonic, sleep=time.sleep):
         self._open_mic = open_mic
         self._detector = detector
@@ -81,13 +90,16 @@ class WakeService:
         self._status_check_interval_s = status_check_interval_s
         self._start_attempts = start_attempts
         self._start_retry_s = start_retry_s
+        self._start_refused_attempts = start_refused_attempts
+        self._start_refused_retry_s = start_refused_retry_s
+        self._start_refused_retry_max_s = start_refused_retry_max_s
+        self._busy_poll_interval_s = busy_poll_interval_s
         self._status_failure_grace_s = status_failure_grace_s
         self._mic_retry_initial_s = mic_retry_initial_s
         self._mic_retry_max_s = mic_retry_max_s
         self._clock = clock
         self._sleep = sleep
         self._mic_delay_s = mic_retry_initial_s
-        self._wakes = 0
         self._wakes = 0
         self._server_reachable = None  # last known state, so only changes are logged while listening
 
@@ -110,6 +122,7 @@ class WakeService:
         or KeyboardInterrupt. Returns the number of wake words handled."""
         self._wakes = 0
         while max_wakes is None or self._wakes < max_wakes:
+            self._wait_until_mic_is_free()
             try:
                 outcome, detection = self._listen_once(max_wakes)
             except Exception as exc:  # mic open/read failure or detector error: back off, then reopen
@@ -124,6 +137,18 @@ class WakeService:
                 self._on_wake(detection)
             self._handle_handoff(external=(outcome == "busy"))
         return self._wakes
+
+    def _wait_until_mic_is_free(self):
+        """Do not open the mic while voice_server reports a conversation (it owns the mic then). Polls with a sleep.
+        An unreachable server counts as free: the wake word must keep working without it."""
+        if self._client is None:
+            return
+        announced = False
+        while self._conversation_running_elsewhere():
+            if not announced:
+                log.info("voice_server is busy (a conversation is running); not opening the mic until it ends")
+                announced = True
+            self._sleep(self._busy_poll_interval_s)
 
     def _listen_once(self, max_wakes):
         """Open the mic and listen. -> ("wake", Detection) | ("busy", None) | ("eof", None) | ("done", None).
@@ -181,21 +206,35 @@ class WakeService:
         self._sleep(self._cooldown_s)
 
     def _start_conversation(self):
-        """POST /voice/start with retries. -> session_id, or None if voice_server could not be reached."""
-        for attempt in range(1, self._start_attempts + 1):
+        """POST /voice/start with retries. -> session_id, or None if no conversation could be started.
+
+        Two bounded retry budgets: connection failures (`start_attempts`, `start_retry_s` doubling) and refusals in a
+        non-busy state (`start_refused_attempts`, backoff `start_refused_retry_s` doubling up to `start_refused_retry_max_s`):
+        voice_server refuses a start while the previous worker is still shutting down, although it already reports idle."""
+        failures = refusals = 0
+        while True:
             try:
                 status = self._client.start()
             except VoiceServerError as exc:
+                failures += 1
                 log.warning("could not start the conversation (attempt %d/%d): %s - is router/voice_server running at %s?",
-                            attempt, self._start_attempts, exc, self._client.base_url)
-                if attempt < self._start_attempts:
-                    self._sleep(self._start_retry_s * 2 ** (attempt - 1))
+                            failures, self._start_attempts, exc, self._client.base_url)
+                if failures >= self._start_attempts:
+                    break
+                self._sleep(self._start_retry_s * 2 ** (failures - 1))
                 continue
-            if status.get("started") is False:
-                log.info("a conversation is already running; waiting for it to end")
-            else:
+            if status.get("started") is not False:
                 log.info("conversation started (session %s); mic released", status.get("session_id"))
-            return status.get("session_id", 0)
+                return status.get("session_id", 0)
+            if status.get("state") in BUSY_STATES:
+                log.info("a conversation is already running; waiting for it to end")
+                return status.get("session_id", 0)
+            refusals += 1
+            log.info("voice_server refused the start while %s (previous conversation still shutting down?), attempt %d/%d",
+                     status.get("state"), refusals, self._start_refused_attempts)
+            if refusals >= self._start_refused_attempts:
+                break
+            self._sleep(min(self._start_refused_retry_s * 2 ** (refusals - 1), self._start_refused_retry_max_s))
         log.error("giving up on this wake word; still listening. Start voice_server (see README 'Demo setup') and try again")
         return None
 
