@@ -625,7 +625,7 @@
       ]
     },
     "disregard": "No action taken. Please make a new request.",
-    "executed_cancel": "Okay, cancelled.",
+    "executed_cancel": "Okay. That report already completed; no further action taken.",
     "reask": "Please select an offered option, or cancel. No action taken.",
     "max_options": 2,
     "menu": "Please choose: {options}.",

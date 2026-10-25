@@ -965,7 +965,7 @@ def test_cancel_after_read_only_execution(confidence, cancel):
     rig.say('oxygen')
     out = rig.say(cancel)
     assert out['route'] == 'cancelled' and out['cancelled'] == 'o2'
-    assert out['spoken'] == 'Okay, cancelled.' and out['tool_calls'] == 0
+    assert out['spoken'] == 'Okay. That report already completed; no further action taken.' and out['tool_calls'] == 0
     assert rig.handler.last_executed is None and len(rig.registry.log) == 1
     assert rig.say(cancel)['spoken'].startswith('No action taken.')
 
@@ -1051,12 +1051,42 @@ def test_alert_repeats_each_turn_before_read_only_answer_without_offers():
 
 @pytest.mark.parametrize('initial', [None, CRITICAL])
 def test_new_or_changed_alert_after_read_only_answer_replaces_answer(initial):
-    rig = Rig('call_o2')
-    snapshots = iter([initial or rig.sim.snapshot(), {**CRITICAL, 'o2_pct': 10.0}])
+    verified = []
+
+    def verifier(line, source):
+        verified.append((line, source))
+        return verify_numbers(line, source)
+
+    rig = Rig('call_o2', verifier=verifier)
+    latest = {**CRITICAL, 'o2_pct': 10.0}
+    snapshots = iter([initial or rig.sim.snapshot(), latest])
     rig.handler.alert_source = lambda: next(snapshots)
     spoken = []
     rig.handler.tts_fn = lambda line, route: spoken.append((line, route))
     out = rig.say('check oxygen')
-    assert out['route'] == 'alert' and out['lines'] == [out['alert_line']]
-    assert 'Oxygen at 10.0 percent' in out['spoken'] and out['alert_verifier']['ok']
+    assert out['route'] == 'alert' and out['alert_line'] == spoken[-1][0]
+    assert out['lines'] == [line for line, _ in spoken]
+    assert out['spoken'] == ' '.join(out['lines'])
+    assert len(out['lines']) == (2 if initial else 1)
+    if initial:
+        assert 'Oxygen at 14.2 percent' in out['lines'][0]
+        assert verified[0] == (out['lines'][0], initial)
+    assert verified[-1] == (out['alert_line'], latest)
+    assert 'Oxygen at 10.0 percent' in out['alert_line'] and out['alert_verifier']['ok']
     assert all(route == 'alert' for _, route in spoken) and out['tool_calls'] == 1
+
+
+def test_critical_alert_delivered_before_routing_survives_blocked_answer():
+    policy = load_policy()
+    policy['templates']['o2'] = 'Oxygen at 99 percent.'
+    rig = Rig('call_o2', snapshot=CRITICAL, policy=policy)
+    delivered = []
+    rig.handler.tts_fn = lambda line, route: delivered.append((line, route, len(rig.router.seen)))
+    out = rig.say('check oxygen')
+    assert delivered == [(out['alert_line'], 'alert', 0),
+                         (policy['templates']['verifier_blocked'], 'tool', 1)]
+    assert out['lines'] == [line for line, _, _ in delivered]
+    assert out['spoken'] == ' '.join(out['lines'])
+    assert out['alert_verifier']['ok'] and not out['verifier']['ok']
+    assert out['blocked_text'] == 'Oxygen at 99 percent.'
+    assert out['tool_calls'] == 1 and out.get('interim') is None

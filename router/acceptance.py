@@ -192,10 +192,11 @@ def run_acceptance(router, data_dir):
                       and result.get('spoken', '').startswith(result['alert_line'])
                       and result.get('alert_verifier', {}).get('ok') is True
                       and result.get('llm_called') is False and not handler.generator.calls
+                      and result.get('interim') is None
                       and not ds.messages and (result.get('tool_call') or {}).get('name') in (None, *TOOL_LABELS.values())
                       and handler.pending_confirmation is None and handler.pending_clarification is None
                       and result.get('pending_confirmation') is None,
-                      'critical alert first and verified; no generation, messages or offers; read-only routing allowed')
+                      'critical alert first and verified; no generation, interim speech, messages or offers; read-only routing allowed')
             if spec.get('clearance') is False:
                 check(log, result.get('tool_calls') == 0 and result.get('route') in ('clarify', 'risk_diverted', 'repair_offer', 'destination_safety', 'no_document'),
                       'mixed hazard challenge refuses clearance without tool')

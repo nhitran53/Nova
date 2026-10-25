@@ -341,11 +341,13 @@ class TurnHandler:
                 self.pending_clarification = self.pending_confirmation = None
                 result["pending_confirmation"] = None
                 result["alerts"] = alerts
+                delivered_alerts = [result["alert_line"]] if result.get("alert_line") else []
                 self._speak(result, "alert", critical, snapshot)
                 result["alert_line"] = result["spoken"]
                 result["alert_verifier"] = result["verifier"]
                 self._deliver(result, result["spoken"], "alert")
-                result["lines"] = [result["spoken"]]
+                result["lines"] = delivered_alerts + [result["spoken"]]
+                result["spoken"] = " ".join(result["lines"])
                 return result
         answer = result["spoken"]
         if result["route"] == "alert":  # alert appeared during generation; it replaces the answer
