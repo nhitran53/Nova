@@ -45,12 +45,24 @@ class MicFrames:
         self._stream = sd.RawInputStream(
             samplerate=self._sample_rate, channels=1, dtype="int16",
             blocksize=self._frame_samples, device=self._device, callback=self._callback)
-        self._stream.start()
+        try:
+            self._stream.start()
+        except BaseException:
+            self._close_stream()  # __exit__ will not run when __enter__ raises
+            raise
         return self
 
     def __exit__(self, *exc):
-        self._stream.stop()
-        self._stream.close()
+        self._close_stream()
+
+    def _close_stream(self):
+        stream, self._stream = self._stream, None
+        if stream is None:
+            return
+        try:
+            stream.stop()
+        finally:
+            stream.close()
 
     def __iter__(self):
         return self

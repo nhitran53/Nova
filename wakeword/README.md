@@ -40,8 +40,25 @@ transcribe" if the realtime session fails. `realtime` / `batch` force one path.
 
 Flow: this process listens for `hey_nova`; on a detection it `POST`s `/voice/start` to `router/voice_server.py`,
 **closes the microphone** (voice_server opens the mic itself for the conversation, STT -> router -> TTS), polls
-`GET /voice/status` until `ended` / `idle` / `error`, waits a cooldown, reopens the mic and listens again. Unity
-already follows the conversation through `/voice/status` (`Assets/Scripts/Voice/README.md`); nothing here talks to Unity.
+`GET /voice/status` until `ended` / `idle` / `error`, waits a cooldown, reopens the mic and listens again. Nothing here
+talks to Unity.
+
+**Unity visibility (follow-up needed).** Unity's `VoiceSessionClient` only polls `/voice/status` after a command *it* sent,
+so a session started by this wake process is **not** automatically shown in Unity until the Unity side adds idle status
+discovery (poll `/voice/status` while idle and pick up `session_id` / `seq` changes). That is a follow-up on the Unity side
+and is deliberately not part of this change. The mic, STT and TTS run in Python regardless, so the spoken conversation works
+without Unity noticing it.
+
+**Mic ownership.** voice_server owns the microphone during a conversation, so before *every* mic open (startup, after a mic
+error, after a conversation) this process calls `GET /voice/status` and, while the state is `loading` / `listening` /
+`speaking`, keeps the mic closed and polls every second (sleeping, no hot loop). An unreachable server does not block the
+mic. Residual race: if something else (e.g. the telephone gesture) starts a conversation *after* the status check while this
+process already holds the mic, it is only noticed at the next periodic status check (about 1 s), so the two can briefly
+compete for the device. Likewise `idle` after `/voice/stop` only means the server cleared its state, not that its worker
+released the mic; voice_server refuses `/voice/start` (`started:false`) until the old worker is gone, so a start refused in a
+non-busy state is retried with backoff (0.5 s doubling to 4 s, 8 attempts) with the mic closed, and only then given up on.
+After our own `--conversation-timeout` stop the mic reopens after the cooldown without being able to tell whether the old
+worker has finished with the device.
 
 1. **Start voice_server** (needs its own venv and `ELEVENLABS_API_KEY` in `router/.env`; from the repo root):
    `router/.venv/bin/python -m router.voice_server` (listens on `127.0.0.1:8765`; `--no-speak` prints replies instead of speaking).
@@ -49,7 +66,7 @@ already follows the conversation through `/voice/status` (`Assets/Scripts/Voice/
 2. **Plug in the model**: put `hey_nova.onnx` in `wakeword/models/` (the `.onnx` files are gitignored, so they are never committed;
    or pass `--model /path/to/hey_nova.onnx`). With no `.onnx` the program exits with "drop hey_nova.onnx into wakeword/models/".
 3. **Start the wake word**: `cd wakeword && uv sync && ./run.sh` (same as `uv run python main.py --handoff`).
-   The first run downloads openWakeWord's shared melspectrogram/embedding models (~2 MB) into the venv, so it needs internet once.
+   The first run downloads openWakeWord's shared melspectrogram/embedding models (~2 MB) into the venv, so it needs internet once (timeouts apply; the files are validated and moved into place atomically, so a failed or truncated download is simply retried on the next start).
 4. Say "hey nova". You should see `[wake] hey_nova (0.xx) - starting conversation`, then `conversation state: ...` lines.
    After the conversation the mic reopens (after `--handoff-cooldown`, default 3 s).
 

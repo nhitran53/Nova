@@ -1,8 +1,12 @@
+import sys
+import types
+
 import numpy as np
+import pytest
 
 from conftest import silence, speech
 from detector import Detection
-from listener import Listener, WavFrames
+from listener import Listener, MicFrames, WavFrames
 from stt import SttError
 
 
@@ -69,3 +73,67 @@ def test_wav_frames_pads_with_silence_and_chunks(tmp_path):
     frames = list(WavFrames(path, trailing_silence_s=1.0))
     assert all(f.shape == (1280,) and f.dtype == np.int16 for f in frames)
     assert np.abs(frames[0]).max() > 0 and np.abs(frames[-1]).max() == 0
+
+
+class FakeStream:
+    """sounddevice.RawInputStream stand-in recording start/stop/close; start()/stop() can be made to raise."""
+
+    def __init__(self, start_error=None, stop_error=None):
+        self.start_error, self.stop_error = start_error, stop_error
+        self.calls = []
+
+    def start(self):
+        self.calls.append("start")
+        if self.start_error:
+            raise self.start_error
+
+    def stop(self):
+        self.calls.append("stop")
+        if self.stop_error:
+            raise self.stop_error
+
+    def close(self):
+        self.calls.append("close")
+
+
+@pytest.fixture
+def mic_stream(monkeypatch):
+    holder = {}
+
+    def install(**kwargs):
+        holder["stream"] = FakeStream(**kwargs)
+        monkeypatch.setitem(sys.modules, "sounddevice", types.SimpleNamespace(RawInputStream=lambda **kw: holder["stream"]))
+        return holder["stream"]
+
+    return install
+
+
+def test_mic_stream_is_started_and_closed(mic_stream):
+    stream = mic_stream()
+    with MicFrames():
+        pass
+    assert stream.calls == ["start", "stop", "close"]
+
+
+def test_mic_stream_is_closed_when_start_raises(mic_stream):
+    stream = mic_stream(start_error=OSError("device busy"))
+    with pytest.raises(OSError, match="device busy"):
+        with MicFrames():
+            pytest.fail("body must not run")
+    assert stream.calls == ["start", "stop", "close"]
+
+
+def test_mic_stream_is_closed_when_stop_raises(mic_stream):
+    stream = mic_stream(stop_error=OSError("already gone"))
+    with pytest.raises(OSError, match="already gone"):
+        with MicFrames():
+            pass
+    assert stream.calls == ["start", "stop", "close"]
+
+
+def test_mic_stream_is_closed_when_the_body_raises(mic_stream):
+    stream = mic_stream()
+    with pytest.raises(KeyError):
+        with MicFrames():
+            raise KeyError("boom")
+    assert stream.calls[-1] == "close"
