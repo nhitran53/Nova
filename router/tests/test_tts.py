@@ -42,7 +42,7 @@ SCENARIOS = [
     ("slot_question", "take me there", "call_navigation", 0.97, {}, "slot_question"),
     ("ood", "capital of france", "OOD", 0.95, {}, "ood"),
     ("low_confidence", "mumble", "call_o2", 0.2, {}, "low_confidence"),
-    ("llm", "thanks", "NO_TOOL", 0.97, {}, "llm"),
+    ("llm", "nice weather today", "NO_TOOL", 0.97, {}, "llm"),
     ("alert", "take me home", "call_navigation", 0.99, {"o2_pct": 14.2}, "alert"),
 ]
 

@@ -24,6 +24,7 @@ picks by position); none -> status "none". `resolve_place` (best single match, n
     resolve_destination("go from the rover to the airlock")  -> resolved airlock (rover excluded as origin)
     resolve_destination("take me to the rover not home")     -> resolved rover (home excluded as negated)
     resolve_destination("go to the rover or the airlock")    -> ambiguous: rover, airlock
+    resolve_destination("how far am I from tower")           -> resolved comms_tower (distance cue + sole origin)
 """
 import json
 import re
@@ -98,6 +99,8 @@ NEGATION_WORDS = frozenset({"not", "no", "never", "except", "without", "instead"
 # open an affirmative command ("no, take me to the airlock", "rather go to the airlock").
 CARRY_NEGATION_WORDS = frozenset({"dont", "not", "never"})
 DESTINATION_WORDS = frozenset({"to", "toward", "towards", "into", "onto"})
+# Distance questions name their only place after "from" ("how far am I from tower"); see resolve_destination.
+DISTANCE_CUES = ("how far", "distance from", "away from")
 NAVIGATION_WORDS = frozenset({"take", "bring", "lead", "guide", "walk", "head", "go", "navigate", "route"})
 
 
@@ -178,6 +181,11 @@ def resolve_destination(text, threshold=DEFAULT_THRESHOLD, gazetteer=None):
                 candidates.append(public)
         else:
             excluded.append({**public, "role": role})
+    if (not candidates and any(cue in f" {normalise(text)} " for cue in map(" {} ".format, DISTANCE_CUES))
+            and len(excluded) == 1 and excluded[0]["role"] == "origin"):
+        # Distance cue: the single "from" place is the subject, not an origin to travel away from.
+        candidates.append({k: excluded[0][k] for k in ("place_id", "matched_text", "score")})
+        excluded = []
     status = "none" if not candidates else "resolved" if len(candidates) == 1 else "ambiguous"
     return {"status": status, "place": candidates[0] if status == "resolved" else None,
             "candidates": candidates, "excluded": excluded}

@@ -180,4 +180,13 @@ def test_navigation_budget_phrasings_choose_assessment_without_changing_tool(tex
         assert result['spoken'].startswith(load_policy()['clarification'][mode].format(**data))
     else:
         assert result['spoken'].startswith('base 2 is about')
-    assert 'Oxygen budget:' in result['spoken']
+    assert 'Oxygen budget' not in result['spoken'] and data['feasibility']['margin_min'] is not None
+
+
+def test_distance_question_with_origin_form_place_needs_no_slot_question_after_menu_choice():
+    h, _, _ = rig('How far am I from tower?')
+    r = h.handle('Navigation.')
+    assert r['tool_call']['name'] == 'navigation' and r['tool_calls'] == 1
+    assert r['tool_call']['args'] == {'place': 'comms_tower'}
+    assert r['route'] != 'slot_question' and not r['llm_called']
+    assert r['tool_result']['data']['response_mode'] == 'distance'

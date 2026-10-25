@@ -85,13 +85,13 @@
       "homebase"
     ],
     "lines": {
-      "comfortable": "Oxygen check: the round trip needs about {required_min} minutes including a {reserve_min} minute reserve, and you have {o2_minutes_remaining}.",
-      "comfortable_home": "Oxygen check: the way home needs about {required_min} minutes including a {reserve_min} minute reserve, and you have {o2_minutes_remaining}.",
-      "tight": "Warning, oxygen margin is tight: {outbound_min} minutes out, {return_min} minutes back and a {reserve_min} minute reserve need {required_min} minutes, and you have {o2_minutes_remaining}.",
-      "tight_home": "Warning, oxygen margin is tight: the way home takes {outbound_min} minutes plus a {reserve_min} minute reserve, {required_min} in all, and you have {o2_minutes_remaining}.",
-      "cannot_return": "Warning, on your current oxygen you cannot get back home without a refill: {outbound_min} minutes out plus {return_min} minutes back is {trip_min}, and you have {o2_minutes_remaining}.",
-      "cannot_reach": "Warning, you cannot reach it on your current oxygen: the trip out takes {outbound_min} minutes and you have {o2_minutes_remaining}.",
-      "cannot_reach_home": "Warning, you cannot reach home on your current oxygen: the way home takes {outbound_min} minutes and you have {o2_minutes_remaining}."
+      "comfortable": "Oxygen check: the round trip needs {required_min} minutes with {reserve_min} reserve; you have {o2_minutes_remaining}.",
+      "comfortable_home": "Oxygen check: home needs {required_min} minutes with {reserve_min} reserve; you have {o2_minutes_remaining}.",
+      "tight": "Warning, oxygen margin is tight: {outbound_min} out, {return_min} back, {reserve_min} reserve is {required_min} minutes; you have {o2_minutes_remaining}.",
+      "tight_home": "Warning, oxygen margin is tight: home takes {outbound_min} minutes plus {reserve_min} reserve, {required_min} in all; you have {o2_minutes_remaining}.",
+      "cannot_return": "Warning, you cannot get back home without a refill: {outbound_min} out plus {return_min} back is {trip_min}; you have {o2_minutes_remaining}.",
+      "cannot_reach": "Warning, you cannot reach it on your oxygen: {outbound_min} minutes out; you have {o2_minutes_remaining}.",
+      "cannot_reach_home": "Warning, you cannot reach home on your oxygen: {outbound_min} minutes; you have {o2_minutes_remaining}."
     }
   },
   "confirmation": {
@@ -276,9 +276,15 @@
       "distance_m": "Euclidean distance from latest_position to the map_locations (x_m, z_m), rounded to a whole meter"
     }
   },
+  "session_end": {
+    "status": "PLACEHOLDER - pending user sign-off (phrases matched against the WHOLE normalized utterance; line is spoken once and the turn result carries end_session=true)",
+    "phrases": ["thank you", "thanks", "thank you nova", "thanks nova", "that's all", "goodbye", "bye"],
+    "line": "Happy to help!"
+  },
   "_comment_generation": "Post-tool-call generation (router/generation.py). The whole 'generation' section is PLACEHOLDER pending user sign-off: persona, style limits, attempt/deadline budget, passage-number provenance (default 'digits'; 'off' available; 'quote_span' documented but unbuilt and refused by the loader; risk_term_passage_override forces 'off' for a grounded turn whose question or passage hits llm_scope.risk_terms; attribution_prefix is prepended by code to a grounded answer that speaks a passage number), history length, refusal and fallback wording, retry wording, deny-lists, slot formats/units and the raw-output size cap (max_raw_chars). Qualitative tier labels (critical/warning/normal) are NOT configured here: they are derived from the human-owned sim_fields thresholds. No real model, mission document or suit rule backs any value.",
   "generation": {
     "status": "PLACEHOLDER - pending user sign-off (every value; passage_numbers 'digits' is the default, 'off' bans model-written numbers from documents, 'quote_span' is unbuilt; risk_term_passage_override and attribution_prefix are new)",
+    "interim": {"enabled": true, "line": "Let me think."},
     "persona": "You are Nova, a calm navigation and observation voice assistant.",
     "max_sentences": 2,
     "max_words": 40,
@@ -561,9 +567,8 @@
     "reask": "Please select an offered option, or cancel. No action taken.",
     "menu": "Please choose: {options}. Generic health checks do not assess a destination trip.",
     "assessment": "For {place_name}, the estimated straight-line distance is {distance_m:.0f} meters and walking time is {eta_min:.0f} minutes. This is an estimate, not movement or an optimized route.",
-    "guidance": "Navigation information for {place_name}: estimated straight-line distance {distance_m:.0f} meters, walking time {eta_min:.0f} minutes. No movement or optimized route is implied.",
+    "guidance": "Navigation information for {place_name}: estimated straight-line distance {distance_m:.0f} meters, walking time {eta_min:.0f} minutes. Not a hazard clearance.",
     "unavailable": " Oxygen budget assessment is unavailable; this is not trip clearance.",
-    "budget": " Oxygen budget: {o2_minutes_remaining} minutes available, {required_min} minutes required including reserve, margin {margin_min} minutes. This estimate is not hazard clearance.",
     "assessment_phrases": [
       "can i make",
       "can we make",
