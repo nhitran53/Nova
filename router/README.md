@@ -207,7 +207,7 @@ from `pipeline_config.json`. Demo note: on `Get me the coolant level.` v1 gives 
 HTTP chat generator (llama-server / mlx / ollama) behind chitchat and call_llm, falling back to the FillerGenerator when no server answers.
 Config: PLACEHOLDER `live_llm` in `turn_policy.json`. Only tested against a fake local server. See `docs/live-demo.md`.
 
-## Speech (`speech.py`, 2026-10-24)
+## Speech (`tts.py`, 2026-10-24)
 
 The final spoken line (`result["spoken"]`: after the number verifier and blocked-line substitution, every route incl.
 alerts) can also be spoken aloud. Text output is unchanged. Off by default (tests make no API call).
@@ -215,11 +215,18 @@ alerts) can also be spoken aloud. Text output is unchanged. Off by default (test
 - Setup: `uv sync` (adds `elevenlabs`, `python-dotenv`); put `ELEVENLABS_API_KEY=...` in `router/.env` (gitignored; the
   path is resolved from the file, not the cwd). Optional overrides: `ELEVENLABS_VOICE_ID` (default `VmPkIaPdP997cjIfBWRB`),
   `ELEVENLABS_MODEL_ID` (default `eleven_v4`, accepted by the API; the key lacks `models_read`, so the list endpoint is not usable).
-- One client per process (`speech.init()` at startup, else lazy on first `speak`); PCM 24 kHz piped to `paplay` (else `aplay`);
+- One client per process (`tts.init()` at startup, else lazy on first `speak`); PCM 24 kHz piped to `paplay` (else `aplay`);
   20 s network and 60 s playback timeouts; empty text is a no-op; errors are `SpeechError` without the key.
-- `TurnHandler(..., tts_fn=speech.speak)` calls `tts_fn(spoken, route)` once per turn; an exception is caught and stored as
+- `TurnHandler(..., tts_fn=tts.speak)` calls `tts_fn(spoken, route)` once per turn; an exception is caught and stored as
   `result["tts_error"]`, the turn is otherwise unchanged.
-- Live checks: `uv run python -m router.speech "Nova speech test."`; `uv run python -m router.demo_turn --speak --max-turns 3`.
+- Live checks: `uv run python -m router.tts "Nova speech test."`; `uv run python -m router.demo_turn --speak --max-turns 3`.
+
+## Speech-to-text (`stt.py`, 2026-10-24)
+- `uv run --with sounddevice python -m router.stt` (conversation: listen, route, speak reply, repeat until 10 s of silence or Ctrl-C; `--once`, `--no-speak`, `--model DIR`): loads the router checkpoint on a background thread, streams the mic to
+  ElevenLabs Scribe realtime (`scribe_v2_realtime`, server VAD, 1 s silence ends the utterance), then runs the first transcript
+  through `TurnHandler`. `stt.listen_and_route()` is the same as a function; `stt.transcribe(frames)` is the STT part alone.
+- Same key handling as `tts.py` (`router/.env`, never in errors). `sounddevice` is not in `pyproject.toml` yet (needs PortAudio).
+- Tests: `tests/test_stt.py` (fake client). Verified live with TTS-generated audio; mic capture itself not tried.
 - Not built: streaming synthesis, interrupting speech for a critical alert, Unity/Quest audio path, voice-activity handling.
 
 ## v2 family split and verification (2026-10-24, Linux CPU)

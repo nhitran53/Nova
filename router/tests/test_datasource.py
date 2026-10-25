@@ -95,10 +95,43 @@ def test_radiation_rate_is_the_dose_delta_over_sim_hours_in_microsieverts():
     assert snap["radiation_usv_h"] == pytest.approx(0.5 / (3600 / 3600) * 1000)  # 0.5 mSv in 1 sim hour = 500 uSv/h
 
 
-def test_nominal_mars_dose_is_about_27_9_usv_h_and_radiation_event_is_forty_times_that():
+def test_fixture_radiation_is_the_reference_median_baseline_in_usv_h_and_radiation_event_is_forty_times_that():
+    from router.reference_data import FixtureReferenceData, reference_policy
     normal, event = FixtureDatasource(), FixtureDatasource(scenario="radiation_event")
-    assert normal.snapshot()["radiation_usv_h"] == pytest.approx(0.67 / 24 * 1000)
-    assert event.snapshot()["radiation_usv_h"] == pytest.approx(0.67 / 24 * 1000 * 40)
+    expected = FixtureReferenceData().radiation_baseline_usv_h()["tissue_usv_h_median"]
+    assert expected == pytest.approx((150.0 * 3.0 / 24 + 160.0 * 3.0 / 24) / 2)  # fixture tissue rows 150/160 uGy/day, Q=3
+    assert reference_policy()["radiation"]["quality_factor"] == 3.0
+    assert normal.snapshot()["radiation_usv_h"] == expected == 19.375
+    assert event.snapshot()["radiation_usv_h"] == expected * 40
+    normal.advance(3600)  # deterministic: independent of the simulated dose accumulating in the telemetry rows
+    assert normal.snapshot()["radiation_usv_h"] == expected
+
+
+def test_fixture_radiation_uses_an_injected_reference_and_keeps_the_six_snapshot_keys():
+    from router.reference_data import FixtureReferenceData
+    rows = [{"observed_at": T0, "silicon_ugy_per_day": 1.0, "tissue_ugy_per_day": 240.0, "data_flag": "none"}]
+    snap = FixtureDatasource(reference=FixtureReferenceData(radiation_rows=rows)).snapshot()
+    assert snap["radiation_usv_h"] == pytest.approx(240.0 * 3.0 / 24) and tuple(snap) == datasource.SNAPSHOT_KEYS
+
+
+def test_fixture_radiation_fails_closed_when_the_reference_is_unavailable():
+    from router.reference_data import FixtureReferenceData
+    flagged = [{"observed_at": T0, "silicon_ugy_per_day": 1.0, "tissue_ugy_per_day": 2.0, "data_flag": "flagged"}]
+    ds = FixtureDatasource(reference=FixtureReferenceData(radiation_rows=flagged))
+    with pytest.raises(DataUnavailableError, match="data_flag"):
+        ds.snapshot()
+    with pytest.raises(DataUnavailableError):
+        FixtureDatasource(reference=FixtureReferenceData(radiation_rows=[])).snapshot()
+    with pytest.raises(DataUnavailableError):
+        handler_for(ds).handle("how much oxygen do I have left")  # the turn raises; nothing is spoken
+
+
+def test_fixture_radiation_rejects_a_reference_that_returns_a_non_finite_median():
+    class BadReference:
+        def radiation_baseline_usv_h(self):
+            return {"tissue_usv_h_median": float("nan")}
+    with pytest.raises(DataUnavailableError, match="finite"):
+        FixtureDatasource(reference=BadReference()).snapshot()
 
 
 @pytest.mark.parametrize("rows", [[row()], [row(30.0), row(30.0)], [row(30.0), row(60.0)]])
@@ -281,9 +314,11 @@ def test_o2_turn_speaks_numbers_that_pass_the_verifier():
     assert data["minutes_remaining"] == 666 and f"{data['o2_pct']:.1f}" in out["spoken"] and "666 minutes" in out["spoken"]
 
 
-def test_data_turn_speaks_the_derived_radiation_rate():
+def test_data_turn_speaks_the_reference_radiation_rate_and_the_verifier_traces_it_to_the_tool_result():
     out = handler_for(FixtureDatasource(), "call_data").handle("what's my heart rate and temperature")
-    assert out["verifier"]["ok"] and "Radiation 27.92 microsieverts per hour" in out["spoken"]
+    assert out["verifier"]["ok"] and out["verifier"]["unsupported"] == []
+    assert out["tool_result"]["data"]["radiation_usv_h"] == 19.375
+    assert "Radiation 19.38 microsieverts per hour" in out["spoken"]
     assert "Temperature 21.0 degrees Celsius" in out["spoken"]
 
 
@@ -317,17 +352,17 @@ def test_o2_leak_reaches_critical_oxygen_and_the_alert_preempts_the_router():
 
 def test_radiation_event_preempts_with_a_critical_radiation_alert():
     out = handler_for(FixtureDatasource(scenario="radiation_event")).handle("how much oxygen do I have left")
-    assert out["route"] == "alert" and "Radiation 1116.7 microsieverts per hour" in out["spoken"]
+    assert out["route"] == "alert" and "Radiation 775.0 microsieverts per hour" in out["spoken"]
 
 
 def test_pinned_current_behavior_nominal_radiation_is_a_warning_on_every_normal_turn():
-    """SIGN-OFF flag: 27.9 uSv/h > radiation_usv_h.warning_above 10, so a normal scenario always carries this warning."""
+    """SIGN-OFF flag: 19.375 uSv/h (reference median) > radiation_usv_h.warning_above 10, so a normal scenario always carries this warning."""
     ds = FixtureDatasource()
     for label in ("call_o2", "call_data", "call_safety"):
         out = handler_for(ds, label).handle("status")
         assert out["route"] == "tool"  # warnings do not preempt
         assert [a for a in out["alerts"] if a["severity"] == "warning"] == [
-            {"field": "radiation_usv_h", "severity": "warning", "value": pytest.approx(27.9167, abs=1e-3)}]
+            {"field": "radiation_usv_h", "severity": "warning", "value": 19.375}]
 
 
 def test_end_to_end_low_oxygen_navigation_offers_a_refill_call_and_confirming_persists_the_message():
@@ -409,7 +444,11 @@ def test_postgres_snapshot_equals_the_fixture_snapshot_for_the_same_rows():
     fixture = FixtureDatasource(clock=Clock())  # rows stamped T0, same as the fake DB clock
     rows = list(reversed(fixture.telemetry[-2:]))
     ds, conn, seen = fake_postgres(rows, mission=fixture.mission)
-    assert ds.snapshot() == fixture.snapshot() and seen == ["dbname=test"]
+    live, demo = ds.snapshot(), fixture.snapshot()
+    assert live["radiation_usv_h"] == pytest.approx(0.67 / 24 * 1000)  # Postgres keeps the live msv-delta derivation
+    assert demo["radiation_usv_h"] == 19.375  # only the fixture radiation value comes from the reference data
+    assert {k: v for k, v in live.items() if k != "radiation_usv_h"} == {k: v for k, v in demo.items() if k != "radiation_usv_h"}
+    assert seen == ["dbname=test"]
     assert [sql for sql, _ in conn.executed] == [datasource.SQL_RECENT_TELEMETRY]
 
 
@@ -510,7 +549,7 @@ def test_fake_demo_ends_with_the_offline_db_backed_section(capsys):
     out = capsys.readouterr().out
     section = out[out.index("--- DB-backed demo"):]
     assert "Oxygen at 99.9 percent, about 666 minutes remaining." in section
-    assert "Radiation 27.92 microsieverts per hour" in section and "walking time 17 minutes." in section
+    assert "Radiation 19.38 microsieverts per hour" in section and "walking time 17 minutes." in section
     assert "you cannot get back home without a refill" in section and "marked urgent" in section
     assert "Critical alert. Oxygen at 15.9 percent" in section
 

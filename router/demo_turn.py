@@ -21,7 +21,7 @@ import warnings
 from pathlib import Path
 
 from .core import Router, models_dir
-from . import speech
+from . import tts
 from .datasource import FixtureDatasource
 from .generation import FillerGenerator, render_prompt_text, run_generation
 from .tools import SimState, default_registry
@@ -184,10 +184,10 @@ def main(argv=None):
             router = Router.load(args.model, HERE / "labels.json", device=args.device)
     sim = SimState()
     handler = TurnHandler(router, sim.snapshot, default_registry(sim), llm_fn=demo_llm, retriever=demo_retriever,
-                          tts_fn=speech.speak if args.speak else None)
+                          tts_fn=tts.speak if args.speak else None)
     print(f"router: {'FAKE (scripted)' if args.fake else args.model}; sim/tools/LLM are fakes; arbiter: none")
     if args.speak:
-        speech.init()
+        tts.init()
     for title, text, override, fake_route in TURNS[:args.max_turns]:
         if scripted:
             scripted.next = fake_route

@@ -600,5 +600,23 @@
       "either",
       "yes"
     ]
+  },
+  "_comment_reference_data": "Constants for router/reference_data.py ONLY. Nothing in turn.py/tools.py reads this block; no spoken output uses it. Every value is a PLACEHOLDER the owner must sign off.",
+  "reference_data": {
+    "status": "PLACEHOLDER - owner must sign off",
+    "radiation": {
+      "quality_factor": 3.0,
+      "quality_factor_note": "APPROXIMATION of the Mars-surface GCR quality factor Q (MSL RAD surface values are roughly 0.21 mGy/day absorbed vs 0.64 mSv/day dose equivalent, Q about 3.05). usv_per_h = tissue_ugy_per_day * Q / 24. Only the tissue-equivalent column is converted; the silicon and uncorrected columns are NOT converted.",
+      "converted_column": "tissue_ugy_per_day"
+    },
+    "o2": {
+      "tank_capacity_l": 400.0,
+      "tank_capacity_note": "UNSIGNED-OFF round demo number, litres of O2 at STPD. Not a suit specification and not a physiological claim; the owner must replace it with the real suit tank figure.",
+      "multiplier_reference": ["EVA suit", "EVA surface geology"]
+    },
+    "spoken_qualifiers": {
+      "reference-observed-extended": "extended reference value",
+      "reference-simulated": "simulated reference value"
+    }
   }
 }
