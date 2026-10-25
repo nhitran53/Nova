@@ -119,6 +119,45 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
+--- !u!114 &27434018
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 27434008}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 66f81d9d2585414a85b397443a111f6e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TelephoneGestureDetector
+  hand: 1
+  curlEnter: 0.5
+  curlExit: 0.65
+  extendEnter: 0.9
+  extendExit: 0.75
+  holdTime: 0.35
+  releaseTime: 0.15
+  cooldown: 0.5
+  diagnostics: 1
+  onTelephoneStart:
+    m_PersistentCalls:
+      m_Calls:
+      - m_Target: {fileID: 1739200003}
+        m_TargetAssemblyTypeName: VoiceSessionClient, NovaVoice
+        m_MethodName: ToggleVoiceSession
+        m_Mode: 0
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: 
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+  onTelephoneEnd:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!1 &27434008
 GameObject:
   m_ObjectHideFlags: 0
@@ -136,6 +175,7 @@ GameObject:
   - component: {fileID: 27434010}
   - component: {fileID: 27434009}
   - component: {fileID: 27434017}
+  - component: {fileID: 27434018}
   m_Layer: 2
   m_Name: Quest XR Origin
   m_TagString: Untagged
@@ -2390,6 +2430,87 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1739200001
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1739200002}
+  - component: {fileID: 1739200003}
+  - component: {fileID: 1739200004}
+  m_Layer: 0
+  m_Name: Nova Voice
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1739200002
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1739200001}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1739200003
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1739200001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f3c437fd47a748e586096700f3c430a4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: NovaVoice::VoiceSessionClient
+  baseUrl: http://127.0.0.1:8765
+  pollIntervalSeconds: 0.5
+  unreachablePollIntervalSeconds: 3
+  requestTimeoutSeconds: 3
+  idleCheckSeconds: 5
+  OnStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  OnTranscript:
+    m_PersistentCalls:
+      m_Calls: []
+  OnReply:
+    m_PersistentCalls:
+      m_Calls: []
+  OnError:
+    m_PersistentCalls:
+      m_Calls: []
+--- !u!114 &1739200004
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1739200001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 885479238d3546b882ebb865b158ba08, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::NovaAssistantPresenter
+  voice: {fileID: 1739200003}
+  hud: {fileID: 0}
+  telephone: {fileID: 27434018}
+  showGestureDiagnostics: 1
+  keyboardShortcut: 1
+  replyHoldSeconds: 8
+  maxMessageChars: 160
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
@@ -2399,5 +2520,6 @@ SceneRoots:
   - {fileID: 1156821665}
   - {fileID: 1052622280}
   - {fileID: 2099554822}
+  - {fileID: 1739200002}
   - {fileID: 1621204436}
   - {fileID: 741968179}

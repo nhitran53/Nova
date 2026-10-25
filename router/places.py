@@ -1,30 +1,7 @@
-"""Deterministic place resolver: free text -> canonical place id from the gazetteer (places.json).
+"""Match place names against places.json.
 
-    resolve_place("take me to home")        -> {"place_id": "homebase", "matched_text": "home", "score": 1.0}
-    resolve_place("directions to homebse")  -> {"place_id": "homebase", "matched_text": "homebse", "score": 0.93...}
-    resolve_place("what time is it")        -> None
-
-Method: normalise (lowercase, strip punctuation), slide 1..N word windows over the utterance (N = longest alias
-in words + 1), compare each window with every alias on a space-free form with difflib.SequenceMatcher (so
-"home base" == "homebase"), keep the best score >= threshold. Windows containing a stopword ("to", "the",
-"my", "back", ...) are skipped, so function words never match. A non-exact match must also share its first
-letter with the alias (stops "over" -> "rover", "bridge" -> "ridge"). Ties on score go to the longer window,
-then the earlier position, then the alphabetically first place id, so results are deterministic.
-
-Numbered-suffix guard: a digit or a number word (one..ten, "two" included) inside a window, or directly after it, must also
-be in the alias that matched. "base 2" resolves to base_2, but "base two" / "base 3" match nothing instead of silently
-becoming homebase ("base" is its alias). Literal comparison: the alias "base 2" does not accept "two".
-
-`resolve_destination(text)` is what the pipeline uses for navigation/map: first split the text into
-role-bearing spans at destination cues (to/toward/back to), origin cues (from), negation, and new navigation
-commands. Then fuzzy-match each span separately, excluding origins and negated places.
-One distinct candidate place -> resolved; several -> status "ambiguous" (the pipeline asks a slot question; it never
-picks by position); none -> status "none". `resolve_place` (best single match, no roles) is kept for simple lookups.
-
-    resolve_destination("go from the rover to the airlock")  -> resolved airlock (rover excluded as origin)
-    resolve_destination("take me to the rover not home")     -> resolved rover (home excluded as negated)
-    resolve_destination("go to the rover or the airlock")    -> ambiguous: rover, airlock
-    resolve_destination("how far am I from tower")           -> resolved comms_tower (distance cue + sole origin)
+Check destination spans and aliases before fuzzy matching.
+Keep ambiguous or missing destinations unresolved.
 """
 import json
 import re
@@ -95,7 +72,8 @@ def _alias_score(words, following, alias):
 ORIGIN_WORDS = frozenset({"from"})
 # normalise() drops apostrophes, so "don't" arrives as "dont".
 NEGATION_WORDS = frozenset({"not", "no", "never", "except", "without", "instead", "rather", "dont", "avoid"})
-# Negations that directly govern a following command verb. "no"/"instead"/"rather" are excluded on purpose: they can
+# Negations that directly govern a following command verb. "no"/"instead"/"rather" are excluded on
+# purpose: they can
 # open an affirmative command ("no, take me to the airlock", "rather go to the airlock").
 CARRY_NEGATION_WORDS = frozenset({"dont", "not", "never"})
 DESTINATION_WORDS = frozenset({"to", "toward", "towards", "into", "onto"})

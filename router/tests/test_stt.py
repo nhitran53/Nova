@@ -315,3 +315,21 @@ def test_converse_on_turn_gets_each_turn_and_stop_between_turns_ends_it():
                          timeout_s=0.5, on_event=events.append)
     assert seen == ["one"] and [t["transcript"] for t in turns] == ["one"]
     assert sum(e == "listening..." for e in events) == 1 and any("stopped" in e for e in events)
+
+
+def test_converse_on_transcript_fires_before_the_handler_routes_the_text():
+    import itertools
+    import threading
+    stop, order = threading.Event(), []
+
+    class Handler:
+        def handle(self, text):
+            order.append(("handle", text))
+            stop.set()
+            return {"route": "tool", "spoken": "re: " + text}
+
+    stt.converse(router_loader=lambda: "R", handler_factory=lambda r: Handler(), stop_event=stop,
+                 on_transcript=lambda text: order.append(("transcript", text)),
+                 client_factory=lambda k: FakeClient(FakeConnection("one")), frames=itertools.cycle([b"\x00\x01" * 1600]),
+                 timeout_s=0.5, on_event=lambda e: None)
+    assert order == [("transcript", "one"), ("handle", "one")]

@@ -69,7 +69,7 @@ public class FistLocomotion : MonoBehaviour
         // Left pinch blocks new walks only.
         var left = MetaAimHand.left;
         bool leftPinch = left != null && left.added && left.indexPressed.isPressed;
-        if (!fist || (!Walking && (leftPinch || MinimapNavigationPanel.FingerNearMap))) fistSince = -1;
+        if (!fist || (!Walking && (leftPinch || MinimapNavigationPanel.FingerNearMap || WristComputer.FingerNearControls))) fistSince = -1;
         else if (fistSince < 0) fistSince = Time.unscaledTime;
         SetWalking(fist && Time.unscaledTime - fistSince >= holdTime);
     }

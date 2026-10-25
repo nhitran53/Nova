@@ -1,34 +1,16 @@
-"""Number verifier (simple working version): every number the assistant speaks must trace to a source dict.
+"""Check spoken numbers against the supplied source values.
 
-    verify_numbers("Oxygen at 87.5 percent.", {"o2_pct": 87.5})  -> {"ok": True, "spoken": [87.5], "unsupported": []}
-    verify_numbers("Oxygen at 99 percent.",   {"o2_pct": 87.5})  -> {"ok": False, "spoken": [99.0], "unsupported": [99.0]}
-
-Spoken numbers are digit runs ("87.5", "1,200") and spelled-out numbers ("nine", "twenty one", "two hundred"),
-signed when a "-" or "\u2212" starts the token (not preceded by a word character, digit or "."; "5-10" is 5 and 10) or
-when "minus" precedes them ("minus twenty" is -20). The sign is kept: -5 is not 5.
-Allowed numbers are every int/float (bool excluded) anywhere in `source`, plus digit runs inside its strings.
-A spoken number matches an allowed one if equal, or if it equals the allowed value rounded to the spoken number's
-decimal places (so 20.94 may be spoken "20.9" or "21", but 20.94 never matches "22" or "20.8").
-Scale words go up to "trillion" ("two million five hundred thousand" is 2500000).
-Fail closed on the vague quantity words in VAGUE_QUANTITY_WORDS ("half", "quarter", "third", "dozen", "couple" and
-plurals, "twice", "thrice", "several", the plural scales "hundreds" ... "trillions", and the spelled ordinals "fourth" ... "trillionth",
-ORDINAL_WORDS; "first" and "second" stay allowed on purpose): they are unsupported unless the same word appears in a string inside `source`.
-Text is first folded by fold_text: format characters (category Cf, e.g. zero-width spaces) and invisible combining marks (U+034F,
-variation selectors) are removed, NFKC applied (fullwidth, superscript and circled digits become ASCII digits), and any remaining non-ASCII
-Nd/No/Nl character becomes its digit or numeric value, so "\u00b2", "\u246b" (circled 12), "\u0663" and "fi\u200bve" / "fi\u034fve" are
-read as 2, 12, 3 and "five".
-Fractions fail closed: a vulgar fraction ("\u00bd", any non-integer unicodedata.numeric character) or a fraction slash (U+2044, with the
-digits next to it) is replaced by FRACTION_MARK BEFORE NFKC could split it into two numbers. In spoken text it is an unsupported number
-("fraction" in `unsupported`); in a source it authorizes nothing (not "1", not "2", not 0.5).
-Not built: "first"/"second" ordinals, fraction values, times/dates, "few"/"point", and any semantic check beyond the numbers.
+Unsupported numbers are rejected so the turn can use its fallback reply.
 """
 import re
 import unicodedata
 
 DIGITS = re.compile(r"(?:(?<![\w.])[-\u2212])?\d[\d,]*(?:\.\d+)?")
 MINUS_BEFORE_DIGIT = re.compile(r"\bminus\s+(?=\d)")
-# Spelled ordinals from "fourth" up (plus plural fractions such as "fifths"). "first" and "second" are deliberately NOT here: they are common
-# prose and "second" is also a unit of time. ("third" is already a vague quantity word.) Compounds ("twenty-first") contain a tens word anyway.
+# Spelled ordinals from "fourth" up (plus plural fractions such as "fifths"). "first" and "second"
+# are deliberately NOT here: they are common
+# prose and "second" is also a unit of time. ("third" is already a vague quantity word.) Compounds
+# ("twenty-first") contain a tens word anyway.
 _ORDINAL_STEMS = ("fourth fifth sixth seventh eighth ninth tenth eleventh twelfth thirteenth fourteenth fifteenth sixteenth seventeenth "
                   "eighteenth nineteenth twentieth thirtieth fortieth fiftieth sixtieth seventieth eightieth ninetieth hundredth thousandth "
                   "millionth billionth trillionth").split()

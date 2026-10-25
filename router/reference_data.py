@@ -1,31 +1,9 @@
-"""READ-ONLY accessors for the three REFERENCE datasets on origin/nhi/database (crew O2/CO2, Mars radiation, Mars weather).
+"""Read the crew respiration and Mars weather and radiation reference datasets.
 
-    ref = FixtureReferenceData()                       # offline, tiny SYNTHETIC rows, no Postgres
-    ref = PostgresReferenceData()                      # needs psycopg + the nhi tables loaded
-    ref.o2_consumption("Habitat", "Sleep")             # {"source": "reference-simulated", "units": {...}, ...}
-    ref.radiation_baseline_usv_h()                     # tissue uGy/day -> uSv/h with the PLACEHOLDER quality factor Q
-
-These are NOT live telemetry and NOT wired into tools.py, turn.py or simulator_rules.py: no spoken output, tool result key,
-feasibility figure or alert changes because this module exists. Every result is a plain dict with explicit `units`, a
-`source` marker and a `spoken_qualifier` string:
-  * "reference-simulated"          crew respiration (a model, not a measurement), qualifier "simulated reference value"
-  * "reference-observed-extended"  radiation and weather (observation-based reference data, extended by the dataset),
-                                   qualifier "extended reference value"
-Neither is ever a reading from the astronaut's suit. The qualifier wording lives in turn_policy.json "reference_data"
-(PLACEHOLDER, owner must sign off); this module only reads that block, turn.py does not.
-
-Like datasource.py the accessors FAIL CLOSED: an empty selection, an unknown environment/activity/day_night, a missing,
-non-numeric, negative (physical quantities) or non-finite value raises `DataUnavailableError`; nothing partial and no
-nominal fallback is returned. Both classes build results through the same pure functions (`summarize_*`), so the fixture
-and Postgres paths cannot drift.
-
-Units are exactly the dataset's unless a result says `converted: true`. Raw radiation is absorbed dose in uGy/day.
-`radiation_baseline_usv_h` converts the TISSUE column only: uSv/h = tissue_uGy_per_day * Q / 24 (Q is an approximate
-Mars-surface GCR quality factor, PLACEHOLDER 3.0). Silicon and uncorrected columns are never converted. Weather pressure is
-Pa (the loader multiplies the file's mbar by 100).
-
-O2 burn as a percentage needs a tank size; see `o2_burn_multiplier`, `o2_burn_pct_per_min` and
-`scaled_sim_base_burn_pct_per_min` (documentation only, simulator_rules is neither imported nor changed).
+These are reference values rather than live suit readings.
+Results include source labels and units. Missing or invalid data raises DataUnavailableError.
+Tissue radiation converts from uGy/day to uSv/h using the configured quality factor.
+Weather pressure is stored in Pa. Oxygen percentages also need a tank size.
 """
 import copy
 import json

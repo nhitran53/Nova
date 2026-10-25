@@ -31,11 +31,11 @@ def wait_for(predicate, timeout=3.0):
 def serve():
     started = []
 
-    def make(script, router_loader=lambda: "ROUTER", options=None):
+    def make(script, router_loader=lambda: "ROUTER", options=None, datasource=None):
         calls = []
         session = voice_server.VoiceSession(router_loader, converse_fn=fake_converse_factory(script, calls),
                                             converse_options=options)
-        server = voice_server.make_server(session, "127.0.0.1", 0)
+        server = voice_server.make_server(session, "127.0.0.1", 0, datasource=datasource)
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
         started.append((server, session))
@@ -48,8 +48,9 @@ def serve():
         server.server_close()
 
 
-def call(base, path, method="GET", headers=None):
-    request = urllib.request.Request(base + path, method=method, data=b"" if method == "POST" else None, headers=headers or {})
+def call(base, path, method="GET", headers=None, body=None):
+    data = json.dumps(body).encode() if body is not None else b"" if method == "POST" else None
+    request = urllib.request.Request(base + path, method=method, data=data, headers=headers or {})
     try:
         with urllib.request.urlopen(request, timeout=5) as response:
             return response.status, json.loads(response.read())
@@ -71,6 +72,68 @@ def test_status_is_idle_before_any_session_and_has_the_documented_keys(serve):
     assert status["state"] == "idle" and status["session_id"] == 0 and status["error"] is None
 
 
+def test_telemetry_can_be_read_without_starting_voice(serve):
+    class Source:
+        def telemetry(self):
+            return {"schema_version": 1, "available": True, "source": "postgres", "o2_percent": 87.5}
+
+    base, session, calls = serve(blocking_until_stopped, datasource=Source())
+    code, payload = call(base, "/telemetry")
+    assert code == 200 and payload["o2_percent"] == 87.5
+    assert payload["available"] and session.status()["state"] == "idle" and calls == []
+    assert call(base, "/telemetry", headers={"Origin": "http://example.com"})[0] == 403
+
+
+def test_telemetry_requires_the_postgres_source(serve):
+    base, _, _ = serve(blocking_until_stopped)
+    code, payload = call(base, "/telemetry")
+    assert code == 503 and not payload["available"]
+
+
+def test_telemetry_errors_do_not_expose_database_details(serve):
+    from router.datasource import DataUnavailableError
+
+    class Source:
+        def telemetry(self):
+            raise DataUnavailableError("password=secret host=private")
+
+    base, _, _ = serve(blocking_until_stopped, datasource=Source())
+    code, payload = call(base, "/telemetry")
+    assert code == 503 and not payload["available"]
+    assert "secret" not in json.dumps(payload) and "private" not in json.dumps(payload)
+
+
+def test_wrist_oxygen_controls_use_the_shared_source(serve):
+    changes = []
+
+    class Source:
+        def set_demo_oxygen(self, value, relative):
+            changes.append((value, relative))
+            return 80
+
+    base, session, calls = serve(blocking_until_stopped, datasource=Source())
+    for command in ({"delta": -10}, {"delta": 10}, {"value": 100}):
+        code, result = call(base, "/demo/oxygen", "POST", body=command)
+        assert code == 200 and result["o2_percent"] == 80
+    assert changes == [(-10, True), (10, True), (100, False)]
+    assert calls == [] and session.status()["state"] == "idle"
+    assert call(base, "/demo/oxygen", "POST", headers={"Origin": "http://example.com"}, body={"value": 100})[0] == 403
+
+
+@pytest.mark.parametrize("command", [{}, {"value": 101}, {"value": -1}, {"delta": 101},
+                                      {"delta": float("nan")}, {"value": True}, {"value": "80"},
+                                      {"value": 80, "delta": 10}, [80]])
+def test_wrist_oxygen_controls_reject_invalid_commands(serve, command):
+    base, _, _ = serve(blocking_until_stopped)
+    assert call(base, "/demo/oxygen", "POST", body=command)[0] == 400
+
+
+def test_wrist_oxygen_controls_need_postgres(serve):
+    base, _, _ = serve(blocking_until_stopped)
+    code, result = call(base, "/demo/oxygen", "POST", body={"value": 80})
+    assert code == 503 and "o2_percent" not in result
+
+
 def test_start_runs_converse_and_reports_listening_then_turn_then_ended(serve):
     release = threading.Event()
 
@@ -90,6 +153,38 @@ def test_start_runs_converse_and_reports_listening_then_turn_then_ended(serve):
     assert wait_for(lambda: call(base, "/voice/status")[1]["state"] == "ended")
     assert calls[0]["speak"] is False and calls[0]["timeout_s"] == 3.0 and callable(calls[0]["router_loader"])
     assert calls[0]["router_loader"]() == "ROUTER"
+
+
+def test_committed_utterance_reports_processing_with_the_transcript_until_the_reply(serve):
+    heard, release = threading.Event(), threading.Event()
+
+    def script(on_event, on_turn, stop_event, on_transcript):
+        on_event("listening...")
+        on_transcript("check oxygen")
+        heard.set()
+        release.wait(5)
+        on_turn({"transcript": "check oxygen", "turn": {"spoken": "Oxygen is 84 percent.", "route": "tool"}})
+        stop_event.wait(5)
+        return []
+
+    calls = []
+    session = voice_server.VoiceSession(lambda: "ROUTER", converse_fn=lambda **kw: calls.append(kw) or script(
+        kw["on_event"], kw["on_turn"], kw["stop_event"], kw["on_transcript"]))
+    server = voice_server.make_server(session, "127.0.0.1", 0)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    base = f"http://127.0.0.1:{server.server_address[1]}"
+    try:
+        call(base, "/voice/start", "POST")
+        assert heard.wait(3)
+        status = call(base, "/voice/status")[1]
+        assert (status["state"], status["last_transcript"], status["last_reply"]) == ("processing", "check oxygen", None)
+        release.set()
+        assert wait_for(lambda: call(base, "/voice/status")[1]["state"] == "speaking")
+        assert call(base, "/voice/status")[1]["last_reply"] == "Oxygen is 84 percent."
+    finally:
+        session.stop()
+        server.shutdown()
+        server.server_close()
 
 
 def test_seq_increases_on_every_change(serve):
@@ -254,3 +349,42 @@ def test_real_stt_converse_honours_the_stop_flag_through_the_session(serve, monk
     finally:
         server.shutdown()
         server.server_close()
+
+
+def test_datasource_sim_is_the_default_and_builds_nothing():
+    assert voice_server._make_datasource("sim") is None
+
+
+def test_datasource_postgres_reports_a_db_that_is_not_ready_without_failing(monkeypatch):
+    def refused(url):
+        raise ConnectionError(f"could not connect to {url}")
+
+    said = []
+    monkeypatch.setattr("dotenv.load_dotenv", lambda *a, **k: None)
+    ds = voice_server._make_datasource("postgres", "host=localhost dbname=nova", connect=refused, say=said.append)
+    assert ds is not None and ds.database_url == "host=localhost dbname=nova"
+    assert len(said) == 1 and "not ready" in said[0] and "simulator.py" in said[0]
+
+
+def test_default_handler_reads_a_given_datasource_instead_of_simstate(monkeypatch):
+    from router import tools
+
+    class FakeDatasource:
+        def snapshot(self):
+            return {"o2_pct": 50.0, "minutes_remaining": 100, "bpm": 80, "radiation_usv_h": 1.0, "temp_c": 20.0,
+                    "suit_pressure_kpa": 29.6}
+
+        def place(self, name):
+            return None
+
+        def queue_message(self, *args):
+            return False
+
+    seen = {}
+    real_registry = tools.default_registry
+    monkeypatch.setattr(tools, "default_registry", lambda sim=None, datasource=None: seen.update(sim=sim, ds=datasource)
+                        or real_registry(sim=sim, datasource=datasource))
+    ds = FakeDatasource()
+    handler = stt._default_handler(router=object(), speak=False, llm_options={"no_llm": True}, datasource=ds)
+    assert seen["ds"] is ds and seen["sim"] is None
+    assert handler.alert_source == ds.snapshot

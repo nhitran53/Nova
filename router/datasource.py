@@ -1,26 +1,9 @@
-"""Opt-in data layer between the staging Postgres schema (schema.sql, simulator.py) and the router's tools.
+"""Read live simulator telemetry or offline fixture readings.
 
-    registry = default_registry(datasource=FixtureDatasource())          # offline fixture, no Postgres
-    registry = default_registry(datasource=PostgresDatasource())         # needs psycopg + a running simulator
-    handler = TurnHandler(router, datasource.snapshot, registry)         # the same snapshot is the alert source
-
-`snapshot()` returns exactly the six keys the router already uses (o2_pct, minutes_remaining, bpm, radiation_usv_h,
-temp_c, suit_pressure_kpa). It FAILS CLOSED: no active mission, no telemetry, a row older than `max_age_s`, fewer than two
-rows (the radiation rate needs two), or a missing/non-finite value raises `DataUnavailableError`. It never returns a
-partial dict and never falls back to a nominal value, because `evaluate_alerts` skips fields that are missing and a
-silent gap would hide an alert. A stopped simulator therefore makes every turn raise (the alert poll propagates by design).
-
-Both datasources build the snapshot through the one pure function `snapshot_from_rows`, so the fixture and Postgres paths
-cannot drift apart. Every definition below is a PLACEHOLDER recorded in turn_policy.json["data_source"]:
- * temp_c = telemetry.suit_temp_c (ext_temp_c would trip the -10 C critical immediately); bpm = heart_rate; the rest direct.
- * radiation_usv_h = (radiation_msv[t] - radiation_msv[t-1]) / ((sim_seconds[t] - sim_seconds[t-1]) / 3600) * 1000.
- * FixtureDatasource only: radiation_usv_h is NOT the dose delta but the reference_data median tissue baseline in uSv/h
-   (nhi mars_radiation, Q from turn_policy.json "reference_data"; x40 in the radiation_event scenario). It fails closed
-   if the reference is unavailable. PostgresDatasource keeps the live delta above.
- * minutes_remaining = floor(o2_percent / o2_burn_pct_per_min(mission)), counted to an EMPTY tank at the live activity and
-   scenario. The reserve is NOT subtracted here: turn.assess_feasibility already adds reserve_margin_min (no double count).
-   missions.o2_reserve_pct is not used by the router.
-The burn formula is imported from the repo-root simulator_rules.py (its one definition); psycopg is imported lazily.
+Missing or stale data raises DataUnavailableError. There is no nominal fallback.
+PostgreSQL radiation uses the dose change between two samples in uSv/h.
+Temperature is suit temperature. Oxygen time uses the shared simulator burn rule.
+The offline fixture uses a reference radiation baseline instead of the live dose rate.
 """
 import json
 import math
@@ -46,9 +29,8 @@ TELEMETRY_FIELDS = ("sim_seconds", "o2_percent", "heart_rate", "suit_pressure_kp
 MISSION_FIELDS = ("id", "scenario", "activity", "o2_burn_pct_per_min", "walk_speed_mps", "o2_reserve_pct")
 DEFAULT_DATABASE_URL = "dbname=nova"
 
-# SQL lives in constants and only names schema.sql columns (tests cross-check them). latest_telemetry is ONE row, so the
-# radiation delta reads the last two telemetry rows of the active mission. `now()` is the DB clock (no router/DB skew).
-SQL_RECENT_TELEMETRY = ("SELECT t.ts, t.sim_seconds, t.o2_percent, t.heart_rate, t.suit_pressure_kpa, t.suit_temp_c, "
+# Read two samples to calculate radiation rate. Use the database clock for freshness.
+SQL_RECENT_TELEMETRY = ("SELECT t.id AS sample_id, t.battery_percent, t.ts, t.sim_seconds, t.o2_percent, t.heart_rate, t.suit_pressure_kpa, t.suit_temp_c, "
                         "t.radiation_msv, now() AS db_now, m.id AS mission_id, m.scenario, m.activity, "
                         "m.o2_burn_pct_per_min, m.walk_speed_mps, m.o2_reserve_pct "
                         "FROM telemetry t JOIN missions m ON m.id = t.mission_id "
@@ -258,7 +240,9 @@ def _default_connect(database_url):
     except ImportError as exc:
         raise ImportError("PostgresDatasource needs psycopg (pip install 'psycopg[binary]'); it is not a router dependency. "
                           "Use FixtureDatasource for offline runs.") from exc
-    return psycopg.connect(database_url, autocommit=True, row_factory=dict_row, connect_timeout=5)
+    from .db_config import password_options
+    return psycopg.connect(database_url, autocommit=True, row_factory=dict_row, connect_timeout=5,
+                           **password_options(database_url))
 
 
 class PostgresDatasource:
@@ -283,8 +267,10 @@ class PostgresDatasource:
             raise DataUnavailableError(f"database read failed: {type(exc).__name__}: {exc}"[:300]) from exc
 
     def snapshot(self):
-        # ONE statement: mission settings and telemetry come from the same DB snapshot, so a mission/scenario change
-        # between reads cannot pair normal-scenario burn with leak telemetry.
+        return self._read_snapshot()[0]
+
+    def _read_snapshot(self):
+        # Read mission settings and telemetry together to avoid mixing scenarios.
         rows = self._query(SQL_RECENT_TELEMETRY, many=True)
         mission = None
         if rows:
@@ -294,7 +280,33 @@ class PostgresDatasource:
         now = rows[0]["db_now"] if rows else None
         if rows and not isinstance(now, datetime):
             raise DataUnavailableError("database did not return its clock")
-        return snapshot_from_rows(mission, rows, now, self.policy["max_age_s"])
+        return snapshot_from_rows(mission, rows, now, self.policy["max_age_s"]), rows, now
+
+    def telemetry(self):
+        snapshot, rows, now = self._read_snapshot()
+        latest = rows[0]
+        battery = latest.get("battery_percent")
+        if not _finite_number(battery) or not 0 <= battery <= 100:
+            raise DataUnavailableError("battery reading is missing or invalid")
+        return {
+            "schema_version": 1, "available": True, "source": "postgres",
+            "mission_id": latest["mission_id"], "sample_id": latest["sample_id"],
+            "age_seconds": (now - latest["ts"]).total_seconds(), "max_age_seconds": self.policy["max_age_s"],
+            "o2_percent": snapshot["o2_pct"], "heart_rate": snapshot["bpm"],
+            "suit_pressure_kpa": snapshot["suit_pressure_kpa"], "suit_temp_c": snapshot["temp_c"],
+            "radiation_usv_h": snapshot["radiation_usv_h"], "battery_percent": battery,
+        }
+
+    def set_demo_oxygen(self, value, relative=False):
+        from simulator import set_demo_oxygen
+
+        try:
+            with self._connect(self.database_url) as conn:
+                return set_demo_oxygen(conn, value, relative)
+        except ValueError:
+            raise
+        except Exception as exc:
+            raise DataUnavailableError("oxygen demo write failed") from exc
 
     def place(self, name):
         code = resolve_place_code(name, self.policy["place_aliases"])

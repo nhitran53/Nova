@@ -122,6 +122,7 @@ def test_key_in_the_api_error_message_is_redacted(fresh_singleton):
 def test_key_in_a_player_error_is_redacted(monkeypatch):
     importlib.reload(tts)
     monkeypatch.setenv(tts.KEY_VAR, "test-key-not-real")
+    monkeypatch.setattr(tts, "_use_sounddevice", lambda: False)  # the Linux player path, on any OS
     monkeypatch.setattr(tts.shutil, "which", lambda name: "/usr/bin/paplay")
     monkeypatch.setattr(tts.subprocess, "run", lambda command, **kw: subprocess.CompletedProcess(command, 1, stderr=b"oops test-key-not-real"))
     with pytest.raises(tts.SpeechError) as caught:
@@ -148,6 +149,7 @@ def test_empty_audio_is_an_error(fresh_singleton):
 
 def test_player_pipes_pcm_to_paplay_with_timeout_and_reports_nonzero_exit(monkeypatch):
     importlib.reload(tts)  # restores the real _play, which the autouse fixture replaced
+    monkeypatch.setattr(tts, "_use_sounddevice", lambda: False)  # the Linux player path, on any OS
     seen = {}
 
     def fake_run(command, **kwargs):
@@ -166,6 +168,60 @@ def test_player_pipes_pcm_to_paplay_with_timeout_and_reports_nonzero_exit(monkey
 
 def test_no_player_installed_is_an_error(monkeypatch):
     importlib.reload(tts)
+    monkeypatch.setattr(tts, "_use_sounddevice", lambda: False)  # the Linux player path, on any OS
     monkeypatch.setattr(tts.shutil, "which", lambda name: None)
     with pytest.raises(tts.SpeechError, match="no audio player"):
+        tts._play(b"pcm")
+
+
+class FakeOutputStream:
+    """Stands in for sounddevice.RawOutputStream: records the settings and the bytes written."""
+    def __init__(self, log, fail=None, **kwargs):
+        self.log, self.fail = log, fail
+        log["settings"] = kwargs
+
+    def __enter__(self):
+        if self.fail:
+            raise self.fail
+        return self
+
+    def write(self, data):
+        self.log["written"] = bytes(data)
+
+    def __exit__(self, *exc):
+        self.log["closed"] = True
+
+
+def fake_sounddevice(log, fail=None):
+    module = type(sys)("sounddevice")
+    module.RawOutputStream = lambda **kwargs: FakeOutputStream(log, fail, **kwargs)
+    return module
+
+
+def test_windows_plays_through_sounddevice_as_24k_mono_int16(monkeypatch):
+    importlib.reload(tts)
+    monkeypatch.setattr(tts, "_use_sounddevice", lambda: True)
+    monkeypatch.setattr(tts.subprocess, "run", lambda *a, **k: pytest.fail("no player process on Windows"))
+    log = {}
+    monkeypatch.setitem(sys.modules, "sounddevice", fake_sounddevice(log))
+    assert tts._play(b"pcm!x") == {"player": "sounddevice", "returncode": 0}
+    assert log["settings"] == {"samplerate": tts.PCM_SAMPLE_RATE, "channels": 1, "dtype": "int16"}
+    assert log["written"] == b"pcm!" and log["closed"]  # odd trailing byte dropped, stream closed (= drained)
+
+
+def test_windows_playback_errors_are_speech_errors_without_the_key(monkeypatch):
+    importlib.reload(tts)
+    monkeypatch.setenv(tts.KEY_VAR, "test-key-not-real")
+    monkeypatch.setattr(tts, "_use_sounddevice", lambda: True)
+    monkeypatch.setitem(sys.modules, "sounddevice", fake_sounddevice({}, fail=RuntimeError("no device test-key-not-real")))
+    with pytest.raises(tts.SpeechError) as caught:
+        tts._play(b"pcm")
+    assert "sounddevice playback failed" in str(caught.value) and "test-key-not-real" not in str(caught.value)
+
+
+def test_windows_without_sounddevice_says_how_to_install_it(monkeypatch):
+    importlib.reload(tts)
+    monkeypatch.setattr(tts, "_use_sounddevice", lambda: True)
+    monkeypatch.setitem(sys.modules, "sounddevice", None)  # import fails
+    with pytest.raises(tts.SpeechError, match="pip install sounddevice"):
         tts._play(b"pcm")
